@@ -148,13 +148,24 @@ runtime requires Android WebView WASM SIMD and gzip decompression support.
 The authored parity test uses the shared operation graph and compares all
 outputs byte-for-byte with the Windows CLI for the five stages in both
 catalogue modes. It supplies authored CAB data at the MHY reader boundary.
-An offline Chromium run checks the real pinned WASM and XXH64 initialization,
-malformed MHY input, bad input digest, changed software and cancellation on
-the isolated message port. The native host tests check scope, bounded
-handoffs and retained-library behavior. Java compilation checks the port API.
-The retained exact software passed the asset assembler and APK component
-auditor after a local AAPT2 package, including corresponding-source checks.
-This work has not yet run an original encrypted stage on Android.
+The separate authored comic-plan fixture contains a 577-byte encrypted
+MHY frame with a synthetic Unity bundle and a 45-byte gzip resource catalog.
+Offline Chromium executes the real pinned worker and obtains the expected
+single range and output SHA-256. It also checks malformed MHY input, a wrong
+digest for the valid frame, changed software and cancellation on the message
+port. The native host tests check scope, bounded handoffs and retained-library
+behavior. Java compilation checks the port API. The retained exact software
+passed the asset assembler and APK component auditor after a local AAPT2
+package, including corresponding-source checks.
+
+The installed DEBUG self-test uses the same authored fixture and invokes
+the normal private Python and Java worker entry points. It verifies the
+expected plan bytes, rejects a wrong input digest and confirms that
+previously retained data survives the failure. The hosted API 34 and 36
+runtime checks require matching fixture/software receipts before and after
+the APK update. A build without the optional runtime reports unverified.
+The installed target results are pending, and the fixture does not represent
+an original release or establish game-library readiness.
 The Android provider still stops before these catalogue operations. It
 needs a context-bound original gateway/transfer stage, verified catalogue
 selection receipts, and the separate selected-dub index, bank and playback

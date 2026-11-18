@@ -339,7 +339,17 @@ def verify_zzz_catalogue_component(archive, repository):
     spec = importlib.util.spec_from_file_location('apk_zzz_catalogue', repository / 'scripts/android-zzz-catalogue-assets.py')
     catalogue = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(catalogue)
-    return catalogue.verify_apk(archive, repository)
+    proof = catalogue.verify_apk(archive, repository)
+    fixture = 'assets/zzz-catalogue-authored.json'
+    if proof['present']:
+        expected = (repository / 'packaging/android/zzz-catalogue/authored-operation.json').read_bytes().replace(b'\r\n', b'\n')
+        raw = catalogue.zip_member(archive, fixture, 4096)
+        if raw != expected:
+            raise ValueError('The authored ZZZ catalogue fixture differs from its maintained input')
+        proof['authored_fixture_sha256'] = hashlib.sha256(raw).hexdigest()
+    elif fixture in archive.namelist():
+        raise ValueError('The authored ZZZ catalogue fixture has no verified runtime')
+    return proof
 
 
 def verify(path):

@@ -1,12 +1,15 @@
 import base64
 import hashlib
 import json
+from pathlib import Path
+import sys
 from collections import deque
 from types import SimpleNamespace
 
 import pytest
 
 from backend.android_zzz_catalogue import AndroidCatalogueReader, CHUNK, IDENTITY, run_stage
+from backend.android_probe import run_zzz_catalogue
 from backend.game_data_protocol import GameDataError
 
 
@@ -144,3 +147,49 @@ def test_invalid_role_fails_before_native_execution(tmp_path, spec):
     with pytest.raises(GameDataError):
         run_stage(worker, 'catalogue', spec, tmp_path, {}, ctx)
     assert not calls and not list(tmp_path.glob('zzz-catalogue-*'))
+
+
+def test_debug_probe_scopes_the_positive_and_unauthenticated_worker_trials(tmp_path, monkeypatch):
+    path = Path(__file__).resolve().parents[2] / 'packaging/android/zzz-catalogue/authored-operation.json'
+    fixture_json = path.read_text(encoding='utf8')
+    fixture = json.loads(fixture_json)
+    tickets, requested = [], []
+    expected = json.dumps(fixture['output']['data'], separators=(',', ':')).encode()
+
+    class JavaWorker:
+        def proof(self):
+            return IDENTITY
+
+        def begin(self, mode, spec):
+            assert mode == fixture['mode'] and json.loads(spec) == fixture['input']
+            events = []
+            names = [next(iter(fixture['files']))] if tickets else list(fixture['files'])
+            for identifier, name in enumerate(names, start=1):
+                events += [{'type':'read', 'id':identifier, 'name':name}, {'type':'pull', 'id':identifier}]
+            events += [{'type':'failed'}] if tickets else write_output(fixture['output']['name'], 3, expected) + [{'type':'complete'}]
+            current = AuthoredTicket(events)
+            tickets.append(current)
+            return current
+
+    def native_worker():
+        requested.append(True)
+        return JavaWorker()
+
+    display = SimpleNamespace(assertAuthoredGameData=lambda: None, zzzCatalogueWorker=native_worker)
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda name: JavaWorker))
+    report = json.loads(run_zzz_catalogue(tmp_path, display, fixture_json))
+    assert report['manifest_sha256'] == IDENTITY and report['output_sha256'] == fixture['output']['sha256']
+    assert report['bad_input_digest_rejected'] and report['retained_data'] and not report['snapshot_ready']
+    assert len(requested) == 1 and all(ticket.cancelled for ticket in tickets)
+    assert tickets[0].sent[0]['sha256'] == fixture['files']['1.blk.comic-roots']['sha256']
+    assert tickets[1].sent[0]['sha256'] == '0' * 64
+    assert not list(tmp_path.iterdir())
+
+
+def test_ordinary_build_cannot_enter_debug_catalogue_probe(tmp_path):
+    def deny():
+        raise RuntimeError('DEBUG only')
+    host = SimpleNamespace(assertAuthoredGameData=deny)
+    with pytest.raises(RuntimeError, match='DEBUG only'):
+        run_zzz_catalogue(tmp_path, host, '{}')
+    assert not list(tmp_path.iterdir())

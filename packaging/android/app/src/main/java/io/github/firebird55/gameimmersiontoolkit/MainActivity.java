@@ -109,6 +109,28 @@ public final class MainActivity extends Activity {
                             .callAttr("authored_probe", ocr, buffer.toString("UTF-8")).toString()));
                     }
                     selfTestDiagnostic("native-publisher-hash", "passed", null);
+                    String[] catalogueAssets = getAssets().list("zzz-catalogue");
+                    if (catalogueAssets != null && catalogueAssets.length > 0) {
+                        selfTestDiagnostic("native-zzz-catalogue", "running", null);
+                        try (InputStream input = getAssets().open("zzz-catalogue-authored.json")) {
+                            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                            byte[] chunk = new byte[1024];
+                            for (int count; (count = input.read(chunk)) != -1;) {
+                                if (buffer.size() + count > 4096) throw new IllegalStateException();
+                                buffer.write(chunk, 0, count);
+                            }
+                            report.put("native_zzz_catalogue", new org.json.JSONObject(Python.getInstance()
+                                .getModule("backend.android_probe").callAttr("run_zzz_catalogue",
+                                    new File(getCacheDir(), "zzz-catalogue-probe").getCanonicalPath(),
+                                    ocr, buffer.toString("UTF-8")).toString()));
+                        }
+                        selfTestDiagnostic("native-zzz-catalogue", "passed", null);
+                    } else {
+                        report.put("native_zzz_catalogue", new org.json.JSONObject()
+                            .put("schema", "toolkit-android-authored-zzz-catalogue-proof-v1")
+                            .put("present", false).put("passed", false).put("status", "unverified-not-packaged"));
+                        selfTestDiagnostic("native-zzz-catalogue", "unverified-not-packaged", null);
+                    }
                     selfTestDiagnostic("native-wuwa-bootstrap", "running", null);
                     try (InputStream input = getAssets().open("wuwa-authored-bootstrap.json")) {
                         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();

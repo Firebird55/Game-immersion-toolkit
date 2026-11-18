@@ -7,6 +7,7 @@ def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
 def hashBundle = System.getenv('ANDROID_PUBLISHER_HASH')
 def zzzCatalogueAssets = System.getenv('ANDROID_ZZZ_CATALOGUE_ASSETS')
 def zzzCataloguePin = new File(repository, 'packaging/android/zzz-catalogue/manifest-pin.json')
+def zzzCatalogueFixture = new File(repository, 'packaging/android/zzz-catalogue/authored-operation.json')
 if (!hashBundle || !new File(hashBundle, 'assets/publisher-hash-manifest.json').isFile()) {
     throw new GradleException('Build the reviewed bounded publisher hash bundle first.')
 }
@@ -138,6 +139,7 @@ tasks.register('prepareToolkitReader') {
     if (zzzCatalogueAssets) {
         inputs.dir(zzzCatalogueAssets)
         inputs.file(zzzCataloguePin)
+        inputs.file(zzzCatalogueFixture)
     }
     inputs.file(new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'))
     inputs.dir(cryptoFixtures)
@@ -195,6 +197,8 @@ tasks.register('prepareToolkitReader') {
             }
             verifiedAsset('sources.bundle', 64 * 1024 * 1024, pin.corresponding_source_bundle_sha256)
             copy { from directory; include names; into new File(output, 'zzz-catalogue') }
+            new File(output, 'zzz-catalogue-authored.json').setText(
+                    zzzCatalogueFixture.getText('UTF-8').replace('\r\n', '\n'), 'UTF-8')
         }
         copy { from new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
