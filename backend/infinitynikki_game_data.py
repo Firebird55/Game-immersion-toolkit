@@ -133,7 +133,8 @@ def _handle(handle, request):
     _check(isinstance(handle, dict) and handle.get('policy') == POLICY and handle.get('request') == request.json() and
            handle.get('stage') in ('native-bootstrap', 'content-reader', 'global-launcher-bootstrap', 'global-sdk-source',
                                    'global-build-manifests', 'global-build-source',
-                                   'global-configuration-packages', 'global-configuration-source') and
+                                   'global-configuration-packages', 'global-configuration-source',
+                                   'global-settings-members', 'global-settings-source') and
            set(handle) == {'policy', 'request', 'stage', 'receipt_sha256'})
     _check(isinstance(handle['receipt_sha256'], str) and re.fullmatch('[0-9a-f]{64}', handle['receipt_sha256']))
     return handle
@@ -260,6 +261,9 @@ class InfinityNikkiGameDataProvider:
         ctx.check()
         if getattr(ctx, 'stage_handle', None) is not None:
             previous = _handle(ctx.stage_handle, request)
+            if previous['stage'] in ('global-settings-members', 'global-settings-source'):
+                from . import infinity_nikki_settings_stage
+                return infinity_nikki_settings_stage.plan(self, previous, ctx)
             if previous['stage'] in ('global-configuration-packages', 'global-configuration-source'):
                 from . import infinity_nikki_configuration_stage
                 return infinity_nikki_configuration_stage.plan(self, previous, ctx)
@@ -306,6 +310,9 @@ class InfinityNikkiGameDataProvider:
     @_guard
     def download(self, plan, ctx):
         handle = _handle(plan.handle, ctx.request)
+        if handle['stage'] in ('global-settings-members', 'global-settings-source'):
+            from . import infinity_nikki_settings_stage
+            return infinity_nikki_settings_stage.download(self, plan, ctx)
         if handle['stage'] in ('global-configuration-packages', 'global-configuration-source'):
             from . import infinity_nikki_configuration_stage
             return infinity_nikki_configuration_stage.download(self, plan, ctx)
@@ -369,6 +376,9 @@ class InfinityNikkiGameDataProvider:
     @_guard
     def restore(self, handle, ctx):
         _handle(handle, ctx.request)
+        if handle['stage'] in ('global-settings-members', 'global-settings-source'):
+            from . import infinity_nikki_settings_stage
+            return infinity_nikki_settings_stage.restore(self, handle, ctx)
         if handle['stage'] in ('global-configuration-packages', 'global-configuration-source'):
             from . import infinity_nikki_configuration_stage
             return infinity_nikki_configuration_stage.restore(self, handle, ctx)
