@@ -750,6 +750,18 @@ build dependencies; no new runtime or source is installed, executed or adopted.
 This reference cannot supply the missing official keychain parameters by itself.
 The search acquires no original game bytes and makes no CMS request.
 
+The separately approved three native edges consume 424 instruction bytes and
+1,465 receipt bytes, with no new literal reads or downloads. The input core
+returns zero for a padding-stripped length congruent to one modulo four at its
+early return; the remaining alphabet, bit packing and mode-zero rules are unread.
+The object producer compares the complete 64-bit lookup handle in a
+manager-owned lookup structure, but its returned service implementation remains
+unresolved.
+The resolver's other path tail-calls a further manager/name lookup. These are
+distinct input-validation and service-discovery observations, not a proven
+keychain serializer, GUID binding or concrete module implementation. The next
+exact continuations are quoted separately and not followed automatically.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
