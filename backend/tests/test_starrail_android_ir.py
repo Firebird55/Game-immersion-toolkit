@@ -123,6 +123,16 @@ def test_valid_prefix_with_truncated_or_unsupported_suffix_is_rejected_atomicall
     assert not output.exists() and source.read_bytes() == bytes.fromhex('90 48b8')
 
 
+def test_linear_instruction_budget_bounds_the_decoder_request_before_rejection(monkeypatch):
+    rows = [row(0x1000+n, '90', 'nop') for n in range(8193)]
+    value = decoder(rows); original = value._native.disassembleX64; requested = []
+    def bounded(data, address, count):
+        requested.append(count); return original(data, address, count)
+    monkeypatch.setattr(value._native, 'disassembleX64', bounded)
+    with pytest.raises(ir.IRInputError): ir._range(value, b'\x90'*65536, 0x1000, False)
+    assert requested == [8193]
+
+
 @pytest.mark.parametrize('spec', [
     {'offset': True, 'address': 0, 'bytes': 1}, {'offset': 0, 'address': True, 'bytes': 1},
     {'offset': 0, 'address': 0, 'bytes': 65537}, {'offset': 2, 'address': 0, 'bytes': 1},

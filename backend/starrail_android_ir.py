@@ -189,7 +189,8 @@ def _decode(decoder, data, address, count=0):
         normalize(instruction)
         _contract(instruction.address == address + offset and instruction.bytes == data[offset:offset + instruction.size], 'decoded-byte-binding')
         offset += instruction.size
-    _check(result and (count == 1 and len(result) == 1 or count == 0 and offset == len(data)))
+    _check(result and (count == 1 and len(result) == 1
+                      or count != 1 and len(result) <= 8192 and offset == len(data)))
     return result
 
 
@@ -222,9 +223,9 @@ def _switch(path, data, address):
 
 def _range(decoder, data, address, flow):
     if not flow:
-        result = _decode(decoder, data, address)
-        _check(len(result) <= 8192)
-        return result
+        # One sentinel establishes an over-limit range without requesting all
+        # 65,536 possible one-byte instructions/operand records from JNI.
+        return _decode(decoder, data, address, 8193)
     pending, decoded, occupied, branch_targets, guarded = [address], {}, set(), set(), []
     end = address + len(data)
     while pending:
