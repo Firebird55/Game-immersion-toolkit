@@ -182,6 +182,21 @@ public final class MainActivity extends Activity {
                     }
                     selfTestDiagnostic("complete", "passed", null);
                 }
+                if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitLiveWuwaManifest", false)) {
+                    android.util.AtomicFile proofFile = new android.util.AtomicFile(new File(getFilesDir(), "wuwa-live-manifest-proof.json"));
+                    proofFile.delete();
+                    String result = Python.getInstance().getModule("backend.android_probe")
+                        .callAttr("run_wuwa_live_manifest", new File(getCacheDir(), "wuwa-live-manifest").getCanonicalPath(), ocr)
+                        .toString();
+                    FileOutputStream output = proofFile.startWrite();
+                    try {
+                        output.write(result.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        proofFile.finishWrite(output);
+                    } catch (java.io.IOException error) {
+                        proofFile.failWrite(output);
+                        throw error;
+                    }
+                }
                 runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) openReader(address, sessionCookie); });
             } catch (Throwable error) {
                 if (!BuildConfig.DEBUG && error instanceof Error) throw (Error)error;

@@ -315,9 +315,29 @@
       "sha256_lf": "b197198bfbdb3e6bd2ad0f4c32b49d0d196b5d980d1807df0569e0215ce994ca",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
     },
+    "backend/wuthering_manifest.py": {
+      "sha256_lf": "32e39eb37f7b6ad10b85cb87cb6c9b9cb461feb56e6b21f21491876d7b268904",
+      "source_commit": "0bcc145e0226b211b18539a371f5b222fbda14f1"
+    },
+    "backend/wuthering_portable_pak.py": {
+      "sha256_lf": "cd40e18bd2464e7842ef7e9a264f8df8684d6a85f5e2f8a290935a4911e7a953",
+      "source_commit": "79bd0829fa5ed720a90583cb2ace419396de21d9"
+    },
+    "backend/wuthering_preflight.py": {
+      "sha256_lf": "bf46471232ccbcd0834e22129366a88892f3279a9e5e1818251f1e0afa1272ee",
+      "source_commit": "55deb6fd3598c526d6a7db58b2dea1ce1c2e2733"
+    },
+    "backend/wuthering_publisher_keys.py": {
+      "sha256_lf": "ae9814918d513bd02c1d7cc3836aae5ac13fe7672ab887ba7dfac086e2da65be",
+      "source_commit": "0bcc145e0226b211b18539a371f5b222fbda14f1"
+    },
+    "backend/wuthering_release_pak.py": {
+      "sha256_lf": "26a0f84e3e5186caa454f02db2704287f59a7b70571ad99f4d0255eed297b254",
+      "source_commit": "79bd0829fa5ed720a90583cb2ace419396de21d9"
+    },
     "backend/wuwa_game_data.py": {
-      "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
-      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+      "sha256_lf": "3ec128b80ab5f333abc5d4031c88f471839571a408031a727c55f814da2fb133",
+      "source_commit": "0bcc145e0226b211b18539a371f5b222fbda14f1"
     },
     "backend/wwise_tables.py": {
       "sha256_lf": "15befbf2ff0c4d85ba90d14426a4b9f453fc5f2def46355fdd21df2a5ccf869d",
@@ -467,11 +487,17 @@
         "wuwa_game_data",
         "wuthering_bootstrap_source",
         "wuthering_elf_bootstrap",
-        "wuthering_locales"
+        "wuthering_locales",
+        "wuthering_manifest",
+        "wuthering_portable_pak",
+        "wuthering_preflight",
+        "wuthering_publisher_keys",
+        "wuthering_release_pak"
       ],
       "snapshot_runtime": false,
       "stages": [
-        "bootstrap"
+        "bootstrap",
+        "manifest-verification"
       ]
     },
     "zzz": {

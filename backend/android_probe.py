@@ -100,6 +100,54 @@ def run_zzz_catalogue(root, native, fixture_json):
         'bad_input_digest_rejected': True, 'retained_data': True, 'original_game_bytes': False, 'snapshot_ready': False})
 
 
+def run_wuwa_live_manifest(root, native):
+    """Opt-in physical-device run of the ordinary provider in an isolated cache."""
+    import json
+    from pathlib import Path
+    import time
+    from .game_data import GameDataService
+    from .game_data_protocol import GameDataRequest
+    from .wuwa_game_data import create_provider, _file
+    from types import SimpleNamespace
+
+    directory = Path(root)
+    directory.mkdir(parents=True, exist_ok=True)
+    request = GameDataRequest('global', 'ja', ('en',), 'text')
+    service = GameDataService(directory, {'wuwa': create_provider('android', native)})
+    try:
+        prior = service._stage_handle(directory, 'wuwa', request)
+        if not prior or prior['stage'] != 'manifest-verified':
+            service.start('wuwa', request.json())
+            deadline = time.monotonic() + 480
+            while time.monotonic() < deadline:
+                row = service.snapshot(games=('wuwa',))['games'][0]
+                job = row['job']
+                if job and job['status'] not in ('queued', 'running'):
+                    break
+                time.sleep(.5)
+        row = service.snapshot(games=('wuwa',))['games'][0]
+        stage = service._stage_handle(directory, 'wuwa', request)
+        result = {'schema': 'toolkit-android-live-wuwa-manifest-v1',
+            'fresh_cache': prior is None, 'verified': bool(stage and stage['stage'] == 'manifest-verified'),
+            'stage': stage['stage'] if stage else None, 'activated_library': row['can_activate'],
+            'downloaded_bytes': (row['job'] or {}).get('downloaded_bytes', 0),
+            'job_status': (row['job'] or {}).get('status')}
+        if result['verified']:
+            ctx = SimpleNamespace(cache_directory=directory / 'wuwa' / 'cache')
+            proof = _file(ctx, stage['inventory_sha256'] + '.json').read_bytes()
+            import hashlib
+            if hashlib.sha256(proof).hexdigest() != stage['inventory_sha256']:
+                raise ValueError('The verified manifest receipt changed')
+            inventory = json.loads(proof)
+            versions = inventory['versions']
+            result.update(versions={name: versions[name] for name in ('resource', 'en', 'ja', 'ko', 'zh')},
+                pak_references=len(inventory['packages']), publisher_key_lists=len(inventory['native_key_sources']),
+                used_community_input=bool(inventory['entry_source_sha256']))
+        return json.dumps(result)
+    finally:
+        service.close()
+
+
 def run_wuwa_bootstrap(root, native, fixture_json):
     """DEBUG-authored source stage through real provider/crypto/mmap contracts.
 
