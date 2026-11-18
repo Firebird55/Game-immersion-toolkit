@@ -6,9 +6,15 @@ from . import infinity_nikki_configuration_stage as configuration
 from . import infinity_nikki_build_stage as build
 
 
+def _native_source_required():
+    return GameDataError('publisher_configuration_native_owner_unresolved',
+        'The verified Global configuration archive uses encrypted default-GUID data. '
+        'An accepted compatible native source is required. Existing data is retained.',409)
+
+
 def selection(provider,handle,ctx):
     """Verify this Global archive independently; never persist derived material."""
-    from .infinity_nikki_pak import Archive
+    from .infinity_nikki_pak import Archive,PakMaterialRequired
     from .infinity_nikki_pak_material import extract_default_pak_material
     receipt,artifact,_=configuration._retained(provider,handle,ctx)
     row=receipt['files'][0]
@@ -23,13 +29,17 @@ def selection(provider,handle,ctx):
     build_artifact=build._read(ctx,build_receipt['artifact_sha256'])
     sdk_receipt,_,_=build.sdk._retained(build_artifact['sdk_handle'],ctx)
     foundation=build._foundation()
-    native_receipt=foundation._retained(sdk_receipt['native_handle'],ctx)
-    native_path=foundation._path(ctx,native_receipt['module_sha256']+'.so')
     ctx.check()
     try:
-        material=extract_default_pak_material(native_path.read_bytes(),expected_native_sha256=native_receipt['module_sha256'])
+        material=None
+        if sdk_receipt['native_handle'] is not None:
+            native_receipt=foundation._retained(sdk_receipt['native_handle'],ctx)
+            native_path=foundation._path(ctx,native_receipt['module_sha256']+'.so')
+            material=extract_default_pak_material(native_path.read_bytes(),expected_native_sha256=native_receipt['module_sha256'])
         archive=Archive(lambda at,size:pak[at:at+size],len(pak),material,
             crypto=foundation._crypto(provider.platform,provider.native))
+    except PakMaterialRequired as error:
+        raise _native_source_required() from error
     except ValueError as error:
         raise GameDataError('publisher_configuration_index_unresolved',
             'The current official configuration index or native parameter still needs verification. Existing data is retained.',409) from error
@@ -42,6 +52,8 @@ def selection(provider,handle,ctx):
         raise GameDataError('publisher_configuration_members_unresolved',
             'The current configuration settings members still need verification.',409)
     entries=[archive.entry(path) for path in paths]
+    if material is None and any(entry.encrypted for entry in entries):
+        raise _native_source_required()
     decoded=sum(entry.expanded_bytes for entry in entries)
     configuration._check(0<decoded<=1024**2 and all(entry.expanded_bytes<=128*1024 for entry in entries))
     methods=sorted({archive.methods[entry.method] for entry in entries})

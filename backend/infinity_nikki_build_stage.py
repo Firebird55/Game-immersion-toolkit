@@ -111,6 +111,16 @@ def _decode_build(raw,sdk_handle,crypto,ctx):
             raise GameDataError('publisher_source_unverified',
                 'Could not verify the current official Global build document.') from error
     sdk_receipt,_,_=sdk._retained(sdk_handle,ctx)
+    if sdk_receipt['native_handle'] is None:
+        if not raw.startswith(b'_XYLUAP_'):
+            _check(False)
+        try:
+            body=base64.b64decode(raw[8:],validate=True)
+            _check(body and len(body)%16==0)
+        except ValueError as error:
+            raise GameDataError('publisher_source_unverified','Could not verify the current official Global build document.') from error
+        raise GameDataError('publisher_wrapper_owner_unresolved',
+            'The current official Global build uses a native metadata wrapper. An accepted compatible native source is required. Existing data is retained.',409)
     native_receipt=_foundation()._retained(sdk_receipt['native_handle'],ctx)
     path=_foundation()._path(ctx,native_receipt['module_sha256']+'.so')
     try:

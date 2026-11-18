@@ -21,7 +21,7 @@ from backend.tests.test_publisher_transport import Response
 
 class Fixture(Native):
     def __init__(self, root, apk, monkeypatch, *, mode='text', resource_factory=resource_fixture):
-        super().__init__(root, apk, mode=mode)
+        super().__init__(root, apk, mode=mode, region='global')
         member, _, _ = resource_factory()
         self.member = member+b'authored inert PE padding'*30
         compressed = deflate(self.member)
@@ -100,11 +100,13 @@ class Fixture(Native):
         return Stream(data, status=206, headers=headers, url=url)
 
     def native_stage(self):
-        return self.download(self.provider.plan(self.request, self.ctx)).restore_handle
+        # Historical Global flow used this exact signed native receipt shape.
+        return self.download(self.provider._plan_native(self.request, self.ctx)).restore_handle
 
-    def launcher_plan(self):
-        previous = self.native_stage()
-        self.context('plan').stage_handle = previous
+    def launcher_plan(self, *, legacy_native=False):
+        if legacy_native:
+            previous = self.native_stage()
+            self.context('plan').stage_handle = previous
         return self.provider.plan(self.request, self.ctx)
 
 
@@ -193,6 +195,16 @@ def test_android_signature_gate_cannot_fall_back_to_the_pc_verifier(tmp_path, ap
     with pytest.raises(GameDataError) as failure:
         fixture.download(plan)
     assert failure.value.code == 'game_runtime_unavailable' and len(fixture.calls) == before
+
+
+@pytest.mark.parametrize('platform', ['android', 'linux', 'macos'])
+def test_cold_global_without_signature_runtime_quotes_no_download(tmp_path, apk_fixture, monkeypatch, platform):
+    fixture = Fixture(tmp_path, apk_fixture, monkeypatch)
+    fixture.provider.platform = platform
+    plan = fixture.launcher_plan()
+    assert plan.stage == 'global-launcher-bootstrap' and not plan.runtime_available
+    assert plan.download_bytes is None and plan.required_disk_bytes is None and not fixture.calls
+    assert plan.message == sdk.SIGNATURE_GATE
 
 
 def test_retained_source_tampering_is_detected_without_network(tmp_path, apk_fixture, monkeypatch):
