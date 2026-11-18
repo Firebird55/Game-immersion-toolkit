@@ -161,8 +161,40 @@ queue permits one active NTE decode across sources in the normal backend
 process, limiting its two output files to 256 MiB in total. This is not a global
 quota across separate backend processes or an unlimited accumulated MP3 cache.
 An oversized clip fails explicitly; it is never accepted as a truncated clip.
-Existing stored MP3s are not rewritten. Newly pipe-muxed MP3 bytes may differ;
-real complete-PCM equivalence and playback remain separate acceptance checks.
+This change performs no migration or rewrite of stored MP3s. Newly pipe-muxed
+MP3 bytes may differ; finite real-source verification follows below.
+
+The subsequent bounded Global 1.5.4 Japanese trial verified one unambiguous
+ordinary conversation binding through its original 870-byte bank and complete
+65,609-byte WEM. Original manifest, whole-signature MD5, index SHA1, carrier CRC,
+member ownership and raw SHA256 checks passed. The additional member-header
+check used the previously evidenced size-derived hash normalization for the
+current unencrypted variant. That is empirical format evidence, not proof of
+the publisher's native hash policy or encrypted/padded variants.
+
+The unchanged original-voice resolver then ran the actual inventoried decoder
+and encoder under their hard output limits. Its full control PCM contains
+240,235 mono frames at 44,100 Hz, lasting 5.447505669 seconds. The resulting
+66,261-byte MP3 has 210 complete MPEG frames. Decoding that entire MP3 preserves
+all source frames after accounting for encoder lead and tail padding; full,
+first-quarter and last-quarter correlations exceed 0.998. These are recording
+integrity checks, not inferred word timestamps or a gameplay capture claim.
+
+A fresh process reopened the isolated real transcript database and served that
+saved MP3 using the actual `FileResponse` through the existing in-memory HTTPX
+ASGI transport. HTTP 200, Content-Length 66,261 and the complete response SHA256
+all matched. Native/key/current-discovery/provider imports and application
+socket connects were denied; replay needed no decoder or game-source reads.
+An explicit negative connect control still failed before its OS connect. Only
+the standard Windows event loop's own wakeup IPC was initialized before these
+guards; this does not establish an OS firewall or physical egress restriction.
+
+The old Text-only pointer and snapshot remained byte-identical throughout.
+Temporary control WAV and decoded PCM files were removed; the small original,
+saved clip and diagnostic database remain private. This proves one complete
+recording's resolver and saved-recording replay on the retained Japanese source.
+It does not complete the remaining WEM downloads, ordinary full audio-snapshot
+activation/recovery, other-dub trials or independent Android preparation.
 
 ## Explicit text-only preparation
 
