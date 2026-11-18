@@ -12,6 +12,7 @@ packaging/runtime-bundle/python-notices/*.txt -text whitespace=-blank-at-eol
 # The exact supplier libX11 notice also retains its original final blank line.
 packaging/runtime-bundle/python-notices/LICENSE.libX11.txt whitespace=-blank-at-eol,-blank-at-eof
 packaging/runtime-bundle/flatbuffers-notices/LICENSE -text whitespace=-blank-at-eol
+packaging/desktop/retained-native-notices/*.txt -text whitespace=cr-at-eol,-blank-at-eol,-blank-at-eof
 # The recorded Apache-source compatibility patch is an exact-byte input.
 packaging/asr/tts-off-python-symbols.patch -text
 packaging/asr/SHERPA-LICENSE.txt -text whitespace=-blank-at-eol

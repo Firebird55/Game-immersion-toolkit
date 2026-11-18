@@ -60,6 +60,8 @@ def validate_pins(pins):
             raise ValueError('Supplier input requires an exact SHA-256.')
         if pin['format'] not in ('tar', 'zip', 'text'):
             raise ValueError('Unsupported supplier input format.')
+        if 'retained' in pin and (type(pin['retained']) is not bool or pin['format'] != 'text'):
+            raise ValueError('Only exact text notices can use retained source bytes.')
         if pin['format'] != 'text':
             if len(safe_path(pin['root']).parts) != 1 or not pin['required_notices']:
                 raise ValueError('Archive requires an exact root and notices.')
@@ -68,8 +70,12 @@ def validate_pins(pins):
 
 
 def acquire(pin, cache):
-    path = cache / pin['archive']
+    retained = pin.get('retained', False)
+    directory = ROOT / 'packaging/desktop/retained-native-notices' if retained else cache
+    path = directory / pin['archive']
     no_links(path)
+    if retained and not path.is_file():
+        raise ValueError('Retained supplier notice is missing: ' + pin['name'])
     if not path.exists():
         pending = path.with_name(path.name + '.part')
         no_links(pending)

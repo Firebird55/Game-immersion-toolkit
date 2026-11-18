@@ -1,7 +1,7 @@
 # Android replacement and retired hosted application
 
 The owner retired the independent hosted gaming application on November 16,
-2026. The 0.24.0 Android prerelease is scoped to Global Zenless Zone Zero.
+2026. The first 0.24 Android prerelease is scoped to Global Zenless Zone Zero.
 It embeds the shared toolkit core and prepares original publisher data in the
 app. The owner is validating the physical gameplay flow after installation.
 

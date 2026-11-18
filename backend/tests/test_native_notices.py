@@ -81,6 +81,22 @@ def test_full_sources_and_transitive_notices_survive_collection(tmp_path, kind):
     assert len(runtime.tree(collected)) == len(receipt['files'])
 
 
+def test_retained_onnx_notices_match_the_reviewed_pins_without_network(tmp_path, monkeypatch):
+    pins = json.loads(native.PINS.read_text(encoding='utf-8'))
+    retained = [pin for pin in pins['components'] if pin.get('retained')]
+    assert {pin['name'] for pin in retained} == {'onnxruntime-asr-license', 'onnxruntime-asr-notices'}
+
+    def unexpected_download(*args, **kwargs):
+        pytest.fail('Retained notice tried to access the network')
+
+    monkeypatch.setattr(native.urllib.request, 'urlopen', unexpected_download)
+    pins['components'] = retained
+    output, cache = tmp_path / 'output', tmp_path / 'cache'
+    native.build(output, cache, pins, runtime_verifier=lambda _: [])
+    for pin in retained:
+        assert native.digest(output / native.PREFIX / pin['name'] / pin['archive']) == pin['sha256']
+
+
 def test_declared_license_supplement_is_pinned_and_kept_distinct(tmp_path, monkeypatch):
     cache = tmp_path / 'cache'
     pins = fixture(cache)
