@@ -29,6 +29,11 @@ function Read-AndroidBoundBaseReceipt([string]$Wheelhouse,$CompositeReceipt,[str
     if($baseReceipt.schema -ne 'toolkit-android-python-wheels-v1' -or $baseReceipt.policy_sha256 -ne $BasePolicySha256){throw 'The bound original Python receipt has an unexpected schema or policy.'}
     return $baseReceipt
 }
+function Assert-AndroidReleaseFrontend($Manifest,[string]$SourceCommit,[string]$Version) {
+    if($Manifest.source_commit -cne $SourceCommit -or $Manifest.version -cne $Version) {
+        throw 'The Android release frontend must match the exact tagged source and version.'
+    }
+}
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path -Parent $PSScriptRoot
 $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build-inputs.json') -Raw | ConvertFrom-Json
@@ -139,6 +144,7 @@ if($Variant -eq 'release') {
     }
     $taggedHead=& git -C $sourceRoot rev-parse --verify "refs/tags/v$version^{commit}"
     if($LASTEXITCODE -ne 0 -or $taggedHead -ne $head){throw 'The Android release must use its exact local release tag.'}
+    Assert-AndroidReleaseFrontend $frontendManifest $head $version
     $versionName=$version
 }
 $identity=$null
@@ -165,6 +171,8 @@ $nativeAudit=Get-Content -LiteralPath $audit -Raw | ConvertFrom-Json
 if([bool]$nativeAudit.zzz_catalogue_component.present -ne [bool]$ZzzCatalogueAssets){
     throw 'The Android APK differs from the requested ZZZ catalogue software selection.'
 }
+if($nativeAudit.frontend_build_id -ne $frontendManifest.build_id){throw 'The APK reader differs from the verified shared frontend.'}
+if($Variant -eq 'release'){Assert-AndroidReleaseFrontend $nativeAudit.frontend $head $version}
 $baseReceipt=Read-AndroidBoundBaseReceipt $Wheelhouse $receipt $policyHash
 foreach($abi in $policy.abis) {
     $nativeReceipt=$baseReceipt.native.PSObject.Properties[$abi].Value

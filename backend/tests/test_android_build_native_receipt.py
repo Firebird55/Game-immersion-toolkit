@@ -80,3 +80,48 @@ def test_actual_post_assembly_stage_rejects_changed_missing_or_foreign_receipts_
     result=run()
     assert result.returncode!=0,'A changed receipt or native APK byte identity was accepted'
     assert 'actual-native-hash-stage-passed' not in result.stdout
+
+
+@pytest.mark.parametrize('change', [None, 'older-source', 'older-version', 'missing-source', 'missing-version'])
+def test_release_build_binds_input_and_packaged_frontend_to_the_exact_tag(tmp_path, change):
+    shell = shutil.which('pwsh')
+    if not shell:
+        pytest.skip('PowerShell 7 is required for the actual Android release stage')
+    script = tmp_path / 'actual-frontend-stage.ps1'
+    script.write_text(r'''
+param([string]$Builder,[string]$Manifest)
+$ErrorActionPreference='Stop'
+$errors=$null;$tokens=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile($Builder,[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'Invalid release builder syntax'}
+$functions=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Assert-AndroidReleaseFrontend'},$true))
+$binding=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Assert-AndroidReleaseFrontend'},$true))
+if($functions.Count -ne 1 -or $binding.Count -ne 2 -or
+        $binding[0].Extent.Text -ne 'Assert-AndroidReleaseFrontend $frontendManifest $head $version' -or
+        $binding[1].Extent.Text -ne 'Assert-AndroidReleaseFrontend $nativeAudit.frontend $head $version') {
+    throw 'The release requires both exact frontend bindings'
+}
+Invoke-Expression $functions[0].Extent.Text
+Assert-AndroidReleaseFrontend (Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json) ('a'*40) '1.2.3'
+Write-Output 'release-frontend-bound'
+''', encoding='utf8')
+    frontend = {'source_commit': 'a' * 40, 'version': '1.2.3'}
+    if change == 'older-source':
+        frontend['source_commit'] = 'b' * 40
+    elif change == 'older-version':
+        frontend['version'] = '1.2.2'
+    elif change == 'missing-source':
+        del frontend['source_commit']
+    elif change == 'missing-version':
+        del frontend['version']
+    manifest = tmp_path / 'desktop-manifest.json'
+    manifest.write_text(json.dumps(frontend), encoding='utf8')
+    output = subprocess.run([shell, '-NoProfile', '-File', str(script), str(ROOT / 'scripts/build-android-app.ps1'),
+                             str(manifest)], capture_output=True, text=True, timeout=30)
+    if change is None:
+        assert output.returncode == 0, output.stderr
+        assert 'release-frontend-bound' in output.stdout
+    else:
+        assert output.returncode != 0
+        assert 'frontend must match the exact tagged source and version' in output.stderr
+        assert 'release-frontend-bound' not in output.stdout
