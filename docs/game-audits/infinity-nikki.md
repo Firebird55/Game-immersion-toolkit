@@ -693,6 +693,63 @@ Those sizes remain unknown, not zero. The Global launcher and CN/common native
 are separate sources; equality with a Global game-native module is not assumed.
 These empty fields do not justify a new executable-preparation implementation.
 
+An alternative candidate-verification route can keep complete publisher-authored
+CMS triplets atomic and validate returned material against exact current Global
+archive GUIDs and complete index integrity, without claiming the active engine
+profile. Its first source steps are now bounded and recorded. Previously
+uninspected native entry wrappers consume 240 instruction bytes and lead to a
+shared input/container helper plus separate chain and group consumers. Those
+downstream bodies, actual Base64 framing, GUID/group ownership and applicable
+dynamic-index cipher remain unproven; no layout or key is guessed.
+
+The already retained 1,002,627-byte Bin carrier passes complete source-owned
+header, zlib/EOF and publisher data-SHA-1 checks again. Exactly 51,184 bytes of
+the current nonzero-GUID main-index ciphertext are retained with their complete
+source mapping and local hash, without decryption or a default-key trial. This
+acquires zero new game/network bytes and retains 54,862 additional bytes, below
+the 1,103,856-byte cap while keeping more than 8 GiB free on the cache volume.
+The directory descriptor, directory integrity, whole-PAK hash and keychain
+acceptance remain open. The current zero-GUID reader guard is not relaxed, no
+CMS request is made, and the native source remains CN/common rather than an
+assumed Global-equivalent module.
+
+The next three exact consumer windows inspect 468 code bytes and 1,897 metadata
+bytes, stopping at the declared boundaries. Chain/group paths dispatch through
+an unresolved returned object's table slots; the actual GUID/group serializer
+is not reached. The input helper reads 16-bit units, trims padding and calculates
+the familiar three-to-four output length, while observed count/capacity and
+byte-stride operations constrain the output container. These operations do not
+by themselves identify a C++ container type or prove the complete Base64
+alphabet, bit packing, rejection or flag rules. No additional callee or literal
+data is followed. The returned-object producer, its exact passed name literal
+and the remaining input helper are the separately quoted next edges. No
+serialization/integrity schema, key trial or CMS acceptance is implemented.
+
+A subsequent exact continuation reads 156 instruction bytes, 52 framed UTF-16
+literal bytes and 1,009 metadata bytes from the same retained source. The passed
+lookup name is `PaperAccessContentProtect`; this identifies the requested service,
+not its returned implementation or Global equivalence. The main lookup path
+reaches a further object producer and retains an unread cold branch. The input
+helper tail-calls a separate core with the original input, its length, the byte
+output and mode zero. Its exact alphabet, rejection rules and the downstream
+GUID/group serializer remain unresolved. The next three windows are quoted at
+792 instruction bytes plus at most 2 KiB metadata and remain paused.
+
+A bounded primary-source review on 2026-11-18 uses four targeted search queries
+and four code/document sources; it establishes no exact maintained CMS-keychain
+parser. This is not an exhaustive absence claim. The maintained
+[CUE4Parse Nikki decryptor](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/CUE4Parse/GameTypes/INikki/Encryption/Aes/InfinityNikkiAes.cs)
+performs archive decryption with an already supplied `reader.AesKey`; it does not
+discover or decode a CMS keychain, its GUIDs or groups. The repository's latest
+inspected commit is dated 2026-11-17 and that file's latest change 2026-09-12.
+Its [Apache-2.0 license](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/LICENSE)
+allows maintained algorithm software to be considered separately from community
+key data. The [full C# project](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/CUE4Parse/CUE4Parse.csproj)
+declares crypto, compression and optional native
+build dependencies; no new runtime or source is installed, executed or adopted.
+This reference cannot supply the missing official keychain parameters by itself.
+The search acquires no original game bytes and makes no CMS request.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
