@@ -68,7 +68,9 @@ def _required_text(catalog, request):
     """Locate only required core/config packages from actual authored owners."""
     from .starrail_original_provider import TABLES
     from .starrail_original_tables import TEXT_CODES
-    paths = {'BakedConfig/ExcelOutput/' + name + '.bytes' for name in TABLES}
+    from .starrail_voice_choices import EXTRA_TABLES
+    required = TABLES | EXTRA_TABLES if request.content_mode == 'text-audio' else TABLES
+    paths = {'BakedConfig/ExcelOutput/' + name + '.bytes' for name in required}
     for locale in {request.source_locale, *request.target_locales}:
         for code in catalog.text_locales[locale]:
             main = code.startswith('Main'); code = code[4:] if main else code
@@ -229,6 +231,12 @@ class StarRailProvider:
             raise GameDataError('starrail_audio_inputs_changed', 'The verified original cache changed. Check the download size again.')
         fetch = missing if offline else self._metadata_fetch(ctx, transport)
         generation = native.prepare(directory, build, original.TABLES, reader=reader, fetch=fetch, allow_generate=False)
+        if ctx.request.content_mode == 'text-audio':
+            from . import starrail_native_voice_choices as choice_native, starrail_voice_choices as choices
+            try:
+                generation = choice_native.augment(directory, generation)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                raise GameDataError('starrail_voice_choice_metadata_unavailable', choices.METADATA_MESSAGE, 409) from error
         if discover:
             build = discovery.prepare(directory / 'sophon', build, generation.routes, fetch=fetch)
         def package_fetch(url, *, limit):
@@ -438,12 +446,6 @@ class StarRailProvider:
 
     def plan(self, request, ctx):
         _valid_request(request); ctx.check()
-        if request.content_mode == 'text-audio' and request.voice_choices is not None:
-            from . import starrail_original_provider as original, starrail_voice_choices as choices
-            if not choices.TABLES <= original.TABLES:
-                return GameDataPlan('voice-choice-metadata-' + _identity(request.json())[:24], None, None,
-                    {'request': request.json()}, stage='voice-choice-metadata', runtime_available=False,
-                    message=choices.METADATA_MESSAGE)
         transport = self._transport(ctx)
         def fetch(url, *, limit):
             return transport.fetch_bytes(url, limit=limit, kind='metadata')[0]

@@ -456,16 +456,46 @@ explicitly unknown, and a missing selection never becomes an on/off choice.
 Generation, schema, complete rows and group membership bind the choice-set hash;
 source drift, a new group or conflicting owners invalidate an old selection.
 
-This contract does not promote the private two-table research layouts into the
-ordinary source. The current automatic reader prepares 21 table descriptions;
-the additional AvatarCobrand/AllowedAudioLanguage loader remains required.
-A selected audio request therefore receives an explicit metadata-unavailable
-gate before publisher I/O. Where a trusted original reader does provide those
-tables, choices and selection provenance can be retained in the plan, but
-selected audio remains gated until its separate study, physical owner and
-actual spoken-locale binding is verified. Declared locale alternatives are
-metadata, not playable availability. Snapshot and restore reject unproved
-selected audio; the existing index and original-voice locale guards stay strict.
+The canonical audio producer now augments the original 21-table reader with
+automatic AvatarCobrand/AllowedAudioLanguage descriptions. Original declared
+fields identify the row types; the owning dictionary, static string array and
+method declarations identify two constructors, two FromBinary methods and two
+string loaders. Their complete PE unwind bounds must be nonoverlapping and
+total at most 8 KiB before any function bytes are read. The existing generic
+table-binding and field-order recognizers remain unchanged. A typed original
+loader call must positively establish the prefix flag, with no intervening
+register clobber or branch bypass; trying alternate EOF layouts is forbidden.
+Missing or ambiguous owners and changed unsupported code stop with an explicit
+metadata-unavailable gate before audio inventory or recording acquisition.
+
+The auxiliary cache binds the complete original native receipt, base generation,
+decoder identity and owned logic. It leaves the base 21-table cache untouched;
+a failed refresh preserves the earlier auxiliary receipt. Only text+audio
+composes these 23 descriptions and quotes the two extra original resources.
+Text-only retains its existing 21-table path. No private table rows or fixed
+version addresses supply the ordinary loader.
+
+A zero-network production-API trial freshly derives the same six owners from
+each retained whole-authenticated Global 4.7 and 4.6 client: 1,928 and 1,986 code
+bytes respectively. Both complete original metadata/startup inputs and DLLs
+were rechecked; DLL MD5s are `2db87084b0383dbe7ce3556bb33db662` and
+`d33cb7b0781287362e7f3d8571b520aa`. The frozen SDK-403 helper build
+`c30cfd97613122bda90c8fd80b1c5a3c2a9fdacccd89ee0037075aef3e1a7f29`
+performs data-only disassembly. The original common packages are fully checked
+at 33,508,837 bytes/MD5 `2c0856f09fbc10734c0f146a92a0a6e7` and
+33,077,813 bytes/MD5 `1efaad7a4e7c92a8a12c66cffbe3b50a`. Each supplies four
+rows per extra table and four dynamic choice groups. Their two-table contents
+are identical across these generations; the complete VoiceAtlas/generation join
+produces distinct choice-set hashes. A warm auxiliary cache performs no native
+I/O. This is fresh auxiliary derivation with retained base descriptions, not a
+new complete ordinary-worker trial: the current base logic matches this source,
+while the previous base is an explicitly replayed older descriptor generation.
+
+Choices and selection provenance can be retained in the plan, but selected
+audio remains gated until its separate study, physical owner and actual
+spoken-locale binding is verified. Declared locale alternatives are metadata,
+not playable availability. Snapshot and restore reject unproved selected audio;
+the existing index and original-voice locale guards stay strict.
 Text-only requests can retain selection intent in their immutable request/source
 identity without consulting voice-choice tables or applying an audio override.
 Tests preserve an activated older text/audio source and its original bytes

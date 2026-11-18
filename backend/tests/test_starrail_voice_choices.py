@@ -83,16 +83,16 @@ def test_row_order_is_canonical_but_a_different_study_dub_requires_its_own_choic
     assert choices.discover(catalog, 'a'*64, 'ja').choice_set_sha256 != first.choice_set_sha256
 
 
-def test_current_21_table_boundary_cannot_promote_private_rows_or_touch_audio(monkeypatch):
+def test_missing_original_schemas_cannot_promote_private_rows_or_touch_audio(monkeypatch):
     catalog = Catalog(); catalog.tables.descriptions.pop('AvatarCobrand')
     catalog.file = lambda *a: pytest.fail('Missing original schemas cannot load research rows')
     assert choices.discover(catalog, 'a'*64, 'en') is None
     request = GameDataRequest('global', 'en', (), 'text-audio', VoiceChoiceSelection('a'*64,
         (('starrail:copyright-avatar:7001', 'copyright-dub'),)))
     provider = game.create_provider(platform='windows')
-    monkeypatch.setattr(provider, '_transport', lambda *a: pytest.fail('Metadata-unavailable choices cannot open publisher assets'))
+    monkeypatch.setattr(provider, '_audio_inventory', lambda *a: pytest.fail('Metadata-unavailable choices cannot open audio assets'))
     ctx = SimpleNamespace(request=request, check=lambda: None)
-    plan = provider.plan(request, ctx)
+    plan = provider._audio_plan(ctx, catalog, SimpleNamespace(identity='a'*64), None, {}, {})
     assert plan.stage == 'voice-choice-metadata' and not plan.runtime_available
     assert plan.available_voice_choices is None and plan.handle['request'] == request.json()
 
@@ -136,11 +136,13 @@ def test_unavailable_selected_update_keeps_existing_text_audio_and_old_request_r
     from backend.tests.test_game_data import Provider
     from backend.tests.test_starrail_game_data import finish
     producer = game.create_provider(platform='windows')
-    monkeypatch.setattr(producer, '_transport', lambda *a: pytest.fail('Selected unavailable metadata cannot open assets'))
+    monkeypatch.setattr(producer, '_audio_inventory', lambda *a: pytest.fail('Selected unavailable metadata cannot open audio assets'))
+    missing = Catalog(); missing.tables.descriptions.pop('AvatarCobrand')
+    missing.file = lambda *a: pytest.fail('Missing original schemas cannot load research rows')
     restored_requests = []
     class Prior(Provider):
         def plan(self, request, ctx):
-            return producer.plan(request, ctx) if request.voice_choices is not None else super().plan(request, ctx)
+            return producer._audio_plan(ctx, missing, SimpleNamespace(identity='a'*64), None, {}, {}) if request.voice_choices is not None else super().plan(request, ctx)
         def download(self, plan, ctx):
             source = super().download(plan, ctx)
             payload = json.loads(source.snapshot_path.read_bytes()); payload['game'] = 'starrail'
