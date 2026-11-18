@@ -1283,6 +1283,38 @@ The other interceptors, configured route selectors, final headers and
 complete response schema remain open. No live request, signature or game
 key is produced.
 
+The next original-source pass verifies that the coroutine wrapper stores the
+same request model reference. The basic startup sequence registers the common
+callback before the Protobuf callback. The latter returns the supplied URL
+immediately for the model's `Default` content type. The traced common callback
+with the null optional mutator also leaves the byte-array field unchanged.
+This closes the form-encoded branch for the traced ordinary request model and
+callback chain. Live server acceptance remains untested.
+
+The original `u2.h` getters and field annotations bind the inner payload to
+`data`, the time field to `now` and the response alert to `alert`. The
+successful non-Protobuf branch deserializes `data` into the independently
+verified APK payload model, where `apk.download` supplies the source URL.
+The resulting success path is therefore `data.apk.download` in the original
+response JSON schema.
+
+The comparison wrapper calls `v2.f.c`. The SDK value renderer returns an
+owned static string or its empty default, and the clock offset getter reads
+an owned static long. Their producers, the comparator body and the serializer
+charset binding still need proof.
+
+Two more interceptors are verified from the exact cached fifth DEX member.
+`nj.a` may change the request host when the path matches its configured
+sampling route. The Fresco interceptor sets `User-Agent` from `f.b()` before
+proceeding. The header value producer, configured host routing and delegated
+monitor interceptors remain open. The managed pass reads 666 instruction
+bytes across eight bodies, plus 14 exception bytes, 357 annotation bytes and
+7,414 related metadata bytes. The separate fifth-member pass verifies
+11,182,613 existing compressed and inflated bytes to read two bodies totaling
+406 instruction bytes, 13 exception bytes and 3,187 related metadata bytes.
+These are static checks on signed distributor members, with no request,
+signature calculation, device access or game-key derivation.
+
 ### Community key candidate: research only
 
 The original author repository
