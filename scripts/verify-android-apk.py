@@ -335,6 +335,13 @@ def verify_zstandard_package(archive, native_files, repository):
     return receipt
 
 
+def verify_zzz_catalogue_component(archive, repository):
+    spec = importlib.util.spec_from_file_location('apk_zzz_catalogue', repository / 'scripts/android-zzz-catalogue-assets.py')
+    catalogue = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(catalogue)
+    return catalogue.verify_apk(archive, repository)
+
+
 def verify(path):
     result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
@@ -366,6 +373,7 @@ def verify(path):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
+        zzz_catalogue = verify_zzz_catalogue_component(archive, repository)
         decoder = verify_decoder(archive, result, repository)
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
@@ -403,6 +411,7 @@ def verify(path):
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'native_publisher_hash':hashing,
+        'zzz_catalogue_component': zzz_catalogue,
         'genshin_profile_component':genshin_profile,
         'publisher_source_policy': publishers,
         'wuwa_authored_fixture':wuwa_fixture,
