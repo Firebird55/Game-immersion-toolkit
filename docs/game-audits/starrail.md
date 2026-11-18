@@ -840,10 +840,21 @@ type definitions and nine methods. Eight methods had executable entry pointers
 and the selected methods supplied four parameters. Four of eight selected
 fields fit the current bounded table window and seven of eight selected
 literals decoded as UTF-8. The remaining fields failed a table ownership check
-and the remaining literal failed UTF-8 validation in each generation. These
-reads have no independently regenerated C# record comparison. Exact field table
-limits, literal decoding parity, runtime type resolution, generic and nested
-type joins, defaults and required native-index projection remain open. The
+and the remaining literal is unavailable as strict UTF-8 text in each generation.
+
+A fresh offline C# control used the authenticated locator offsets and read
+selected original spans. It used the pinned header and literal implementations
+and independently applied the frozen scalar record descriptions. In each
+generation it matched all 12 selected type records, nine method records,
+four field records within the portable window and eight literal byte sequences.
+The single malformed UTF-8 sequence is identical in both decoders. The pinned
+C# string conversion uses replacement characters for that sequence.
+
+The C# control also decoded the four fields outside the window in each
+generation. `GenericClassOffset` supplies the portable window's current upper
+bound for fields. The exact field and generic-class storage relationship still
+needs a source ownership check. Runtime type resolution, generic and nested
+joins, defaults and the required native-index projection remain open. The
 Android provider gate continues to require that projection and device evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
