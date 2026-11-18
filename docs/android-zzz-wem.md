@@ -1,0 +1,52 @@
+# Android ZZZ original WEM decoder
+
+The retained international ZZZ controls use modern little-endian Wwise
+Vorbis. A header census covered 57 retained sentence and presentation samples
+and seven separately tracked whole-context controls. All 64 inspected files
+had format tag `0xffff`, a 66-byte `fmt ` chunk with `cbSize=0x30`, one complete
+`data` chunk, and a setup packet ending exactly at the first audio packet.
+They contained 53 mono files across 16, 24, 32, 36 and 48 kHz and 11 stereo
+files at 44.1 kHz. The seven acquired context controls cover all four dubs
+and last about 40.257 seconds each. The other Mandarin control remains
+unacquired. This census covers the retained controls.
+
+## Pinned NDK closure
+
+The compiler inputs are the existing reviewed vgmstream r2168, libvorbis
+1.3.7 and libogg 1.3.5 archives and their full notices. The linker selects
+four vgmstream units for Wwise packet reconstruction and codebooks, Xiph's
+Ogg bit reader, 20 libvorbis core units, and the toolkit C adapter. The adapter
+uses the original v62-first/v56-retry codebook selection and a memory-only
+`STREAMFILE` with no open capability. It checks the modern Wwise layout,
+reads bounded packets, and returns original-rate interleaved PCM16. A
+decoder error fails the stream instead of padding the clip with silence.
+The local link uses the existing authenticated Android NDK 27.3.13750724
+and verifies the ELF ABI, 16 KiB alignment, `libc.so` and `libm.so`
+dependencies and the export list `zzz_wem_open`, `zzz_wem_read`, `zzz_wem_close`.
+The recipe uses the source pins in [audio-runtime.json](../packaging/codecs/audio-runtime.json).
+
+```powershell
+python scripts/build-android-zzz-wem.py --suppliers <retained-audio-sources> --ndk <verified-ndk> --ndk-archive <retained-ndk-archive> --output <fresh-private-directory>
+```
+
+The standalone link receipt records both ABI binaries and the three complete
+original notices. Compiling it does not package the Android app.
+
+## Recording handoff
+
+`ZzzWavCodec` takes an attested caller-owned PCM stream opener. It reconciles
+engine metadata with the authenticated WEM header, accepts up to 64 MiB of
+source, requests at most 4,096 frames per read, and checks exact completion
+and the 128 MiB WAV limit. It preserves native sample rate, channel count
+and frame count for a complete sentence or whole context. Its 120-second
+deadline and cancellation checks run between bounded native calls.
+Cancellation, decode failure, and incompatible metadata discard the pending
+file and keep any previously retained recording. Explicit time windows,
+gain and channel remixes require a verified transform. The prepared-library
+recording store and Android reader already accept PCM WAV.
+
+The group of tests exercises the PCM handoff with authored data and verifies
+that changed bounds, late failure and cancellation leave existing audio
+intact. The Android native loader, service lifetime and hard interruption,
+APK closure, target PCM comparison on the retained original controls and
+original publisher Audio Ready remain pending.
