@@ -268,16 +268,33 @@ names and stopped before that transfer; the failed observation is retained, and
 the producer itself needed no namespace or format change. Old source/recording
 fences remained intact throughout.
 
-The following ordinary metadata-processing quote has zero transfer bytes and
-reserves 1,140,850,688 local bytes for the original registry and selected locales.
-It does not authorize native closure, dialogue packages or audio activation.
-The frozen managed inventory operation currently checks its 16 MiB output limit
-only after writing. The finite real-source trial therefore uses complete owned
-output monitoring and termination headroom, not a claimed hard pre-write child
-quota. Moving that check before the write is separate helper hardening and must
-not be silently mixed into frozen-tool evidence. Native closure, changed
-text/audio comparison, complete Audio Ready and old-recording update recovery
-remain open; the complete new voice-transfer budget is not yet known.
+The following zero-transfer metadata stage completed on the same frozen
+`a915da48` producer and existing helper. It decoded the complete 200,537,946-byte
+registry and selected Japanese/Chinese localization, with the full registry
+EOF/hash/nonce checks. Seven managed-codec children and one inventory child
+completed sequentially. The monitored owned-output peak was 200,867,840 bytes;
+the inventory was 163,129 bytes, with no observed limit overshoot. Monitoring
+and termination headroom were not a hard pre-write filesystem quota.
+
+Rehashed original localization outputs show a substantive update: both selected
+locales grew from 121,528 to 121,553 namespace/key entries, with 25 new nonempty
+roots. Japanese has 586 changed wordings. These include UI and subtitle text;
+they are not canonical dialogue, active-story or audio coverage counts.
+
+The next ordinary DATA-only package acquisition verified all 2,445 selected
+stored blocks against original, whole-MD5-verified IoStore TOCs. Its 2,333 new
+ranges transferred 9,350,922 bytes including source guards. No package parsing,
+voice reading or client execution occurred in that acquisition. The following
+authoring quote is zero transfer with a 3 GiB local reservation; original
+required closure, canonical bindings and complete Audio Ready remain separate.
+
+The later helper source now measures the serialized inventory's UTF-8 byte
+count against the existing 16 MiB limit before opening its output file. Valid
+serialized bytes are unchanged; an oversized result cannot overwrite an earlier
+inventory. This changes the helper build identity. The frozen trial above used
+the earlier postchecked helper and is not relabelled as verification of this
+hardening. Full current-helper changed-content/audio and old-recording recovery
+still require their own acceptance; the complete new voice budget is not known.
 
 ## Explicit text-only preparation
 
