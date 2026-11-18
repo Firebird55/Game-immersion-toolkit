@@ -769,12 +769,37 @@ gap between the actual runtime directory's bracketing records. No matching
 runtime owner or complete old-function body is accepted. The final separately
 approved 32-byte entry diagnostic shows a five-byte direct jump to another
 executable address followed by 27 padding/trap bytes. Its destination is not
-followed, and this concrete source route stops there. The original parameter
+followed within that phase. The original parameter
 initialization/header contract remains unproved. This is neither an
 impossibility result nor a package-format-change claim. All analysis is static,
 with zero new downloads during these follow-ups; no original module is loaded,
 executed or emulated. The earlier module-name-input and engine-signature
 qualifications remain open, alongside canonical graph/UI/media and host gates.
+
+A final receipt-only mapping confirms that this jump destination is backed by
+original bytes in the retained member's `.tvm0` section, rather than its virtual
+zero-fill tail. A separately approved 440-byte ownership/unwind probe and exact
+32-byte entry diagnostic then establish a PE-declared runtime owner of 5,507
+bytes; no matching original-directory owner or complete function is accepted.
+The inspected entry saves eight nonvolatile registers and directly calls a
+second address. Existing section declarations place that callee 8,330 bytes
+beyond the section's raw-data end, inside its declared zero-fill tail. No
+original file bytes map to the callee, and bytes from an adjacent raw section
+cannot be substituted. Twelve bytes of the inspected entry window also remain
+undecoded; no complete native-continuation or virtual-machine interpretation is
+accepted.
+
+The precise missing source step is the original initializer or writer that
+supplies this zero-fill call target. No such owner is identified by these
+receipts. The route stops without following another body, scanning for a writer,
+executing code, emulating a VM or unpacking runtime state. This identifies an
+unproved derivation step in this route, not an impossible official derivation or
+a format change. The source remains the same complete Deflate/ZIP-CRC-checked,
+HTTPS/ETag-bound original member and its retained SHA-256; whole-part MD5,
+decoded GameFiles member MD5 and publisher-signature trust remain unverified.
+The new probe does not strengthen that authentication, derive a key or admit a
+canonical snapshot. Runtime-directory references mean the PE's declared
+exception metadata, not observation of a live game process.
 
 The separately frozen shared PE-signature extraction also passes a zero-download
 replay on the retained complete 3,587,464-byte `AkSoundEngine` original: the
