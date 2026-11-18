@@ -156,7 +156,9 @@ assert.equal(normalStartup.snapshot.lexirise.configured, false);
 assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
-const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName});
+const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName,
+  report:value=>writeFileSync(join(output,'android-insets-before-restore.json'),JSON.stringify({...value,
+    source_commit:provenance.source_commit,apk_sha256:provenance.apk_sha256},null,2)+'\n')});
 writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
   source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, ...insets,
   fixture: 'authored-emulator-reader-before-personal-data', physical_device_acceptance: 'not-established',
