@@ -127,11 +127,11 @@ def test_reused_index_publication_is_atomic_and_failure_keeps_existing_bytes(tmp
     target = source.cache.parent/'current'/main_hash
     target.parent.mkdir(); target.write_bytes(b'keep the preexisting incomplete cache')
     before = target.read_bytes(); replace = atomic_files.replace
-    def interrupted(path, destination):
+    def interrupted(path, destination, *, check=None):
         if destination == target:
             assert path.name == 'download' and hashlib.sha1(path.read_bytes()).hexdigest() == main_hash
             raise OSError('Authored atomic-publication interruption')
-        return replace(path, destination)
+        return replace(path, destination, check=check)
     monkeypatch.setattr(atomic_files, 'replace', interrupted)
     with pytest.raises(OSError, match='atomic-publication'):
         pak.Package('second', len(original), 'current', tmp_path, (key,))

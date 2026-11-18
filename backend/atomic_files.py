@@ -1,4 +1,5 @@
 """Bounded Windows sharing retries without removing the last published file."""
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import tempfile
@@ -17,23 +18,31 @@ def sharing_retry(operation, timeout=1):
             time.sleep(.02)
 
 
-def replace(source, destination):
-    sharing_retry(lambda: os.replace(source, destination))
+def replace(source, destination, *, check=None):
+    def publish():
+        if check is not None:
+            check()
+        os.replace(source, destination)
+
+    sharing_retry(publish)
 
 
 def remove(path):
     sharing_retry(lambda: path.unlink(missing_ok=True))
 
 
-def write_bytes(path, data):
-    """Stage private bytes beside their target; preserve it on any failure.
-
-    Callers own path/link and content validation. This is the small staging
-    primitive used by publisher readers, without desktop tool discovery.
-    """
+@contextmanager
+def stage_file(path):
+    """Provide a fresh temporary path beside the target and clean it up."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=path.parent) as folder:
-        staged = Path(folder) / 'download'
+        yield Path(folder) / 'download'
+
+
+def write_bytes(path, data, *, check=None):
+    """Stage private bytes beside their target and preserve it on failure."""
+    path = Path(path)
+    with stage_file(path) as staged:
         staged.write_bytes(data)
-        replace(staged, path)
+        replace(staged, path, check=check)

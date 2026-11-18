@@ -84,7 +84,45 @@ export function authoredNativeInsetsMetrics(window, power, packageName) {
     keyguard_showing:keyguard===undefined?null:keyguard==='true',awake:awake===undefined?null:awake==='Awake',system_bar_insets:rects};
 }
 
-export async function verifyAuthoredReaderInsets({adb, page, until, packageName, report = () => {}}) {
+export function authoredAnrEvents(events, packageName, pid) {
+  assert.ok(typeof events === 'string' && events.length <= 1024 * 1024);
+  const summary = {own_process: 0, current_process: 0, other_process: 0, latest_own_trigger: null};
+  for (const match of events.matchAll(/^I\/am_anr\s*\(\s*\d+\):\s*\[\d+,(\d+),([A-Za-z0-9_.:]+),-?\d+,([^\r\n]{0,8192})\]\s*$/gm)) {
+    const [, eventPid, owner, reason] = match;
+    if (owner !== packageName && !owner.startsWith(packageName + ':')) {
+      summary.other_process++;
+      continue;
+    }
+    summary.own_process++;
+    if (eventPid === pid) summary.current_process++;
+    summary.latest_own_trigger = reason.startsWith('Input dispatching timed out') ? 'input'
+      : reason.startsWith('Broadcast of') ? 'broadcast'
+      : /^(?:executing service|Executing service)/.test(reason) ? 'service'
+      : reason.startsWith('ContentProvider not responding') ? 'provider' : 'other';
+  }
+  return summary;
+}
+
+export function authoredNativeReaderBounds(sample, pid, rotation, physicalWidth, physicalHeight) {
+  const expectedPid = Number(pid);
+  if (!Number.isSafeInteger(expectedPid) || expectedPid <= 0 ||
+      sample?.pid !== expectedPid || sample.rotation !== rotation || sample.foreground !== true ||
+      sample.status_visible !== true || sample.navigation_visible !== true) return null;
+  const rect = value => Array.isArray(value) && value.length === 4 &&
+    value.every(coordinate => Number.isSafeInteger(coordinate) && coordinate >= 0 && coordinate <= 8192);
+  if (![sample.window, sample.reader, sample.insets].every(rect)) return null;
+  const [width, height] = rotation % 2 ? [physicalHeight, physicalWidth] : [physicalWidth, physicalHeight];
+  assert.deepEqual(sample.window, [0, 0, width, height]);
+  const [left, top, right, bottom] = sample.reader;
+  const [insetLeft, insetTop, insetRight, insetBottom] = sample.insets;
+  assert.ok(insetTop > 0 && insetLeft + insetRight + insetBottom > 0);
+  assert.ok(right > left && bottom > top && left >= insetLeft && top >= insetTop &&
+    right <= width - insetRight && bottom <= height - insetBottom);
+  return {rotation, width, height, reader: sample.reader, system_insets: sample.insets,
+    evidence: 'focused-native-reader'};
+}
+
+export async function verifyAuthoredReaderInsets({adb, page, until, packageName, nativeWindowEvidence = false, report = () => {}}) {
   const wm=adb('shell','wm','size');
   const sizes=[...wm.matchAll(/(Physical|Override) size: (\d+)x(\d+)/g)].map(value=>({kind:value[1].toLowerCase(),width:Number(value[2]),height:Number(value[3])}));
   const size = [...wm.matchAll(/(?:Physical|Override) size: (\d+)x(\d+)/g)].at(-1);
@@ -92,7 +130,9 @@ export async function verifyAuthoredReaderInsets({adb, page, until, packageName,
   const automatic = adb('shell', 'settings', 'get', 'system', 'accelerometer_rotation');
   const original = adb('shell', 'settings', 'get', 'system', 'user_rotation');
   assert.match(automatic, /^[01]$/);assert.match(original, /^[0-3]$/);
-  const cases = [],started=Date.now();let requested=0,last=null,dumps=0;
+  let processId = null;
+  try {processId=adb('shell','pidof',packageName).split(/\s+/)[0];}catch{}
+  const cases = [],started=Date.now();let requested=0,last=null,dumps=0,windowSample=null;
   try {
     adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
     for (const rotation of [0, 1, 0]) {
@@ -100,6 +140,15 @@ export async function verifyAuthoredReaderInsets({adb, page, until, packageName,
       adb('shell', 'settings', 'put', 'system', 'user_rotation', String(rotation));
       await until(() => page.evaluate(landscape => (innerWidth > innerHeight) === landscape, rotation === 1), 'actual native reader orientation');
       cases.push(await until(() => {
+        if (nativeWindowEvidence) {
+          const raw = adb('shell', 'run-as', packageName, 'cat', 'files/android-insets-evidence.json');
+          assert.ok(raw.length < 4096);
+          const sample = JSON.parse(raw);
+          if (sample && sample.pid === Number(processId)) {
+            windowSample = {foreground: sample.foreground === true, rotation: [0, 1, 2, 3].includes(sample.rotation) ? sample.rotation : null};
+          }
+          return authoredNativeReaderBounds(sample, processId, rotation, width, height);
+        }
         adb('shell', 'uiautomator', 'dump', '/sdcard/toolkit-authored-insets.xml');
         const xml=adb('shell','cat','/sdcard/toolkit-authored-insets.xml');dumps++;
         last=authoredInsetsMetrics(xml,packageName);
@@ -108,19 +157,27 @@ export async function verifyAuthoredReaderInsets({adb, page, until, packageName,
       }, 'actual native reader clear of system bars after rotation'));
     }
   } catch(error) {
-    let viewport={},native={},actual=null,currentSizes=[];
+    let viewport={},native={},actual=null,currentSizes=[],anr=null;
+    if (nativeWindowEvidence) {
+      try {
+        adb('shell', 'uiautomator', 'dump', '/sdcard/toolkit-authored-insets.xml');
+        last = authoredInsetsMetrics(adb('shell', 'cat', '/sdcard/toolkit-authored-insets.xml'), packageName);
+        dumps++;
+      } catch {}
+    }
     try {viewport=await Promise.race([page.evaluate(()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,
       visual_width:visualViewport?.width,visual_height:visualViewport?.height,
       visual_left:visualViewport?.offsetLeft,visual_top:visualViewport?.offsetTop,orientation:screen.orientation?.angle})),
       new Promise(resolve=>setTimeout(()=>resolve({}),1000))]);}catch{}
     try {native=authoredNativeInsetsMetrics(adb('shell','toybox','timeout','3','dumpsys','window'),adb('shell','toybox','timeout','3','dumpsys','power'),packageName);}catch{}
+    try {anr=authoredAnrEvents(adb('logcat','-b','events','-d','-t','500','-v','brief','am_anr:I','*:S'),packageName,processId);}catch{}
     try {const value=adb('shell','settings','get','system','user_rotation');actual=/^[0-3]$/.test(value)?Number(value):null;}catch{}
     try {currentSizes=[...adb('shell','wm','size').matchAll(/(Physical|Override) size: (\d+)x(\d+)/g)]
       .map(value=>({kind:value[1].toLowerCase(),width:Number(value[2]),height:Number(value[3])}))
       .filter(value=>[value.width,value.height].every(n=>Number.isSafeInteger(n)&&n>0&&n<=8192)).slice(0,2);}catch{}
     report({schema:'toolkit-authored-insets-before-restore-v1',requested_rotation:requested,actual_user_rotation:actual,
       elapsed_ms:Date.now()-started,dump_count:dumps,sizes,current_sizes:currentSizes,metrics:last?{...last,viewport:authoredInsetsMetrics('',packageName,viewport).viewport}:null,
-      native,passed_cases:cases,before_rotation_restore:true,production_fix_acceptance:false});
+      native,anr,native_window_sample:windowSample,passed_cases:cases,before_rotation_restore:true,production_fix_acceptance:false});
     throw error;
   } finally {
     adb('shell', 'settings', 'put', 'system', 'user_rotation', original);

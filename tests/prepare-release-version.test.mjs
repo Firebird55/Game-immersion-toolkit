@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
+import {desktopMatrix, profileForTag, releaseRecord, WINDOWS_ANDROID} from '../scripts/release-profile.mjs';
 
 const script = fileURLToPath(new URL('../scripts/prepare-release-version.mjs', import.meta.url));
 function metadata(version) {
@@ -50,4 +51,29 @@ test('a genuinely newer tag changes every version field without changing depende
     for (const [name, expected] of Object.entries(metadata('0.23.1')))
       assert.equal(readFileSync(join(cwd,name),'utf8'),expected,name);
   } finally {rmSync(cwd,{recursive:true,force:true});}
+});
+
+test('the Windows and Android profile is exact-tag only and survives checkout preparation', () => {
+  const version = '0.24.0';
+  const selection = releaseRecord(version, WINDOWS_ANDROID);
+  const cwd = mkdtempSync(join(tmpdir(), 'release-version-platforms-'));
+  try {
+    for (const [name, content] of Object.entries(metadata(version))) writeFileSync(join(cwd, name), content);
+    const record = join(cwd, 'release-version.json');
+    writeFileSync(record, JSON.stringify(selection));
+    run(cwd, 'v' + version);
+    assert.deepEqual(JSON.parse(readFileSync(record, 'utf8')), selection);
+    assert.equal(profileForTag('refs/tags/v' + version, selection), WINDOWS_ANDROID);
+    assert.deepEqual(desktopMatrix(WINDOWS_ANDROID).include.map(({target}) => target), ['windows-x64']);
+    for (const ref of ['refs/tags/v0.24.1', 'refs/heads/main']) {
+      assert.deepEqual(desktopMatrix(profileForTag(ref, selection)).include.map(({target}) => target),
+        ['windows-x64', 'linux-x64', 'macos-arm64']);
+    }
+    assert.throws(() => releaseRecord(version, 'windows'), /release profile/);
+    assert.throws(() => releaseRecord(version + '-test', WINDOWS_ANDROID), /stable numeric version/);
+    run(cwd, 'v0.24.1');
+    assert.deepEqual(JSON.parse(readFileSync(record, 'utf8')), releaseRecord('0.24.1'));
+  } finally {
+    rmSync(cwd, {recursive: true, force: true});
+  }
 });

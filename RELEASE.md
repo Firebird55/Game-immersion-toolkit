@@ -12,6 +12,35 @@ Monitor gh run list and gh run watch <id> --exit-status. Tag workflow rebuilds a
 Download using gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder>.
 Verify each SHA256SUMS entry and PROVENANCE sourceCommit against the release tag before installation.
 
+### Windows and Android release
+
+For a version scoped to these platforms, use
+`npm run release -- --version <semver> --profile windows-android` from clean
+main after accepting the candidate. The tagged workflow runs the same checks
+and produces the tested source package and Windows desktop assets. It leaves
+the release unpublished for the owner's Android signing and device acceptance.
+The profile belongs to that version tag.
+
+On the protected Windows owner host, build the exact clean tag with
+`scripts/build-android-app.ps1 -Variant release` and the reviewed build inputs,
+existing protected signing identity and a higher version code. Verify the exact
+APK on physical ARM64 through direct preparation, update recovery, offline
+restart and audio, upgrade retention, and iOS gameplay reception. Record only
+sanitized results in `ANDROID-ACCEPTANCE.json` next to the build provenance.
+The receipt uses `toolkit-android-physical-release-v1`, the source commit,
+installed APK SHA-256, ABI, API and the five named checks in the assembler.
+
+Download the successful tag run's `tested-release-assets` and
+`tested-desktop-windows-x64` artifacts. Run
+`scripts/assemble-desktop-release.py` with the usual tag, source and desktop
+arguments plus `--android`, `--android-certificate`, `--java`,
+`--apksigner-jar` and `--aapt2`. It verifies the owner build and device
+receipt, runs the SDK signature and package checks, and combines only the
+verified Windows and Android binaries with the standard source assets.
+Publish the assembled directory as one release on the existing tag. Download
+the public assets again and verify the combined checksums, both platform
+provenance files, and the tag commit before delivery.
+
 ## Installation and updates
 
 Accepted native assets are the executable installation path described in

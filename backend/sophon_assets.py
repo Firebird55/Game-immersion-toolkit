@@ -14,6 +14,11 @@ from urllib.parse import urlencode, urlsplit
 import zstandard
 
 
+def descriptor(build):
+    raw = json.dumps(build, sort_keys=True, separators=(',', ':')).encode()
+    return 'sophon-' + hashlib.sha256(raw).hexdigest(), raw
+
+
 def _atomic_file(path, data):
     # The same maintained cache writer is available in the native core. Do not
     # import desktop discovery/tool preparation merely to publish verified data.

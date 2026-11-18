@@ -15,11 +15,6 @@ import struct
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
-import brotli
-from Crypto.Cipher import PKCS1_v1_5
-from Crypto.PublicKey import RSA
-
-
 REPOSITORY = 'CollapseLauncher/CollapseLauncher-ReleaseRepo'
 SEED_REVISION = '862de49744c5c3c4120fc932cf7260383b8b7c54'
 ROOT = f'https://raw.githubusercontent.com/{REPOSITORY}/{SEED_REVISION}/metadata/v3/stable/'
@@ -66,6 +61,8 @@ def _base64(value):
 
 
 def _expand(raw, size):
+    import brotli
+
     decoder = brotli.Decompressor()
     result = bytearray()
     try:
@@ -102,6 +99,9 @@ class Decoder:
               and packed <= LIMIT and expanded <= LIMIT)
         raw = raw[32:]
         if encrypted:
+            from Crypto.Cipher import PKCS1_v1_5
+            from Crypto.PublicKey import RSA
+
             if self._key is None:
                 # The master itself must be readable before any RSA-wrapped value.
                 check(depth == 0)

@@ -121,7 +121,7 @@ test('source Python gate installs and caches the pinned packaging test dependenc
 });
 
 test('publication waits for native construction and rechecks all downloaded artifacts', () => {
-  assert.match(job('publish'), /needs: \[package, native-desktop\]/);
+  assert.match(job('publish'), /needs: \[source-audit, package, native-desktop\]/);
   assert.match(job('publish'), /pattern: tested-desktop-\*/);
   assert.match(job('publish'), /python scripts\/assemble-desktop-release\.py --source-release release --native-root native-release/);
   assert.match(job('publish'), /gh release upload "\$RELEASE_TAG" published-release\/\*/);
@@ -264,12 +264,20 @@ test('tag and manual packages validate the extracted artifact before publishing 
   assert.match(published, /github\.repository == 'Firebird55\/Game-immersion-toolkit' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.match(workflow, /release:\n    types: \[published\]/);
   assert.match(published, /gh release upload .*--clobber/);
-  assert.match(published, /needs: \[package, native-desktop\]/);
+  assert.match(published, /needs: \[source-audit, package, native-desktop\]/);
   assert.match(published, /name: tested-release-assets/);
   assert.doesNotMatch(published, /package-release|validate-candidate/);
   assert.match(workflow, /permissions:\n  contents: read/);
   assert.equal((workflow.match(/contents: write/g) || []).length, 1);
   assert.doesNotMatch(workflow, /pull_request_target|secrets\./);
+});
+
+test('the exact-tag platform profile selects Windows and defers public upload for owner signing', () => {
+  assert.match(job('source-audit'), /steps\.release_profile\.outputs\.profile/);
+  assert.match(job('source-audit'), /node scripts\/release-profile\.mjs >> "\$GITHUB_OUTPUT"/);
+  assert.match(job('publish'), /if: needs\.source-audit\.outputs\.release_profile == 'all-desktops' &&/);
+  assert.match(job('targets', nativeWorkflow), /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(job('construct', nativeWorkflow), /matrix: \$\{\{ fromJSON\(needs\.targets\.outputs\.matrix\) \}\}/);
 });
 
 test('evidence uploads stay limited to JSON and survive failed checks', () => {

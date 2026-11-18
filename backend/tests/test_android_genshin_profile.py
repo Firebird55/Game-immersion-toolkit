@@ -85,7 +85,7 @@ def test_actual_android_entry_requires_the_started_hosts_verified_decoder_before
     assert not list(tmp_path.iterdir())
 
 
-def test_exact_93_module_namespace_imports_all_component_identity_inputs_without_desktop_fallback(tmp_path):
+def test_closed_namespace_imports_all_component_identity_inputs_without_desktop_fallback(tmp_path):
     from backend.tests.test_android_publisher_sources import portable_sources
     owned=tmp_path/'owned'
     for name in portable_sources():
@@ -109,16 +109,18 @@ try:AndroidGenshinRuntime(None)
 except ValueError:pass
 else:raise AssertionError('Missing actual Android decoder admitted')
 from backend.game_data_providers import create_game_data_providers
-assert set(create_game_data_providers(platform='android'))=={'nte','reverse1999','wuwa'}
+assert set(create_game_data_providers(platform='android'))=={'nte','reverse1999','wuwa','zzz'}
 assert 'backend.genshin_game_data' not in sys.modules
 for name,module in list(sys.modules.items()):
  if name=='backend' or name.startswith('backend.'):
   assert Path(module.__file__).is_relative_to(Path(sys.argv[1]))
-print(json.dumps({'owned_modules':93,'component_imports_verified':True,'native_android_execution':False}))
+print(json.dumps({'owned_modules':len(list((Path(sys.argv[1])/'backend').glob('*.py'))),
+                  'component_imports_verified':True,'native_android_execution':False}))
 '''
     result=subprocess.run([sys.executable,'-I','-B','-c',script,str(owned)],capture_output=True,text=True,timeout=30)
     assert result.returncode==0,result.stderr[-3000:]
-    assert json.loads(result.stdout)=={'owned_modules':93,'component_imports_verified':True,'native_android_execution':False}
+    assert json.loads(result.stdout)=={'owned_modules':len(portable_sources()),
+        'component_imports_verified':True,'native_android_execution':False}
 
 
 @pytest.mark.parametrize('change',[None,'carrier','fixture-source','method-ownership','missing-negative','notice','extra-asset'])

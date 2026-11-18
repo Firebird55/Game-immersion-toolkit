@@ -287,12 +287,14 @@ def _publish(path, raw):
         pending.replace(path)
 
 
-def approve(inputs, cache, archive, region, branch, version, sections, checksum, *, fetch=None):
+def approve(inputs, cache, archive, region, branch, version, sections, checksum, *, fetch=None,
+            crypto=None, retain_approval=True):
     """Bind original input provenance to a complete declared resource list.
 
     Payload acquisition must already have been separately planned/authorized.
     This method only reads retained source artifacts, then rechecks original
-    metadata pointers before publishing an immutable approval receipt.
+    metadata pointers before computing the immutable approval receipt. A caller
+    without an available content reader can verify the identity without persisting it.
     """
     from . import nte_release as release
     check(isinstance(inputs, Plan) and region == inputs.region)
@@ -301,7 +303,7 @@ def approve(inputs, cache, archive, region, branch, version, sections, checksum,
     configuration_body = retained(cache, configuration)
     check(_decode_json(configuration_body)['branchName'] == branch)
     result = release.files(archive, region, version, sections, checksum,
-                           parameters=(parameters.key, parameters.iv))
+                           parameters=(parameters.key, parameters.iv), crypto=crypto)
     original = {'region': region, 'branch': branch, 'version': version, 'sha256': result[1][1]}
     receipt = {'format': APPROVAL, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity,
         'original': original, 'declared_xml_md5': checksum, 'manifest_sha256': _sha(archive),
@@ -310,8 +312,10 @@ def approve(inputs, cache, archive, region, branch, version, sections, checksum,
         'native_evidence_sha256': _sha(_json(parameters.evidence))}
     recheck(inputs, fetch=fetch)
     raw = _json(receipt)
-    _publish(Path(cache)/'original-updater/approvals'/(_sha(raw)+'.json'), raw)
-    reference = {'kind': APPROVAL, 'proof_sha256': _sha(raw), 'original': original}
+    identity = _sha(raw)
+    if retain_approval:
+        _publish(Path(cache)/'original-updater/approvals'/(identity+'.json'), raw)
+    reference = {'kind': APPROVAL, 'proof_sha256': identity, 'original': original}
     return result, reference
 
 

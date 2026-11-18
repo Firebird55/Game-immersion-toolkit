@@ -27,6 +27,8 @@ public final class MainActivity extends Activity {
     private long lifecycleRevision;
     private String selfTestPhase = "created";
     private String selfTestRun;
+    private String catalogueWorkerPhase;
+    private String lastInsetsEvidence;
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
@@ -108,6 +110,33 @@ public final class MainActivity extends Activity {
                             .callAttr("authored_probe", ocr, buffer.toString("UTF-8")).toString()));
                     }
                     selfTestDiagnostic("native-publisher-hash", "passed", null);
+                    String[] catalogueAssets = getAssets().list("zzz-catalogue");
+                    if (catalogueAssets != null && catalogueAssets.length > 0) {
+                        selfTestDiagnostic("native-zzz-catalogue", "running", null);
+                        try (InputStream input = getAssets().open("zzz-catalogue-authored.json")) {
+                            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                            byte[] chunk = new byte[1024];
+                            for (int count; (count = input.read(chunk)) != -1;) {
+                                if (buffer.size() + count > 4096) throw new IllegalStateException();
+                                buffer.write(chunk, 0, count);
+                            }
+                            try {
+                                report.put("native_zzz_catalogue", new org.json.JSONObject(Python.getInstance()
+                                    .getModule("backend.android_probe").callAttr("run_zzz_catalogue",
+                                        new File(getCacheDir(), "zzz-catalogue-probe").getCanonicalPath(),
+                                        ocr, buffer.toString("UTF-8")).toString()));
+                            } catch (com.chaquo.python.PyException error) {
+                                catalogueWorkerPhase = ocr.zzzCatalogueWorker().authoredPhase();
+                                throw error;
+                            }
+                        }
+                        selfTestDiagnostic("native-zzz-catalogue", "passed", null);
+                    } else {
+                        report.put("native_zzz_catalogue", new org.json.JSONObject()
+                            .put("schema", "toolkit-android-authored-zzz-catalogue-proof-v1")
+                            .put("present", false).put("passed", false).put("status", "unverified-not-packaged"));
+                        selfTestDiagnostic("native-zzz-catalogue", "unverified-not-packaged", null);
+                    }
                     selfTestDiagnostic("native-wuwa-bootstrap", "running", null);
                     try (InputStream input = getAssets().open("wuwa-authored-bootstrap.json")) {
                         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
@@ -190,16 +219,27 @@ public final class MainActivity extends Activity {
                 org.json.JSONArray types = new org.json.JSONArray();Throwable cause = error;
                 for (int depth=0; cause != null && depth<6; depth++, cause=cause.getCause()) types.put(cause.getClass().getName());
                 value.put("exception_types", types);
+                if ("native-zzz-catalogue".equals(phase) && catalogueWorkerPhase != null)
+                    value.put("catalogue_worker_phase", catalogueWorkerPhase);
                 // Keep only the Python exception TYPE, never its message,
                 // stack, provider response, credential or filesystem path.
                 String message = error.getMessage();
                 if (message != null) {
+                    if ("native-zzz-catalogue".equals(phase)) {
+                        java.util.regex.Matcher checkpoint = java.util.regex.Pattern.compile(
+                            "authored-zzz-stage\\[(attestation|positive|negative)/(zzz_catalogue_worker_unavailable|invalid_zzz_catalogue_stage|preparation_cancelled|unexpected)\\]")
+                            .matcher(message);
+                        if (checkpoint.find()) value.put("catalogue_checkpoint", checkpoint.group(1))
+                            .put("catalogue_result_code", checkpoint.group(2));
+                    }
                     java.util.regex.Matcher match = java.util.regex.Pattern.compile("(?:^|\\n)([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))(?=:|\\n|$)").matcher(message);
                     String type = null;while (match.find()) type=match.group(1);
+                    if (type != null) type = type.substring(type.lastIndexOf('.') + 1);
                     if (java.util.Arrays.asList("RuntimeError", "ValueError", "TypeError", "AttributeError", "ImportError",
                             "ModuleNotFoundError", "FileNotFoundError", "PermissionError", "OSError", "AssertionError",
                             "KeyError", "IndexError", "JSONDecodeError", "TimeoutError", "InterruptedError", "UnicodeError",
-                            "UnicodeDecodeError", "MemoryError", "OverflowError", "NameError", "UnboundLocalError").contains(type)) {
+                            "UnicodeDecodeError", "MemoryError", "OverflowError", "NameError", "UnboundLocalError",
+                            "GameDataError").contains(type)) {
                         value.put("python_exception_type", type);
                     }
                 }
@@ -316,6 +356,9 @@ public final class MainActivity extends Activity {
             }
         });
         showInsetSurface(reader);
+        if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitInsetsEvidence", false)) {
+            reader.getViewTreeObserver().addOnGlobalLayoutListener(this::recordInsetsEvidence);
+        }
         CookieManager.getInstance().setCookie(origin, sessionCookie, accepted -> {
             if (reader != null && !isFinishing() && !isDestroyed()) reader.loadUrl(address);
         });
@@ -338,6 +381,51 @@ public final class MainActivity extends Activity {
         surface.requestApplyInsets();
     }
 
+    private void recordInsetsEvidence() {
+        if (!BuildConfig.DEBUG || !getIntent().getBooleanExtra("toolkitInsetsEvidence", false)
+                || android.os.Build.VERSION.SDK_INT < 30 || reader == null || !reader.isAttachedToWindow()
+                || worker.isShutdown()) return;
+        android.view.WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
+        if (insets == null || reader.getDisplay() == null) return;
+        android.graphics.Rect window = getWindowManager().getCurrentWindowMetrics().getBounds();
+        android.graphics.Insets safe = insets.getInsets(android.view.WindowInsets.Type.systemBars()
+                | android.view.WindowInsets.Type.displayCutout());
+        int[] position = new int[2];
+        reader.getLocationOnScreen(position);
+        try {
+            org.json.JSONObject proof = new org.json.JSONObject();
+            proof.put("pid", android.os.Process.myPid());
+            proof.put("rotation", reader.getDisplay().getRotation());
+            proof.put("foreground", foreground && hasWindowFocus() && reader.isShown());
+            proof.put("window", rect(window.left, window.top, window.right, window.bottom));
+            proof.put("reader", rect(position[0], position[1],
+                position[0] + reader.getWidth(), position[1] + reader.getHeight()));
+            proof.put("insets", rect(safe.left, safe.top, safe.right, safe.bottom));
+            proof.put("status_visible", insets.isVisible(android.view.WindowInsets.Type.statusBars()));
+            proof.put("navigation_visible", insets.isVisible(android.view.WindowInsets.Type.navigationBars()));
+            String sample = proof.toString();
+            if (sample.equals(lastInsetsEvidence)) return;
+            lastInsetsEvidence = sample;
+            worker.execute(() -> {
+                android.util.AtomicFile file = new android.util.AtomicFile(new File(getFilesDir(), "android-insets-evidence.json"));
+                FileOutputStream output = null;
+                try {
+                    output = file.startWrite();
+                    output.write(sample.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    file.finishWrite(output);
+                } catch (java.io.IOException error) {
+                    if (output != null) file.failWrite(output);
+                }
+            });
+        } catch (org.json.JSONException ignored) {
+            // The authored runner requires a complete sample for each rotation.
+        }
+    }
+
+    private static org.json.JSONArray rect(int a, int b, int c, int d) {
+        return new org.json.JSONArray().put(a).put(b).put(c).put(d);
+    }
+
     @Override protected void onActivityResult(int request, int result, Intent intent) {
         super.onActivityResult(request, result, intent);
         if (request == 21 && picker != null) {
@@ -350,12 +438,14 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStop() {
         foreground = false;lifecycleRevision++;
-        CookieManager.getInstance().flush();
         pauseReaderMedia();
         if (reader != null) {
             reader.onPause();
         }
         pauseCapture();
+        // flush waits for WebView's cookie storage I/O. Run it after the
+        // capture pause on the worker, whose orderly shutdown drains the task.
+        if (reader != null && !worker.isShutdown()) worker.execute(() -> CookieManager.getInstance().flush());
         super.onStop();
     }
     private void pauseReaderMedia() {
@@ -363,6 +453,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        recordInsetsEvidence();
         if (!hasFocus) {
             lifecycleRevision++;pauseReaderMedia();pauseCapture();
         } else resumeReader();

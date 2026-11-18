@@ -1,12 +1,16 @@
 """The portable bootstrap stage must obey real transport and readiness fences."""
+import base64
+import builtins
 from dataclasses import replace
 from email.message import Message
 import hashlib
 import io
 import json
 from pathlib import Path
+import sys
 import threading
 import time
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 from Crypto.PublicKey import RSA
@@ -111,6 +115,14 @@ def provider(objects, calls, platform='android', provider_type=game.ZzzGameDataP
 @pytest.mark.parametrize('region', ['global', 'cn'])
 def test_original_bootstrap_is_a_bounded_download_stage_and_never_ready(tmp_path, monkeypatch, region):
     objects, bodies, chunks, key = publisher(region)
+    original_import = builtins.__import__
+
+    def portable_import(name, *args, **kwargs):
+        if name.split('.')[0] in {'Crypto', 'brotli'}:
+            raise AssertionError('Original ZZZ bootstrap imported a desktop dependency')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', portable_import)
     calls = []
     reader = provider(objects, calls)
     request = GameDataRequest(region, 'ja', ('en',))
@@ -146,21 +158,95 @@ def test_original_bootstrap_is_a_bounded_download_stage_and_never_ready(tmp_path
     assert audio.revision == following.revision and audio.handle['request'] != following.handle['request']
 
 
-def test_missing_native_runtime_invalid_mode_and_cancel_do_not_open_body_connections(tmp_path, monkeypatch):
+def test_invalid_mode_and_cancel_do_not_open_body_connections(tmp_path):
     objects, _, _, _ = publisher('global')
     calls = []; reader = provider(objects, calls)
     request = GameDataRequest('global', 'en')
-    monkeypatch.setattr(game, '_runtime', lambda: False)
-    plan = reader.plan(request, Context(tmp_path, request))
-    assert not plan.runtime_available and plan.download_bytes > 0
-    before = len(calls)
-    with pytest.raises(GameDataError): reader.download(plan, Context(tmp_path, request, 'download', plan.download_bytes))
-    assert len(calls) == before
     cancelled = Context(tmp_path, request); cancelled.stopped = True
     with pytest.raises(GameDataError): reader.plan(request, cancelled)
     with pytest.raises(GameDataError):
         reader.plan(GameDataRequest('global', 'fr', content_mode='text-audio'), Context(tmp_path, request))
-    assert len(calls) == before
+    assert not calls
+
+
+def test_android_current_update_metadata_uses_the_attested_gateway_without_desktop_crypto(tmp_path, monkeypatch):
+    from Crypto.Cipher import PKCS1_v1_5
+    from backend.publisher_crypto import SOURCE_SHA256, MAX_BYTES
+    from backend.xxhash64 import xxhash64
+
+    objects, _, _, key = publisher('global')
+    calls = []
+    reader = provider(objects, calls)
+    request = GameDataRequest('global', 'ja', ('en',))
+    initial = reader.plan(request, Context(tmp_path, request))
+    stage = reader.download(initial, Context(tmp_path, request, 'download', initial.download_bytes))
+    retained = (tmp_path / 'download' / 'bootstrap-source.json').read_bytes()
+
+    dispatch = 'https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch?version=OSPRODWin3.3.0&channel_id=1'
+    gateway = 'https://prod-gf-eu.zenlesszonezero.com/query_gateway'
+    objects[dispatch] = json.dumps({'retcode': 0, 'region_list': [
+        {'retcode': 0, 'name': 'prod_gf_eu', 'is_recommend': True, 'dispatch_url': gateway}
+    ]}).encode()
+    gateway += '?version=OSPRODWin3.3.0&seed=' + 'a' * 16 + '&channel_id=1&rsa_ver=1'
+    base = b'933_abcdef'
+    index_names = {'design_data': ('data_version',), 'game_res': ('res_version', 'audio_version', 'base_revision'),
+                   'silence_data': ('silence_version',)}
+    updates = {}
+    for name, revision in [('design_data', 'data_revision'), ('game_res', 'res_revision'), ('silence_data', 'silence_revision')]:
+        path = 'game_res' if name == 'game_res' else 'design_data'
+        client = 'client_silence' if name == 'silence_data' else 'client'
+        prefix = f'https://autopatchos.zenlesszonezero.com/{path}/3.3_live/output_2000_abcdef/{client}/'
+        replies = [{'fileName': entry, 'fileSize': len(base), 'fileMD5': str(xxhash64(base))}
+                   for entry in index_names[name]]
+        updates[name] = {'base_url': prefix, revision: '2000', 'md5_files': json.dumps(replies)}
+        if name == 'game_res':
+            base_url = prefix + 'StandaloneWindows64/oversea/base_revision'
+    updates['game_res']['audio_revision'] = '2001'
+    payload = json.dumps({'retcode': 0, 'cdn_conf_ext': updates}).encode()
+    encrypt = PKCS1_v1_5.new(key.public_key())
+    decrypt = PKCS1_v1_5.new(key)
+    encrypted = b''.join(encrypt.encrypt(payload[i:i + 117]) for i in range(0, len(payload), 117))
+    objects[gateway] = json.dumps({'content': base64.b64encode(encrypted).decode('ascii'), 'sign': 'authored'}).encode()
+    objects[base_url] = base
+    blocks = []
+
+    class AndroidCrypto:
+        def proof(self):
+            return json.dumps({'schema': 'toolkit-publisher-crypto-v1', 'abi': 'arm64-v8a',
+                'source_sha256': SOURCE_SHA256, 'platform_primitives': 'JCA',
+                'apk_entry_verified': True, 'licenses_verified': True, 'system_fallback': False,
+                'original_client_execution': False, 'account_keys_reused': False, 'pointer_bits': 64,
+                'library_sha256': 'a'*64, 'manifest_sha256': 'b'*64, 'key_bytes': 32,
+                'nonce_bytes': 12, 'max_bytes': MAX_BYTES})
+
+        def rsaDecryptPkcs1(self, n, e, d, p, q, body):
+            assert tuple(int.from_bytes(value, 'big') for value in (n, e, d, p, q)) == (
+                key.n, key.e, key.d, *sorted((key.p, key.q)))
+            blocks.append(body)
+            return decrypt.decrypt(body, b'') or None
+
+    original_import = builtins.__import__
+    def portable_import(name, *args, **kwargs):
+        assert name.split('.')[0] not in {'Crypto', 'brotli'}
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda _: AndroidCrypto))
+    monkeypatch.setattr(builtins, '__import__', portable_import)
+    reader.native = SimpleNamespace(publisherCrypto=AndroidCrypto)
+    current = reader.plan(request, Context(tmp_path, request))
+    assert current.stage == 'catalogue-runtime' and not current.runtime_available
+    assert current.download_bytes is None and current.revision != initial.revision
+    assert current.handle['hotfix']['base_revision'] == base.decode()
+    assert current.handle['hotfix']['audio_revision'] == '2001'
+    assert b''.join(blocks) == encrypted
+    assert calls[-3:] == [('plan', url) for url in (dispatch, gateway, base_url)]
+    objects[base_url] = b'0' * len(base)
+    cached = tmp_path / 'cache' / 'zzz-content' / 'global' / 'files' / f'{xxhash64(base):016x}-{len(base)}'
+    cached.write_bytes(b'1' * len(base))
+    with pytest.raises(ValueError):
+        reader.plan(request, Context(tmp_path, request))
+    assert (tmp_path / 'download' / 'bootstrap-source.json').read_bytes() == retained
+    assert stage.restore_handle['revision'] == initial.revision
 
 
 def test_same_format_new_source_replans_and_failed_checksum_keeps_old_bootstrap(tmp_path):

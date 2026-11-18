@@ -2,6 +2,7 @@
 // metadata in the build checkout; preserve the immutable tagged source commit.
 import {readFileSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {profileForTag, releaseRecord} from './release-profile.mjs';
 // Preserve an already correct checkout, including Git's platform line endings.
 // Rewriting equivalent CRLF files as LF can leave the Windows index dirty even
 // though the release metadata did not change.
@@ -25,6 +26,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.env.GITHUB_REF
   writeMetadataIfChanged('package.json', JSON.stringify(pkg,null,2)+'\n');
   writeMetadataIfChanged('package-lock.json', JSON.stringify(lock,null,2)+'\n');
   writeMetadataIfChanged('VERSION', pkg.version+'\n');
-  writeMetadataIfChanged('release-version.json', JSON.stringify({version:pkg.version,releaseCommand:'npm run release -- --version '+pkg.version},null,2)+'\n');
+  let previous = {};
+  try {
+    previous = JSON.parse(readFileSync('release-version.json', 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const profile = profileForTag(process.env.GITHUB_REF, previous);
+  writeMetadataIfChanged('release-version.json', JSON.stringify(releaseRecord(pkg.version, profile), null, 2)+'\n');
   console.log('Prepared distribution version '+pkg.version+' from the immutable release tag.');
 }

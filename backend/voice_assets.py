@@ -8,93 +8,23 @@ from __future__ import annotations
 import json
 import hashlib
 import re
-import struct
 import subprocess
 import tempfile
 import threading
 from typing import Callable
-from dataclasses import dataclass
 from pathlib import Path
 
 from .runtime_writers import QuiesceableExecutor
 from .textmaps import normalize_english
 from .media_tools import ffmpeg_executable
 from .voice_decoder import VoiceDecoder
-
-
-def wwise_short_id(name: str) -> int:
-    value = 2166136261
-    for byte in name.lower().encode("utf-8"):
-        value = ((value * 16777619) & 0xffffffff) ^ byte
-    return value
-
-
-def voice_hash(path: str) -> int:
-    value = 0xCBF29CE484222325
-    for byte in path.lower().encode("utf-8"):
-        value = ((value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF) ^ byte
-    return value
+from .wwise_tables import VoiceEntry, external_table, read_external_table, voice_hash, wwise_short_id
 
 
 def voice_manifest_key(text_id: str, english: str | None = None) -> str:
     """Address gender-specific assets without changing the official TextMap ID."""
     normalized = normalize_english(english or "")
     return f"{text_id}\0{normalized}" if normalized else text_id
-
-
-@dataclass(frozen=True)
-class VoiceEntry:
-    package: Path
-    offset: int
-    size: int
-    file_id: int
-
-    def read(self) -> bytes:
-        with self.package.open("rb") as stream:
-            stream.seek(self.offset)
-            data = stream.read(self.size)
-        if len(data) != self.size or data[:4] != b"RIFF":
-            raise ValueError("Voice asset missing, changed, or not a RIFF WEM")
-        return data
-
-
-def read_external_table(package: Path) -> list[VoiceEntry]:
-    """Read the small PCK table, never the complete audio package."""
-    size = package.stat().st_size
-    with package.open("rb") as stream:
-        def read(offset, length):
-            stream.seek(offset)
-            return stream.read(length)
-        return external_table(package, size, read)
-
-
-def external_table(package, size, read):
-    header = read(0, 28)
-    if len(header) < 28 or header[:4] != b"AKPK":
-        raise ValueError("Not a Wwise PCK")
-    header_size, flag, languages, banks, sounds, externals = struct.unpack_from("<6I", header, 4)
-    if flag != 1 or not 16 <= header_size <= min(size, 32 * 1024 * 1024):
-        raise ValueError("Unsupported PCK header")
-    if languages + banks + sounds + 16 >= header_size:
-        return []
-    offset = 28 + languages + banks + sounds
-    if not 4 <= externals <= 32 * 1024 * 1024 or offset + externals > min(size, header_size + 8):
-        raise ValueError("Invalid external table bounds")
-    table = read(offset, externals)
-    if len(table) != externals:
-        raise ValueError("Truncated external table")
-    count = struct.unpack_from("<I", table)[0]
-    if count == 0:
-        return []
-    if externals != 4 + count * 24:
-        raise ValueError("Unsupported external entry layout")
-    entries = []
-    for file_id, block, length, position, _language in struct.iter_unpack("<Q4I", table[4:]):
-        position *= block or 1
-        if not 0 < length <= 64 * 1024 * 1024 or position < header_size or position + length > size:
-            raise ValueError("External voice outside package")
-        entries.append(VoiceEntry(package, position, length, file_id))
-    return entries
 
 
 def index_mandarin(game_data: Path) -> dict[int, VoiceEntry]:

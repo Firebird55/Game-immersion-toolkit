@@ -7,7 +7,7 @@ ancestry. Bus Stops need complete original routing; other controls stay unknown.
 import math
 import struct
 
-from .honkai_assets import BankSource
+from .wwise_tables import BankSource
 from .zzz_bus_routing import separate_stop_buses
 
 

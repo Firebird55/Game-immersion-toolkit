@@ -585,7 +585,8 @@ does not satisfy the owner's independent-device requirement.
 
 | Work | Current implementation | Android status |
 | --- | --- | --- |
-| Regional discovery and original ranges | `nte_release`, HTTPS manifests and bounded content-addressed reads | Python logic; direct Android execution not accepted yet |
+| Global launcher and resource inventory | `nte_release` verifies the branch, version and publisher-declared resource-list checksum | Android planning uses the packaged publisher AES-CBC capability after compatibility bootstrap. Authored closed-source host tests passed. Actual Android execution and publisher HTTPS remain unverified. |
+| Original ranges and mainland discovery | HTTPS manifests and bounded content-addressed reads | Global game-content ranges still require the portable archive and dialogue readers. Mainland preparation remains unavailable on Android. |
 | PAK/IoStore integrity and AES | `nte_publisher_pak`, `nte_publisher_iostore`, PyCryptodome | Selection/integrity logic is Python; Android crypto/runtime packaging remains required |
 | PAK/IoStore Oodle expansion | Context-owned Windows preparation selects the verified `NteReader` managed codec; the existing publisher route retains pinned Node/`ooz-wasm` | Managed hosting and device proof remain required; no Windows binary in Android |
 | Original PE/schema derivation | `nte_native_schema`, seeded/class/required validators; Python and `zstandard` | Data-only inspection; Android extension/runtime acceptance pending |

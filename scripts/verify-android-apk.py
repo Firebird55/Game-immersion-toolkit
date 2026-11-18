@@ -335,6 +335,23 @@ def verify_zstandard_package(archive, native_files, repository):
     return receipt
 
 
+def verify_zzz_catalogue_component(archive, repository):
+    spec = importlib.util.spec_from_file_location('apk_zzz_catalogue', repository / 'scripts/android-zzz-catalogue-assets.py')
+    catalogue = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(catalogue)
+    proof = catalogue.verify_apk(archive, repository)
+    fixture = 'assets/zzz-catalogue-authored.json'
+    if proof['present']:
+        expected = (repository / 'packaging/android/zzz-catalogue/authored-operation.json').read_bytes().replace(b'\r\n', b'\n')
+        raw = catalogue.zip_member(archive, fixture, 4096)
+        if raw != expected:
+            raise ValueError('The authored ZZZ catalogue fixture differs from its maintained input')
+        proof['authored_fixture_sha256'] = hashlib.sha256(raw).hexdigest()
+    elif fixture in archive.namelist():
+        raise ValueError('The authored ZZZ catalogue fixture has no verified runtime')
+    return proof
+
+
 def verify(path):
     result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
@@ -366,6 +383,7 @@ def verify(path):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
+        zzz_catalogue = verify_zzz_catalogue_component(archive, repository)
         decoder = verify_decoder(archive, result, repository)
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
@@ -401,8 +419,10 @@ def verify(path):
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'native_software_inventory':{key:value for key,value in inventory.items() if key!='files'},
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
+        'frontend': {'source_commit': frontend['source_commit'], 'version': frontend['version']},
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'native_publisher_hash':hashing,
+        'zzz_catalogue_component': zzz_catalogue,
         'genshin_profile_component':genshin_profile,
         'publisher_source_policy': publishers,
         'wuwa_authored_fixture':wuwa_fixture,

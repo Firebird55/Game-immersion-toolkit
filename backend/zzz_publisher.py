@@ -1,5 +1,4 @@
 """Prepare authored ZZZ dialogue from one released Global launcher build."""
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import hashlib
@@ -7,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import re
-import struct
 import subprocess
 import time
 from tempfile import TemporaryDirectory
@@ -19,27 +17,13 @@ from .prebuilt_node_reader import require_zzz_reader
 from .publisher_regions import REGIONS, selected_region
 from .runtime_bundle import discover_layout
 from .runtime_paths import voice_work_root
-from .voice_assets import voice_hash
-from .zzz_assets import TEXT_LOCALES
+from .zzz_source_bindings import VOICE_DIRECTORIES, _short_id, original_bindings, source_paths, voice_directory
+from .zzz_dialogue_records import SCOPE, TEXT_LOCALES, _omit_requested_audio
+from .zzz_scene_sources import stage_scenes
 from . import zzz_publisher_cinematics as cinema
 
 CHANNELS = {'global': 'zzz-global', 'cn': 'zzz-cn'}
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
-SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
-         'Selected original updater inventories include in-version text, scene and voice changes. Other presentations remain partially covered.')
-
-# A source name and its Wwise directory do not always use the same family.
-# Only an exact file ID in the selected publisher pack establishes a binding.
-VOICE_DIRECTORIES = {
-    'galgame': ('VO_GalGame',), 'ongoing': ('VO_Ongoing',), 'ongoinglevel': ('VO_Ongoing',),
-    'ongoingmaincity': ('VO_Ongoing',), 'ongoingmaincitypartner': ('VO_Ongoing',), 'ongoingantique': ('VO_Ongoing',),
-    'level': ('VO_Level', 'VO_Accompany'), 'accompany': ('VO_Accompany',),
-    'chessboard': ('VO_Chessboard',), 'tips': ('VO_Tips',), 'maincity': ('VO_MainCity', 'VO_Chat'),
-    'chat': ('VO_Chat',), 'chatplus': ('VO_ChatPlus',), 'chatplustimeline': ('VO_Timeline', 'VO_ChatPlus'),
-    'timeline': ('VO_Timeline', 'VO_TL'), 'cinema': ('VO_Cinema',), 'ongoingcinema': ('VO_Cinema',),
-}
-
-
 @lru_cache(maxsize=2)
 def _poll(region, _period):
     return voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNELS[region])))[0]
@@ -47,67 +31,6 @@ def _poll(region, _period):
 
 def fingerprint(region='global'):
     return _poll(region, int(time.monotonic() // 30))
-
-
-def stage_scenes(work, cache, files, ranges, *, extension='scenes'):
-    grouped = defaultdict(list)
-    for row in ranges:
-        name = row['block']
-        if not re.fullmatch(r'Blocks/\d+\.blk', name):
-            raise ValueError('Invalid scene block identity.')
-        grouped[name].append((row['offset'], row['size']))
-
-    def stage(item):
-        name, ranges = item
-        asset = files[BASE + name]
-
-        @lru_cache(maxsize=3)
-        def chunk(position, length):
-            return asset.read(cache, position, length)
-
-        out = work / (name.split('/')[-1] + '.' + extension)
-        with out.open('xb') as handle:
-            for start, length in sorted(ranges):
-                if not 0 < length <= 64 * 1024**2 or not 0 <= start <= asset.size - length:
-                    raise ValueError('Scene exceeds its released package.')
-                end = start + length
-                handle.write(struct.pack('<I', length))
-                begin = handle.tell()
-                for offset, size, *_ in asset.chunks:
-                    if offset >= end:
-                        break
-                    if offset + size > start:
-                        handle.write(chunk(offset, size)[max(0, start - offset):min(size, end - offset)])
-                if handle.tell() - begin != length:
-                    raise ValueError('Incomplete staged scene.')
-        return out.name
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        return list(pool.map(stage, sorted(grouped.items())))
-
-
-def source_paths(source, version):
-    if not re.fullmatch(r'[A-Za-z0-9_./-]+', source) or '..' in source:
-        return set()
-    if '/' in source:
-        return {source}
-    name = source.lower()
-    directories = VOICE_DIRECTORIES.get(name.split('_', 1)[0], ())
-    if name.startswith('vo_csr_timeline_'):
-        directories = ('VO_TL',)
-    elif name.startswith('activity_maincity_fishing_'):
-        directories = ('VO_Maincity_NPC',)
-    if not directories:
-        return set()
-    # Index membership decides among candidates, including unversioned launch files.
-    major, minor, _ = map(int, version.split('.'))
-    versions = [f'Ver{i}_{j}/' for i in range(1, major + 1)
-                for j in range(1 + minor if i == major else 10)]
-    speakers = {}
-    for token in source.split('_')[1:]:
-        if re.fullmatch(r'[A-Za-z0-9]+', token) and re.search('[A-Za-z]', token):
-            speakers.setdefault(token.lower(), token)
-    return {f'{family}/{v}VO_{s}/{source}' for family in directories for v in ['', *versions] for s in speakers.values()}
 
 
 def _stage_metadata(build, cache, work):
@@ -221,117 +144,6 @@ def _read_catalogue(build, data_dir, locales, namespace, progress, *, include_au
                 {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in locales},
                 coverage, json.loads((work / 'voice-directory.json').read_bytes()),
                 cinema.audio_registry((work / 'audio-resource.flex').read_bytes()) if include_audio else {})
-
-
-def _short_id(name):
-    value = 2166136261
-    for byte in name.lower().encode('utf-8'):
-        value = ((value * 16777619) & 0xffffffff) ^ byte
-    return value
-
-
-def voice_directory(directory):
-    if not directory:
-        return {}
-    # Each block starts with the 32-bit hash of a directory, followed by
-    # source-name hashes, and ends with zero. A directory can designate either
-    # an actor's exact folder or a parent containing multiple actors.
-    descendants = defaultdict(set)
-    for prefix in directory['prefixes']:
-        if (not isinstance(prefix, str) or len(prefix) > 240 or not prefix.endswith('/') or
-                any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. '-]*", part) or '..' in part
-                    for part in prefix[:-1].split('/'))):
-            raise ValueError('Invalid released ZZZ voice directory path.')
-        for match in re.finditer('/', prefix):
-            parent = prefix[:match.end()]
-            descendants[_short_id(parent)].add(prefix)
-    groups = {key: tuple(sorted(paths)) for key, paths in descendants.items()}
-    sources = defaultdict(set)
-    group = None
-    for value in directory['blocks']:
-        if type(value) is not int or not 0 <= value <= 0xffffffff:
-            raise ValueError('Invalid released ZZZ voice directory ID.')
-        if group is None:
-            if value not in groups:
-                raise ValueError('Unknown group in the released ZZZ voice directory.')
-            group = value
-        elif value == 0:
-            group = None
-        else:
-            sources[value].add(group)
-    if group is not None:
-        raise ValueError('Truncated released ZZZ voice directory.')
-    return {key: tuple(groups[group] for group in ids) for key, ids in sources.items()}
-
-
-def _directory_paths(source, directory):
-    # Film soundtracks, effects and reaction pools cannot establish a separate
-    # sentence take, even when the audio file itself exists.
-    if (not re.fullmatch(r'[A-Za-z0-9_-]+', source) or
-            re.search(r'(?:^|_)(?:(?:cinema)?breath\d*|sfx)(?:_|$)', source, re.I)):
-        return set()
-    return {prefix + source for folders in directory for prefix in folders
-            if not re.search(r'(?:^|/)(?:VO_Breath|VO_Bubble|VO_Effect|Film|SFX_[^/]+|VO_Clue)/', prefix, re.I)}
-
-
-def original_bindings(links, entries, dub, version, directory=None):
-    namespace = voice_namespace('zzz', dub)
-    candidates = defaultdict(set)
-    for link in links:
-        candidates[link['text_id']].add(link['source'])
-    result = {}
-    by_source = {}
-    for identity, sources in candidates.items():
-        # The prologue references the same take both as a bare name and as an
-        # explicit directory/name. Every spelling must independently resolve to
-        # one and the same file in this dub; a missing take is not an alias.
-        if len({source.rsplit('/', 1)[-1].lower() for source in sources}) != 1:
-            continue
-        resolved = []
-        for source in sorted(sources):
-            if source not in by_source:
-                groups = directory.get(_short_id(source)) if directory and '/' not in source else None
-                paths = _directory_paths(source, groups) if groups is not None else source_paths(source, version)
-                matches = []
-                for path in paths:
-                    full = f'{namespace}/ex/{path}.wem'
-                    file_id = voice_hash(full)
-                    if file_id in entries:
-                        matches.append({**entries[file_id], 'source': full, 'file_id': f'{file_id:016x}', 'locale': dub})
-                by_source[source] = matches[0] if len(matches) == 1 else None
-            if by_source[source]:
-                resolved.append(by_source[source])
-        if len(resolved) == len(sources) and len({item['file_id'] for item in resolved}) == 1:
-            result[identity] = resolved[0]
-    return result
-
-
-def _omit_requested_audio(rows, links, expanded, stamp, dub):
-    """Keep original authored evidence without making it a playable binding.
-
-    A source/event reference alone does not establish that its selected-dub
-    recording exists. In particular it must not promote unavailable to voiced.
-    The ordinary caption matcher still applies duplicate/player/context guards.
-    """
-    sources, events = defaultdict(set), defaultdict(set)
-    for link in expanded:
-        sources[link['text_id']].add(link['source'])
-    for link in links:
-        if link.get('cinematic_event'):
-            events[link['text_id']].add(link['cinematic_event'])
-    for row in rows:
-        identity = row['text_id']
-        original = (row.get('member_text_ids') or [identity])[0]
-        binding = {'publisher': stamp, 'locale': dub,
-                   'sources': sorted(sources.get(identity, sources.get(original, ()))),
-                   'cinematic_events': sorted(events.get(original, ())),
-                   'voice_status': row['voice_status']}
-        row.update(audio=None, source_voice_binding=binding if binding['sources'] or binding['cinematic_events'] else None,
-                   audio_omitted_by_request=row['voice_status'] != 'unvoiced',
-                   text_capture_verified=True)
-        if binding['cinematic_events']:
-            row['audio_scope'] = 'context'
-    return rows
 
 
 def build_language(data_dir, source_locale, target_locales, progress, *, content_mode='text-audio'):

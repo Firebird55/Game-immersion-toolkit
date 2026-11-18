@@ -5,7 +5,7 @@ have separate namespaces; this reader never treats these objects as voices.
 """
 import struct
 
-from .nte_assets import wwise_hash
+from .wwise_tables import wwise_short_id as wwise_hash
 
 
 INITIAL_BANK_FILENAME = 'Init.bnk'

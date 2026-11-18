@@ -12,6 +12,56 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The original bootstrap path now reads the publisher's manifest, typed
+TextAssets and native key data without importing PyCryptodome or Brotli.
+It validates the bounded private-number structure in memory and records only
+source provenance. The desktop gateway still validates the key with its RSA
+backend before attempting a response decode. Both edition fixtures exercise
+the ordinary size quote, consented download and subsequent catalogue gate
+with desktop cryptography and compression imports denied. This removes a
+bootstrap dependency from the source path. The reviewed APK policy now
+registers both editions with the existing Zstandard runtime. The closed
+namespace test checks the production registry and shared service with authored
+responses. Gateway execution, the full catalogue reader and actual APK runtime
+acceptance remain separate requirements.
+
+The updated provider also reproduced the official bootstrap provenance from
+the retained Global 3.3.0 originals. The replay verified the publisher MD5
+and before/after SHA-256 of all 22 source objects (38,777,589 bytes).
+The same Unity object and native initializer receipts matched the previous
+Global run. The replay blocked network, PyCryptodome and Brotli, and passed on
+the host with no writes to original files. This is retained original-source
+evidence for the bootstrap reader. Live discovery and playback still require
+their existing acceptance checks.
+
+The Android source path can now use the app's attested publisher RSA primitive
+for the original gateway response. Normal planning resolves the update roots
+and index specifications and checks the original base revision against the
+publisher's XXH64 before reporting the current source generation. All requests
+use the existing bounded preparation transport. A missing gateway capability
+leaves the earlier bootstrap state visible. No catalogue sizes are inferred
+from this metadata, and the plan still requires the Android catalogue reader.
+
+A host test runs the actual provider with the Android cryptography adapter
+calling an authored Java-side stand-in. It supplies a complete multi-block
+envelope, observes each admitted block and rejects a changed base revision
+without replacing the earlier bootstrap receipt. APK runtime and live Android
+gateway acceptance are still pending.
+
+A separate retained Global gateway response of 10,957 bytes passed the
+original capture hash, then produced the same complete decoded response
+through both the desktop gateway and the new explicit crypto interface with
+the locked desktop implementation. The selected original key candidate, three
+update roots and five index roles matched. All inputs were retained on the
+host and the replay used zero network.
+
+The portable catalogue operation also reproduced one real Global 3.3.0
+presentation stage offline. Frozen reader 24 and the portable operation
+produced identical 2,773-byte output from the authenticated catalogue and root
+range. Its 42 timeline configs, one video config and 43 ranges matched the
+ordinary stage receipt. Full Global catalogue and Android runtime validation
+are separate.
+
 The later PC provider now continues through five explicit source stages to a
 ready **text-only** library when its verified compiler-free Node reader is
 available. A current Global Japanese run retained 289,967 original records and
@@ -42,6 +92,93 @@ pointers before final publication and restores accepted text without network or
 reader execution. The Node command is an explicitly prepared immutable toolkit
 artifact; runtime compilation, system Node and client-code execution are absent.
 That desktop closure does not provide an Android reader/codec bridge.
+
+## Android catalogue execution
+
+The optional Android catalogue worker executes the same five staged JS
+operations as the Windows reader. The app's `FrameOcr` owns the Java
+`ZzzCatalogueWorker` and its dedicated WebView. The scoped Python host,
+`backend/android_zzz_catalogue.py`, accepts verified local input receipts
+from a preparation context. It passes only selected stage leaves over a
+private message port and returns completed files in a private staging
+directory for the provider to validate. The worker has no viewer bridges,
+account access, filesystem or network capability. Native code cancels the
+port and destroys the WebView when the context stops, the renderer exits or
+the 180-second stage deadline expires. Failure removes pending files and
+preserves the previous accepted library.
+
+The Android host serves the verified document from memory on the exact
+private main-frame HTTPS GET and keeps WebView network loads disabled.
+The committed document and the tested browser route share the same origin
+and CSP. Hosted self-test failure details include the last worker phase and,
+when available, the authored checkpoint and its bounded result code. Raw
+exception messages and stage data stay outside that receipt.
+
+The runtime checks the software manifest pin
+`e2c8551d8841c7447689b356d09d77e6c72651d94b9bc9bf245634b3362bc24b`,
+then verifies every runtime member before executing it. Its selected operations
+use the confined Node-compatible byte methods, fatal UTF-8, XXH64,
+WebCrypto AES and SHA-256, bounded gzip, and the existing pinned Oodle
+WASM. It admits up to 512 named input leaves per operation, 128 MiB per file,
+256 MiB of total output and 16 MiB of stored or expanded Oodle data per
+block. The port transfers at most 24 KiB of data at a time and the worker
+rechecks each input digest. Text mode omits the original voice-directory and
+audio registry reads. Text + audio emits their catalogue products and film
+occurrence digests for subsequent original-recording stages.
+
+Generate the optional software asset directory with
+`node scripts/stage-android-zzz-catalogue.mjs <retained-reader-software> <fresh-asset-directory>`.
+Its 13 modules, host, worker and manifest total 249,355 bytes. The separate
+`sources/` inventory totals 34,202,547 bytes across 20 files and includes the exact Oodle
+and Emscripten sources and notices, the MIT reader and xxHash sources and
+notices, and the build and adaptation recipes. The staged software includes
+no game payloads.
+
+The Android build accepts that directory through
+`build-android-app.ps1 -ZzzCatalogueAssets <staged-software>`. The assembly
+checks it against the reviewed manifest and current maintained JS sources
+and recipes before copying 16 runtime files and the full corresponding-source
+bundle into `assets/zzz-catalogue/`. The APK auditor requires exactly those
+17 files and verifies every byte receipt, including the 20 files inside
+`sources.bundle`. That opaque archive preserves the original compressed
+source bytes through AAPT. The Android candidate provenance records the two
+software digests. Without the optional assets the native capability reports
+unavailable.
+
+The hosted Android candidate job restores a cache keyed by the exact
+manifest policy. On a miss it uses the existing pinned desktop Node,
+Emscripten, Oodle and reader build recipes on Linux. The same complete
+verification runs on both paths before the software-only artifact can pass
+to the Windows APK job. Gradle and the APK auditor verify it again. The
+runtime requires Android WebView WASM SIMD and gzip decompression support.
+
+The authored parity test uses the shared operation graph and compares all
+outputs byte-for-byte with the Windows CLI for the five stages in both
+catalogue modes. It supplies authored CAB data at the MHY reader boundary.
+The separate authored comic-plan fixture contains a 577-byte encrypted
+MHY frame with a synthetic Unity bundle and a 45-byte gzip resource catalog.
+Offline Chromium executes the real pinned worker and obtains the expected
+single range and output SHA-256. It also checks malformed MHY input, a wrong
+digest for the valid frame, changed software and cancellation on the message
+port. The native host tests check scope, bounded handoffs and retained-library
+behavior. Java compilation checks the port API. The retained exact software
+passed the asset assembler and APK component auditor after a local AAPT2
+package, including corresponding-source checks.
+
+The installed DEBUG self-test uses the same authored fixture and invokes
+the normal private Python and Java worker entry points. It verifies the
+expected plan bytes, rejects a wrong input digest and confirms that
+previously retained data survives the failure. The hosted API 34 and 36
+runtime checks require matching fixture/software receipts before and after
+the APK update. A build without the optional runtime reports unverified.
+The installed target results are pending, and the fixture does not represent
+an original release or establish game-library readiness.
+The Android provider still stops before these catalogue operations. It
+needs a context-bound original gateway/transfer stage, verified catalogue
+selection receipts, and the separate selected-dub index, bank and playback
+pipeline before it can publish a complete library.
+
+## Original bootstrap stage
 
 The new `zzz_game_data.create_provider(platform=..., native=...)` implements
 the shared protocol's **official bootstrap stage**. Its HoYoPlay discovery,
@@ -112,7 +249,7 @@ Android runtime, the shared provider adapter, or a complete selected-audio plan.
 | --- | --- | --- |
 | Official release, dispatch and inventories | `sophon_assets.release`, `zzz_hotfix.discover`, `hoyo_dispatch_metadata.load` | Package this provider closure and its TLS/decompression/crypto dependencies. Keep Global/CN source partitions, immutable initial provenance and final generation checks. |
 | Original bootstrap TextAssets | `hoyo_bootstrap_assets.object_ranges` / `text_assets`, `hoyo_zzz_bootstrap.renew` | The metadata-only reader is standard Python. Its availability in a desktop checkout does not establish APK inclusion or an Android source run. |
-| Unity/BLB dialogue, catalogs, comics and film tracks | `zzz_publisher._read_catalogue`, `prebuilt_node_reader.production_zzz_reader`, `ZzzReader.publisher_command` | Supply an explicit Android runtime for the frozen reader protocol, or a format-equivalent owned adapter. The current Node subprocess/`node:fs` protocol is not a WebView or Python module. |
+| Unity/BLB dialogue, catalogs, comics and film tracks | `zzz_pc_stages._execute`, `ZzzReader.publisher_command`, `runPublisherOperation` in [the owned catalogue reader](../../scripts/zzz-publisher-dialogue.mjs) | Supply an executor for the owned operation and its explicit byte, codec and reader capabilities. The desktop provider currently launches the Node CLI. |
 | Block decompression and hashing | Frozen `galgame-perform` reader, source-built `ooz` WASM and `xxhash-wasm` | Bind the actual Android executor, WASM/native dependencies, notices, preferred source and build provenance. Desktop manifests do not authorize an Android build. |
 | PCK/Wwise/event/bus/media ownership | `honkai_assets`, `zzz_publisher_cinematics`, `zzz_voice_layers`, `zzz_bus_routing` | Much is standard Python plus locked FlexBuffers. Package the import closure without accidentally invoking another game's installer. Preserve source kind, bank/language, full-media, player and bus guards. |
 | Original WEM decoding and MP3 output | `VoiceAssets.extract` / `extract_batch`, `media_tools`, `native_codecs` | Replace the present vgmstream-to-WAV-to-FFmpeg subprocess adapter with the verified Android codec service. Verify original WEM/whole-context decoding and MP3 output on the actual ABI. Existing prepared playback is a separate capability. |
@@ -127,6 +264,34 @@ not native ABI evidence. `node_tools.ARCHIVES` and the codec host resolvers have
 desktop targets, with no accepted Android resource contract. A Linux ARM64
 selection must not be reported as Android/Bionic support.
 
+The catalogue operation accepts parsed stage inputs, synchronous reads of
+staged leaf files, bounded byte writes and bounded gzip decoding. The existing
+Node CLI supplies these capabilities for all five original-source stages.
+Text only retains authored voice references but omits registry bytes and
+cinema occurrence hashing. Text + audio supplies SHA-256 for the serialized
+timeline identity and retains the same output file contract. The Android host
+still needs the reader's Buffer API and fatal UTF-8 decoding, seed-zero XXH64,
+MHY1 descrambling with AES-128-ECB encryption, and the pinned ooz Kraken decoder
+over WebAssembly or a verified native bridge built from the same preferred
+source. The module also uses ES modules and BigInt. An executor must verify
+software identity and the Android ABI, keep stage files private, and bind its
+operations to cancellation and the provider's source receipts.
+
+An authored staged fixture checks byte-identical CLI and isolated operation
+outputs, including selected asset ranges, an overwrite TextMap and a complete
+cinema occurrence. It denies external file, process and network capabilities
+inside the operation module graph and supplies a synthetic MHY1 adapter.
+Android decoding, memory limits and current original preparation require
+separate evidence under the new frozen reader identity.
+
+The shared text preparation composes authored caption grouping, translation
+selection, retained voice evidence and the atomic snapshot writer without
+importing desktop game tools. A closed-package host test writes an authored
+Japanese text-only snapshot with networking disabled and the original voice
+reference retained. This checks the Python import and publication path.
+Executing the publisher operation and decoding original audio on Android
+still require the packaged application reader and target acceptance.
+
 The official Windows data route can remain a data source on Android: its
 `StandaloneWindows64` inventory and Wwise packages describe data, and no game
 code needs to execute. Changing these paths to guessed Android equivalents
@@ -140,6 +305,14 @@ and the preparation path builds complete record lists/JSON. One retained real
 Japanese prepared payload is approximately 254 MB of generated JSON. That is
 neither a download estimate nor Android peak-memory evidence. A mobile adapter
 needs bounded staging, record publication and measured memory acceptance.
+
+The validated snapshot writer emits the existing UTF-8 JSON in writes of
+at most 64 KiB. The ZZZ preparation stages check cancellation during
+validation and publication.
+It replaces the target only after the private temporary file is complete.
+The ZZZ text stage hashes the saved file through a stream. Serialization
+still holds the current escaped JSON token and the prepared records.
+Catalogue assembly and matcher restoration still need peak-memory measurements.
 
 ## Manifest-driven preflight contract
 
@@ -201,10 +374,19 @@ state; no full-download button should advertise an invented amount.
 
 ## Required acceptance before reporting Android readiness
 
+The Android provider selects the shared text stages when the original gateway
+cryptography and installed catalogue worker both verify. Each source leaf in
+the worker transaction is bound to a digest, and a text-only result still
+requires the final current publisher check before activation. A finished
+text-only snapshot can reopen offline. Text + audio remains gated on the
+Android original-audio decoder. The APK and real source preparation need
+device evidence separately.
+
 Run the real publisher provider on Android with an empty app cache, no desktop
 import, no game installation and community requests blocked after immutable
-initial input. Exercise both editions, all four spoken dubs and Chinese script
-selection, ordinary and supported film recordings, and cold codec output. Then
+initial input. Exercise the Global edition's four official spoken dubs and
+both Chinese text scripts, ordinary and supported film recordings, and cold
+codec output. Then
 prove an upstream-only generation change, interrupted transfer/publication,
 retained old/new history after app restart, selected-game deletion and accurate
 planned/actual byte accounting. Existing desktop source controls and prepared

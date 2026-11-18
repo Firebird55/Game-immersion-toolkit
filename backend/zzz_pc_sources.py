@@ -181,7 +181,7 @@ class Sources:
         return OriginalFile(original.name, original.size, original.digest, original.url)
 
 
-def discover(ctx, build, bootstrap_cache, *, transport_factory=PublisherTransport):
+def discover(ctx, build, bootstrap_cache, *, transport_factory=PublisherTransport, crypto=None):
     """Current official discovery with caller-owned byte/host/cancellation gates."""
     config = bootstrap.official(build, ctx.request.region, bootstrap_cache,
         fetch=lambda *a, **k: (_ for _ in ()).throw(GameDataError('zzz_bootstrap_changed', 'Check the original ZZZ bootstrap source again.', 409)))
@@ -197,7 +197,7 @@ def discover(ctx, build, bootstrap_cache, *, transport_factory=PublisherTranspor
         except GameDataError as error:
             if error.code == 'metadata_download_interrupted':raise URLError('Official ZZZ endpoint unavailable') from error
             raise
-    reply, proof = hotfix._negotiate(values, build, request=request)
+    reply, proof = hotfix._negotiate(values, build, request=request, crypto=crypto, cancelled=ctx.check)
     current = hotfix.configuration(build, reply, proof)
     sources = Sources(ctx, current, transport_factory=transport_factory)
     asset = sources.index_file('base')

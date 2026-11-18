@@ -6,10 +6,8 @@ import time
 import traceback
 from pathlib import Path
 
+from .language_snapshot import write_payload as write_snapshot
 from .game_assets import PUBLISHER_GAMES, asset_adapter
-from .local_game import LocalDialogue
-from .languages import audio_locale
-
 
 def progress_reporter(output):
     """Best-effort telemetry must never interrupt the actual language build."""
@@ -41,33 +39,10 @@ def build(game, install, directory, locale, targets, output, progress=None):
     write_payload(game, payload, locale, targets, output)
 
 
-def write_payload(game, payload, locale, targets, output):
-    """Validate and atomically publish the ordinary worker's exact UTF-8 payload."""
-    from .game_tools import _atomic_file
+def write_payload(game, payload, locale, targets, output, *, check=None):
     adapter, _ = asset_adapter(game)
-    if payload.get('format') != 2 or payload.get('game') != game or payload.get('source_locale') != locale or not payload.get('records'):
-        raise ValueError('Incomplete official language snapshot')
-    if game == 'genshin' and 'source_receipt' in payload:
-        from .genshin_source_receipt import validate
-        validate(payload['source_receipt'], publisher=payload.get('fingerprint'), region=payload.get('publisher_region'),
-                 metadata_revision=payload.get('metadata_revision'))
-    counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
-    categories = {}
-    for record in payload['records']:
-        source = record.get('source_text')
-        if (record.get('source_locale') != locale or not isinstance(source, str) or not source.strip()
-                or not isinstance(record.get('texts'), dict) or record['texts'].get(locale) != source
-                or record.get('audio_locale') != audio_locale(locale, game)):
-            raise ValueError('Incomplete game study text or mismatched language in prepared snapshot')
-        validated = LocalDialogue(**record)
-        record['voice_status'] = validated.voice_status
-        counts[validated.voice_status] += 1
-        category = categories.setdefault(validated.dialogue_kind or 'uncategorized', dict.fromkeys(counts, 0))
-        category[validated.voice_status] += 1
-    payload['dialogue_inventory'] = {'voice_counts': counts, 'categories': categories}
-    payload['reader_revision'] = adapter.LANGUAGE_INDEX_VERSION
-    payload['targets_requested'] = sorted(targets)
-    _atomic_file(output, json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+    write_snapshot(game, payload, locale, targets, output,
+                   reader_revision=adapter.LANGUAGE_INDEX_VERSION, check=check)
 
 
 if __name__ == '__main__':

@@ -22,7 +22,7 @@ def test_interrupted_staging_or_publication_preserves_the_old_source(tmp_path, m
     target = tmp_path / 'source'
     target.write_bytes(b'old complete source')
     if phase == 'replace':
-        def failed(*args): raise OSError('Authored publication failure')
+        def failed(*args, **kwargs): raise OSError('Authored publication failure')
         monkeypatch.setattr(atomic_files, 'replace', failed)
     else:
         original = Path.write_bytes

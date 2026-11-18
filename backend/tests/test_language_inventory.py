@@ -138,7 +138,7 @@ def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path
 
 def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp_path, monkeypatch):
     from types import SimpleNamespace
-    from backend import language_worker
+    from backend import atomic_files, language_worker
     output = tmp_path / 'snapshot.json'
     progress = output.with_name('progress.json')
     progress.write_text('{"message":"Previous status"}', encoding='utf-8')
@@ -175,11 +175,12 @@ def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp
     report('Validating language table')
     assert json.loads(progress.read_text(encoding='utf-8'))['message'] == 'Validating language table'
     before = output.read_bytes()
-    def denied_snapshot(path, target):
+    publish = atomic_files.os.replace
+    def denied_snapshot(path, target, **kwargs):
         if Path(target) == output:
             raise PermissionError('Synthetic snapshot failure')
-        return locked_replace(path, target)
-    monkeypatch.setattr(Path, 'replace', denied_snapshot)
+        return publish(path, target, **kwargs)
+    monkeypatch.setattr(atomic_files.os, 'replace', denied_snapshot)
     with pytest.raises(PermissionError, match='snapshot failure'):
         language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output, report)
     assert output.read_bytes() == before

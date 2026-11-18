@@ -2,6 +2,7 @@
 from importlib.util import module_from_spec, spec_from_file_location
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -86,4 +87,75 @@ def test_source_commit_and_unchecked_source_files_are_also_rejected(tmp_path):
     (source / 'private.txt').write_text('never publish')
     with pytest.raises(ValueError, match='unchecked'):
         assembly.assemble(source, native, output, COMMIT, VERSION)
+    assert not output.exists()
+
+
+@pytest.fixture
+def android_release(tmp_path, monkeypatch):
+    root = tmp_path / 'android'
+    root.mkdir()
+    apk = root / 'GameImmersionToolkit-android-release.apk'
+    apk.write_bytes(b'authored signed APK fixture')
+    apk_hash = assembly.digest(apk)
+    certificate = 'd' * 64
+    provenance = dict(schema='toolkit-android-candidate-v1', variant='release', source_commit=COMMIT,
+        source_dirty=False, version_name=VERSION, apk_sha256=apk_hash, version_code=123,
+        application_id=assembly.ANDROID_APPLICATION, signing_certificate_sha256=certificate,
+        signing='owner-host-protected-reusable-identity')
+    evidence = dict(schema='toolkit-android-physical-release-v1', source_commit=COMMIT,
+        installed_apk_sha256=apk_hash, abi='arm64-v8a', api=36,
+        checks=dict.fromkeys(assembly.ANDROID_ACCEPTANCE, True))
+    (root / 'ANDROID-PROVENANCE.json').write_text(json.dumps(provenance))
+    (root / 'ANDROID-ACCEPTANCE.json').write_text(json.dumps(evidence))
+    sdk = ('java', 'apksigner.jar', 'aapt2')
+    signature = 'Signer #1 certificate SHA-256 digest: ' + certificate + '\n'
+    badging = f"package: name='{assembly.ANDROID_APPLICATION}' versionCode='123' versionName='{VERSION}'\n"
+    responses = {
+        (sdk[0], '-jar', sdk[1], 'verify', '--print-certs', apk): signature,
+        (sdk[2], 'dump', 'badging', apk): badging,
+    }
+    monkeypatch.setattr(assembly.subprocess, 'run',
+        lambda command, **_: SimpleNamespace(stdout=responses[tuple(command)]))
+    return root, apk, certificate, sdk, provenance, evidence, responses
+
+
+def test_windows_android_publication_includes_only_selected_binary_targets(tmp_path, android_release):
+    source, native, output = releases(tmp_path)
+    root, apk, certificate, sdk, *_ = android_release
+    count = assembly.assemble(source, native, output, COMMIT, VERSION,
+        android=root, certificate=certificate, sdk_commands=sdk)
+    assets = assembly.checked_assets(output)
+    assert count == len(assets) == 8
+    assert sorted(p.name for p in output.glob('DESKTOP-PROVENANCE-*.json')) == ['DESKTOP-PROVENANCE-windows-x64.json']
+    assert not list(output.glob('*.dmg')) and not list(output.glob('*.tar.gz'))
+    receipt = json.loads((output / 'ANDROID-PROVENANCE.json').read_text())
+    assert receipt['release_eligible'] and receipt['physical_device_acceptance'] == 'approved'
+    assert receipt['tag'] == 'v' + VERSION and receipt['source_commit'] == COMMIT
+    assert receipt['apk']['sha256'] == assembly.digest(apk) == assets[receipt['apk']['path'].casefold()][2]
+    assert not (output / 'ANDROID-ACCEPTANCE.json').exists()
+
+
+@pytest.mark.parametrize('failure', ['debug-build', 'dirty-tree', 'wrong-tag', 'mutated-apk',
+    'other-installed-apk', 'failed-offline', 'emulator-abi', 'third-party-signer', 'debuggable-manifest'])
+def test_windows_android_publication_requires_exact_non_debug_accepted_apk(tmp_path, android_release, failure):
+    source, native, output = releases(tmp_path)
+    root, apk, certificate, sdk, provenance, evidence, responses = android_release
+    if failure == 'debug-build': provenance['variant'] = 'ownerCandidate'
+    if failure == 'dirty-tree': provenance['source_dirty'] = True
+    if failure == 'wrong-tag': provenance['version_name'] = '1.2.2'
+    if failure == 'mutated-apk': apk.write_bytes(b'changed')
+    if failure == 'other-installed-apk': evidence['installed_apk_sha256'] = 'b' * 64
+    if failure == 'failed-offline': evidence['checks']['offline_audio_restart'] = False
+    if failure == 'emulator-abi': evidence['abi'] = 'x86_64'
+    if failure == 'third-party-signer':
+        key = next(key for key in responses if key[0] == sdk[0])
+        responses[key] = 'Signer #1 certificate SHA-256 digest: ' + 'c' * 64 + '\n'
+    if failure == 'debuggable-manifest':
+        key = next(key for key in responses if key[0] == sdk[2])
+        responses[key] += 'application-debuggable\n'
+    (root / 'ANDROID-PROVENANCE.json').write_text(json.dumps(provenance))
+    (root / 'ANDROID-ACCEPTANCE.json').write_text(json.dumps(evidence))
+    with pytest.raises(ValueError):
+        assembly.assemble(source, native, output, COMMIT, VERSION,
+            android=root, certificate=certificate, sdk_commands=sdk)
     assert not output.exists()

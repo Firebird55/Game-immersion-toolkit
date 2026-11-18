@@ -3,6 +3,7 @@ import {assertNativePublisherHash} from './android-publisher-hash-proof.mjs';
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
 import {assertNativeWuwaBootstrap} from './android-wuwa-bootstrap-proof.mjs';
+import {assertNativeZzzCatalogue} from './android-zzz-catalogue-proof.mjs';
 import {waitForOwnedOriginalAudio} from './android-original-audio-readiness.mjs';
 // Authored fixtures only. The APK runs the production shared Python core and UI.
 import assert from 'node:assert/strict';
@@ -118,7 +119,13 @@ assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(direct
 assertNativePublisherCrypto(core.native_publisher_crypto, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, provenance);
 assertNativePublisherHash(core.native_publisher_hash, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_hash, provenance);
 assertNativeWuwaBootstrap(core.native_wuwa_bootstrap, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_publisher_crypto.runtime);
+assertNativeZzzCatalogue(core.native_zzz_catalogue, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
+
+// Measure the normal reader in its own process after the heavy DEBUG native
+// self-test. Both processes still use the same installed APK and offline rules.
+adb('shell', 'am', 'force-stop', packageName);
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitInsetsEvidence', 'true');
 
 async function connectReader() {
   const pid = await until(() => adb('shell', 'pidof', packageName).split(/\s+/)[0], 'app process');
@@ -156,11 +163,13 @@ const normalStartup = await page.evaluate(async () => ({platform: await (await f
   snapshot: await (await fetch('/api/snapshot')).json(), accounts: await (await fetch('/api/lexirise/accounts')).json()}));
 assert.equal(normalStartup.platform.protected_accounts, true);
 assert.equal(normalStartup.platform.authored_account_fixture, false);
+assert.equal(normalStartup.platform.authored_game_data_fixture, false);
 assert.equal(normalStartup.snapshot.lexirise.configured, false);
 assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
 const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName,
+  nativeWindowEvidence: true,
   report:value=>writeFileSync(join(output,'android-insets-before-restore.json'),JSON.stringify({...value,
     source_commit:provenance.source_commit,apk_sha256:provenance.apk_sha256},null,2)+'\n')});
 writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
@@ -284,6 +293,7 @@ assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(joi
 assertNativePublisherCrypto(upgradedCore.native_publisher_crypto, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, update);
 assertNativePublisherHash(upgradedCore.native_publisher_hash, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_hash, update);
 assertNativeWuwaBootstrap(upgradedCore.native_wuwa_bootstrap, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update, upgradedCore.native_publisher_crypto.runtime);
+assertNativeZzzCatalogue(upgradedCore.native_zzz_catalogue, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);

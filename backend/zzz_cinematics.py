@@ -6,8 +6,7 @@ from pathlib import Path
 import re
 import struct
 
-from .honkai_assets import PackageEntry, bank_sources, package_tables, read_entry
-from .nte_assets import wwise_hash
+from .wwise_tables import PackageEntry, bank_sources, package_tables, read_entry, wwise_short_id as wwise_hash
 
 MANDARIN = 'chinese(prc)'
 

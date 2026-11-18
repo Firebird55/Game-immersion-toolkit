@@ -2,7 +2,9 @@
 // whole-film Wwise event. Follow actual TimelineAsset/track/clip PPtrs. Names
 // and positions in the object table never establish ownership or voice order.
 import {unityObjects} from './cinematic-links.mjs';
-import {createHash} from 'node:crypto';
+function nodeSha256(bytes) {
+  return globalThis.process.getBuiltinModule('node:crypto').createHash('sha256').update(bytes).digest('hex');
+}
 
 class Reader {
   constructor(bytes, position=0) { this.bytes=bytes; this.position=position; }
@@ -65,9 +67,9 @@ function track(object) {
   r.end(); return {parent,children,clips,language};
 }
 
-export function cinemaSubtitleTimeline(bytes) {
+export function cinemaSubtitleTimeline(bytes, {includeOccurrences=true, sha256=nodeSha256}={}) {
   const buffer=Buffer.from(bytes), objects=typedObjects(buffer), subtitles=[], events=[], failures=[], occurrences=[];
-  const resource=createHash('sha256').update(buffer).digest('hex');
+  const resource=includeOccurrences ? sha256(buffer) : null;
   const timelines=[...objects.values()].filter(o=>o.type==='TimelineAsset'&&o.namespace==='UnityEngine.Timeline');
   for(const timeline of timelines) {
     const r=new Reader(timeline.bytes,timeline.body);
@@ -119,7 +121,7 @@ export function cinemaSubtitleTimeline(bytes) {
         ...(alternate?{cinematic_alternates:[alternate]}:{})});
       // The serialized resource and local PPtrs establish occurrence identity.
       // A timeline display name or B/G suffix never identifies the protagonist.
-      if(event)occurrences.push({...caption,resource,timeline:timeline.id,event});
+      if(event&&includeOccurrences)occurrences.push({...caption,resource,timeline:timeline.id,event});
     }
     events.push(...unique);
   }

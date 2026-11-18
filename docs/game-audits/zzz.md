@@ -1,5 +1,29 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · Global 20574360 text update
+
+The normal Windows game-data provider discovered official Global design and
+resource revision 20574360 within launcher version 3.3.0. The original launcher
+bootstrap was verified against its own checksums using retained publisher
+objects. The updater reached the live HoYoPlay and gateway routes. It acquired
+no community settings, installation files or protected key cache.
+
+The first stage reused 22 earlier verified design owners and required
+46,690,322 bytes for five changed files. An interruption after 65,536 original
+bytes left the old active pointer, snapshot and five saved recordings intact.
+The normal retry authenticated all five files. The remaining catalogue
+operations used verified local payloads and performed a live original-source
+check before publishing Text Ready.
+
+The retained 20245314 snapshot contains 289,967 rows. The new snapshot
+contains 289,961, including 19 added rows with all three selected languages,
+25 removed rows, and 450 Japanese changes on shared IDs. English and
+Simplified Chinese values on shared IDs stayed identical. A fresh
+network-denied process verified the new snapshot and reopened the five
+earlier saved recordings. The new snapshot retained 82,031 authored voice
+references and did not acquire new voice bytes in this text-only run.
+The update trial still needs new original audio and changed-key evidence.
+
 ## November 18, 2026 · Ordinary reader 24 preparation and fresh offline restore
 
 A new, closed reader 24 resource inventory was explicitly built from the
@@ -61,6 +85,55 @@ prefix was therefore not established. This is not an audibility or spoken-word
 comparison and does not prove that the early speech differs. The five captions
 remain unresolved; all seven saved recordings and their source fences stayed
 unchanged. No heuristic branch selection or relaxed context guard was added.
+
+The current Global `PerformTemplateTb` movie row `50600002` explicitly
+pairs `C055_EP020B.usm` and `C055_EP020G.usm` in columns 2 and 3.
+The earlier original getter check identifies the two column offsets.
+The selected player role for the movie consumer remains unknown. Row
+`50600001` points to the same `C055_EP010.usm` in both columns. Its six
+retained Japanese subtitle references have no uniquely resolved event in
+the current reader.
+
+One read of the **43 verified presentation frames (128,722 staged bytes)**
+found 42 timeline configurations and one `ConfigLanguageVideo` dictionary
+with 12 values. Its projected keys and values had zero C055 names or
+`50600001`/`50600002` references. A separate read of just the checksum-matched
+**2,017-byte frame** checked the complete typed tree, all 180 unnamed array
+members and the serialized path and ID tokens. The nested values hold
+language-keyed `ConfigVideo` URLs. This check also returned zero C055 aliases
+or references to either Perform row.
+
+Binding the five early shared captions still requires an original movie
+caller that joins a stable player role to the selected timeline and voice
+event, plus a capture observation that identifies the active selection
+before the first shared cue. These source checks leave the five captions
+unbound.
+
+## November 18, 2026 · Official Global 3.3.0 content update on one Windows runtime
+
+The ordinary Windows preparation service and the same frozen reader 24 resolved
+publisher design and resource revisions `20245314` → `20574360`. The probe
+revalidated its 38,777,589 cached original bootstrap bytes against official
+publisher metadata. The current gateway supplied the next authenticated source
+without a community endpoint or a game installation.
+
+An interrupted official scene transfer stopped after 65,536 bytes. The last
+prepared source and five saved recordings passed their retained hash checks.
+The retry fetched and verified five changed resources totaling 46,690,322
+bytes. Japanese Text only became Ready with English and Simplified Chinese
+translations. The offline old/current comparison found 450 changed Japanese
+texts among shared rows, 19 added rows and 25 removed rows. Text only retained
+82,031 authored original voice references and downloaded zero audio bytes.
+
+The Japanese Text + Audio selection reused locally authenticated originals.
+Its final attempt deliberately failed while publishing the current pointer.
+The previous Japanese Text only selection and both verified snapshots were
+retained. The ordinary retry became Ready after the final 139,577 bytes of
+publisher metadata and zero new original audio bytes. This trial covers one
+real content revision and one complete prepared dub. A publisher bootstrap
+key rotation, the remaining Global dubs on this source revision, and installed
+Android original preparation remain open. The C055 active-playback evidence
+still requires the role-to-movie binding and the five early cues.
 
 ## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
 

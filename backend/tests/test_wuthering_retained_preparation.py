@@ -120,17 +120,19 @@ def test_shared_worker_rejects_invalid_payload_before_replacing_old_output(origi
 
 
 def test_worker_real_interrupted_publication_preserves_last_complete_generation(original, monkeypatch):
+    from backend import atomic_files
+
     tools, stamp, path, snapshot, calls = original
     payload = release.build_retained_language(tools, stamp, 'en', ['zh-Hans'])
     output = tools/'prepared.json'; worker.write_payload('wuwa', copy.deepcopy(payload), 'en', ['zh-Hans'], output)
-    before = output.read_bytes(); payload['message'] = 'New generation'; replace = Path.replace
+    before = output.read_bytes(); payload['message'] = 'New generation'; replace = atomic_files.os.replace
     def interrupted(staged, destination):
         if destination == output:
             assert staged.name == 'download' and json.loads(staged.read_bytes())['message'] == 'New generation'
             assert output.read_bytes() == before
             raise OSError('Authored publication interruption')
         return replace(staged, destination)
-    monkeypatch.setattr(Path, 'replace', interrupted)
+    monkeypatch.setattr(atomic_files.os, 'replace', interrupted)
     with pytest.raises(OSError, match='publication interruption'):
         worker.write_payload('wuwa', payload, 'en', ['zh-Hans'], output)
     assert output.read_bytes() == before and not list(tools.glob('tmp*'))

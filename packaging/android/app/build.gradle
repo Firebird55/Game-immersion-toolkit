@@ -5,6 +5,9 @@ def wheelhouse = System.getenv('ANDROID_PYTHON_WHEELHOUSE')
 def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
 def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
 def hashBundle = System.getenv('ANDROID_PUBLISHER_HASH')
+def zzzCatalogueAssets = System.getenv('ANDROID_ZZZ_CATALOGUE_ASSETS')
+def zzzCataloguePin = new File(repository, 'packaging/android/zzz-catalogue/manifest-pin.json')
+def zzzCatalogueFixture = new File(repository, 'packaging/android/zzz-catalogue/authored-operation.json')
 if (!hashBundle || !new File(hashBundle, 'assets/publisher-hash-manifest.json').isFile()) {
     throw new GradleException('Build the reviewed bounded publisher hash bundle first.')
 }
@@ -73,7 +76,7 @@ android {
         minSdk 24
         targetSdk 36
         versionCode Integer.parseInt(System.getenv('ANDROID_VERSION_CODE') ?: '1')
-        versionName '0.23.2-android-prototype'
+        versionName(System.getenv('TOOLKIT_ANDROID_VERSION_NAME') ?: '0.23.2-android-prototype')
         ndk { abiFilters 'arm64-v8a', 'x86_64' }
     }
     signingConfigs {
@@ -94,7 +97,7 @@ android {
     }
     buildTypes {
         debug { applicationIdSuffix '.debug' }
-        release { minifyEnabled false; signingConfig signingConfigs.owner }
+        release { debuggable false; minifyEnabled false; signingConfig signingConfigs.owner }
         ownerCandidate {
             initWith release
             debuggable true
@@ -132,6 +135,12 @@ tasks.register('prepareToolkitReader') {
     inputs.dir(new File(decoderBundle, 'assets'))
     inputs.dir(new File(cryptoBundle, 'assets'))
     inputs.dir(new File(hashBundle, 'assets'))
+    inputs.property('zzzCatalogueSupplied', !!zzzCatalogueAssets)
+    if (zzzCatalogueAssets) {
+        inputs.dir(zzzCatalogueAssets)
+        inputs.file(zzzCataloguePin)
+        inputs.file(zzzCatalogueFixture)
+    }
     inputs.file(new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'))
     inputs.dir(cryptoFixtures)
     inputs.file(wuwaFixture)
@@ -151,6 +160,46 @@ tasks.register('prepareToolkitReader') {
         copy { from new File(decoderBundle, 'assets'); into output }
         copy { from new File(cryptoBundle, 'assets'); into output }
         copy { from new File(hashBundle, 'assets'); into output }
+        if (zzzCatalogueAssets) {
+            def directory = new File(zzzCatalogueAssets)
+            def parser = new groovy.json.JsonSlurper()
+            def pin = parser.parse(zzzCataloguePin)
+            def verifiedAsset = { String name, Number maximum, String expected ->
+                def candidate = new File(directory, name)
+                if (!candidate.isFile() || java.nio.file.Files.isSymbolicLink(candidate.toPath()) ||
+                        candidate.length() < 1 || candidate.length() > maximum) {
+                    throw new GradleException('Invalid optional ZZZ catalogue software asset.')
+                }
+                def hash = java.security.MessageDigest.getInstance('SHA-256')
+                candidate.withInputStream { stream ->
+                    byte[] block = new byte[8192]
+                    for (int read; (read = stream.read(block)) != -1;) hash.update(block, 0, read)
+                }
+                if (hash.digest().encodeHex().toString() != expected) {
+                    throw new GradleException('An optional ZZZ catalogue software asset changed.')
+                }
+                return candidate
+            }
+            def manifest = parser.parse(verifiedAsset('manifest.json', 16384, pin.manifest_sha256))
+            if (pin.schema != 'toolkit-android-zzz-catalogue-pin-v1' ||
+                    manifest.schema != 'toolkit-android-zzz-catalogue-assets-v1' ||
+                    manifest.modules.size() != pin.modules || manifest.sources.size() != pin.sources) {
+                throw new GradleException('Invalid optional ZZZ catalogue software closure.')
+            }
+            def runtime = manifest.modules + ['catalogue-host.js': manifest.host, 'catalogue-worker.mjs': manifest.worker]
+            def names = (runtime.keySet() + ['manifest.json', 'sources.bundle']).toSet()
+            if (directory.list()?.toList()?.toSet() != names) throw new GradleException('Unexpected ZZZ catalogue software member.')
+            runtime.each { name, entry ->
+                if (!(name ==~ /[a-z0-9.-]+/) || entry.bytes > 131072 ||
+                        verifiedAsset(name, entry.bytes, entry.sha256).length() != entry.bytes) {
+                    throw new GradleException('Invalid optional ZZZ catalogue runtime file.')
+                }
+            }
+            verifiedAsset('sources.bundle', 64 * 1024 * 1024, pin.corresponding_source_bundle_sha256)
+            copy { from directory; include names; into new File(output, 'zzz-catalogue') }
+            new File(output, 'zzz-catalogue-authored.json').setText(
+                    zzzCatalogueFixture.getText('UTF-8').replace('\r\n', '\n'), 'UTF-8')
+        }
         copy { from new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
         copy { from wuwaFixture; into output; rename { 'wuwa-authored-bootstrap.json' } }

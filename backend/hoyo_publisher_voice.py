@@ -8,6 +8,7 @@ import re
 import struct
 
 from . import sophon_assets as sophon
+from .sophon_assets import descriptor
 from .hoyo_dialogue import voice_namespaces
 from .voice_assets import external_table, voice_hash
 
@@ -17,11 +18,6 @@ CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global', 'zzz': 'zzz-
 def _channel_allowed(game, channel):
     return channel == CHANNELS[game] or (game, channel) in {
         ('genshin', 'genshin-global'), ('starrail', 'starrail-cn'), ('zzz', 'zzz-cn')}
-
-
-def descriptor(build):
-    raw = json.dumps(build, sort_keys=True, separators=(',', ':')).encode()
-    return 'sophon-' + hashlib.sha256(raw).hexdigest(), raw
 
 
 def snapshot_available(tools, stamp, game):

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from backend import zzz_publisher_cinematics as cinema
+from backend import hoyo_publisher_voice, zzz_publisher_cinematics as cinema
 from backend.zzz_audio_catalogue import Catalogue
 from backend.tests.test_zzz_publisher_cinematics import package, stream_package, link, registry
 
@@ -16,8 +16,8 @@ def test_bound_original_banks_and_complete_streams_require_no_global_voice_looku
     files = {root + 'Bank.pck': source}
     if stream:files[root + 'Stream.pck'] = stream_package(wem, locale)
     def forbidden(*args, **kwargs):raise AssertionError('Bound catalogue entered legacy source discovery')
-    monkeypatch.setattr(cinema.voice, '_files', forbidden)
-    monkeypatch.setattr(cinema.voice, '_archive', forbidden)
+    monkeypatch.setattr(hoyo_publisher_voice, '_files', forbidden)
+    monkeypatch.setattr(hoyo_publisher_voice, '_archive', forbidden)
     catalogue = Catalogue(files, locale, 'source-generation', lambda asset, start, size: asset.read(None, start, size))
     bound = catalogue.bindings([link()], registry())['SyntheticCaption']
     name, entry = catalogue.recording(bound)
