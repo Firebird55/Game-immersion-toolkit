@@ -1244,6 +1244,45 @@ outgoing request contract and game-key producer stay open. The pass executes
 no client code and makes no request or signature. Neither preparation mode
 changes availability.
 
+The subsequent pass resolves eight direct bodies, totaling 2,474 instruction
+bytes and 58 exception-table and handler bytes. It uses 9,522 DEX metadata
+bytes and 554 bytes for the map-interface annotations. The same two signed
+DEX members are reverified from the cache. No original APK is executed.
+
+The comparator delegates to `v2.f.a`, and the SDK value comes from the
+`XUA` singleton's `toString`. The clock adds a delegated offset to the Java
+wall clock before the previous phase's formatting. Comparator behavior,
+the SDK value's producers, charset binding and the clock offset remain open.
+
+The normalizer makes a relative path absolute with the callback's stored
+domain, copies the query map, adds the SDK value and encodes the query values.
+The already inspected configuration map populates the Retrofit base URL and
+the callback domain from the same environment getter via separate fields.
+The signed-resource domain joined to the ordinary detail path falls outside
+the feature's prefix exclusion. This subjects that authored path to the
+ordinary parameter transforms, whose delegated producers still need proof.
+
+The request model's body getter reads its byte-array field. The inspected
+constructor leaves that field at its null default and assigns `Default` to
+the field read by the content-type getter. The separate map interface is a
+form-encoded Retrofit `POST` with dynamic URL, header map and field map.
+Its response remains a raw `ResponseBody`. The actual map branch also
+depends on whether callbacks change the created model before dispatch.
+
+The non-Protobuf response handler converts a successful raw body to a JSON
+tree, then to the original `u2.h` envelope. It reads `u2.h.b()` and uses the
+request model's target class to deserialize that JSON element. It emits a
+typed success when the payload is present and handles HTTP errors separately.
+The exact wire key for the inner element and the envelope's other fields
+still need the original model binding. The known `apk.download` member
+belongs to the resulting payload.
+
+The inspected `net.p` interceptor can rewrite the URL host when the path
+matches configured service routes. Its body has no direct header mutations.
+The other interceptors, configured route selectors, final headers and
+complete response schema remain open. No live request, signature or game
+key is produced.
+
 ### Community key candidate: research only
 
 The original author repository
