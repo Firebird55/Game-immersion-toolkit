@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {cinemaSubtitleTimeline, cinemaSubtitleLinks, cinemaTextSourceInventory} from '../scripts/zzz-cinema-timeline.mjs';
 
 test('original blank subtitle segments stay separate from missing keys and existing audio', () => {
@@ -72,6 +73,9 @@ test('separate subtitle tracks retain original language and whole-film context o
     assert.deepEqual(result.unsupported,[]);
     assert.deepEqual(result.subtitles,[{text_id:'SyntheticCaption',locale,start:1,duration:2,
       timeline:'Synthetic_Timeline',event:'Play_vo_Synthetic',audio_scope:'context'}]);
+    assert.deepEqual(result.occurrences,[{text_id:'SyntheticCaption',locale,start:1,duration:2,
+      track:'30',clip:'50',subtitle_position:0,resource:createHash('sha256').update(fixture({language})).digest('hex'),
+      timeline:'10',event:'Play_vo_Synthetic'}]);
   }
 });
 
@@ -80,7 +84,8 @@ test('empty original voice tracks with bounded locale filters do not hide a sepa
   for(const language of [1,2,3,4]) {
     const before=cinemaSubtitleTimeline(fixture({language}));
     const after=cinemaSubtitleTimeline(fixture({language,voicePlaceholders}));
-    assert.deepEqual(after,before);
+    assert.deepEqual({...after,occurrences:[]},{...before,occurrences:[]});
+    assert.notEqual(after.occurrences[0].resource,before.occurrences[0].resource);
   }
 });
 
@@ -102,6 +107,7 @@ test('external, mismatched, muted and changed locale tracks never supply subtitl
 });
 test('multiple whole-voice events or a source offset cannot be assigned to a caption by order',()=>{
   for(const options of [{secondEvent:true},{offset:1}])assert.equal(cinemaSubtitleTimeline(fixture(options)).subtitles[0].event,null);
+  for(const options of [{secondEvent:true},{offset:1}])assert.deepEqual(cinemaSubtitleTimeline(fixture(options)).occurrences,[]);
 });
 test('publisher voice namespaces select their own subtitle language without certifying absent recordings',()=>{
   for(const [language,namespace,locale] of [[1,'English(EN)','en'],[2,'Chinese(PRC)','zh-Hans'],[3,'Japanese(JP)','ja'],[4,'Korean(KR)','ko']]){

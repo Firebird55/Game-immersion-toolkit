@@ -1,5 +1,55 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
+
+The original C055 subtitle tracks provide a safe forward relationship: each
+variant's unique line precedes the same two shared captions. Reader 24 retains
+the authenticated serialized resource hash, TimelineAsset/track/clip pointers,
+subtitle locale, position and authored clocks. An occurrence is eligible only
+when its complete original event/media context is already admitted and locally
+materialized by an unconditional caption. This adds no recording download.
+Text-only preparation does not build this audio context inventory.
+
+Capture requires two consecutive observations of a unique whole-text anchor in
+the actual complete multilingual index. It uses the observed subtitle locale,
+independently of the selected audio dub. The current Japanese and English C055
+anchors pass this full-index check; the identical Simplified Chinese anchors do
+not select a variant. No B/G filename or protagonist preference chooses audio.
+
+Only actual foreground MSS acquisitions carry the timing evidence. A changed
+capture session, source generation, complete request, window/crop, locale,
+sequence or incompatible authored clock resets the context. Background RGB1
+images lack acquisition timestamps and cannot establish this path. The
+immutable conditional recording identity includes generation, request, region,
+dub, serialized resource, timeline, observed locale and exact clip occurrence.
+It passes the existing original-voice provenance checks and retains the complete
+correct film source, explicitly labeled as context audio. The ordinary base
+rows and lookups remain ambiguous.
+
+For C055 this resolves **two shared captions after the unique anchor**, subject
+to those live-capture guards. **The five preceding shared captions remain
+unresolved**; no backfill or generic short-sentence guess is enabled. A restart
+restores the source inventory and saved recordings, never a playing instance.
+
+The zero-network source control reparsed the same 404 authenticated timeline
+containers and used an independent clone of all 289,967 current Global Japanese
+records, retaining all 77,895 admitted original-audio base rows. Exact authored
+Japanese and English observations passed the production context/index/voice
+resolver; Chinese observations did not. Both selected original Japanese film
+contexts decoded through the owned codec closure to the same previously saved
+MP3 hashes, followed by fresh offline retained-recording replay. The original
+source pointers, snapshots and five old/new saved recordings were unchanged.
+This is cached same-generation source verification, not a new reader 24 normal
+service Ready or screenshot/OCR acceptance claim.
+
+Synthetic tests additionally exercise the real capture scan, foreground frame
+adapter, contextual matcher, original resolver and retained recording service
+end to end. They reject background frames, lost foreground ownership, changed
+source/session/crop and Chinese anchors. The ordinary preparation service also
+publishes and restores the immutable conditional binding inventory in synthetic
+original-container tests. Other films, dubs, regions, actual screen OCR and
+Android device/runtime acceptance remain separately qualified.
+
 ## November 17, 2026 · Empty voice-language placeholders in retained story timelines
 
 The current C055 EP020 subtitle sequence belongs to the "Traitor" scene in

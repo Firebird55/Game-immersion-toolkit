@@ -62,6 +62,7 @@ class MultilingualTextIndex:
         self.snapshot_metadata = {}
         self._sns_compiled = None
         self._training_compiled = ()
+        self._zzz_cinema_occurrences = None
         if autoload:
             self.load()
 
@@ -89,6 +90,12 @@ class MultilingualTextIndex:
             if self.ready and self._signature == signature:
                 return {**self.snapshot_metadata, 'records': self._records}
         return None
+
+    def original_recording_rows(self):
+        """Authoritative recording rows; conditional ZZZ rows never enter OCR lookups."""
+        with self.lock:
+            extra = self._zzz_cinema_occurrences['rows'].values() if self._zzz_cinema_occurrences else ()
+            return (*self._records, *extra)
 
     def load(self):
         # Several status/capture/preparation threads can observe one replacement.
@@ -272,7 +279,20 @@ class MultilingualTextIndex:
                 from .endfield_training_presentation import compile_training_dialogue
                 training_compiled = tuple(compile_training_dialogue(payload['publisher_training_dialogue_ui'],
                     payload['records'], display_locale) for display_locale in payload['publisher_training_dialogue_ui']['locales'])
+            cinema_compiled = None
+            if self.game == 'zzz' and 'publisher_cinema_occurrences' in payload:
+                from .zzz_cinema_occurrences import compile_occurrences
+                # Prove anchors against the actual new complete index before
+                # publishing any of its state. No selected player or previous
+                # caption may narrow this full-index uniqueness check.
+                probe = MultilingualTextIndex(self.game, self.path.parent, autoload=False)
+                probe.source_locale, probe._records = locale, payload['records']
+                probe._lookup, probe._unvoiced_lookup = lookup, unvoiced_lookup
+                probe._missing_audio_lookup, probe._missing_audio_blockers = missing_audio_lookup, missing_audio_blockers
+                probe._full_frame_veto, probe._player_frame_veto = full_frame_veto, player_frame_veto
+                cinema_compiled = compile_occurrences(payload, probe)
             with self.lock:
+                self._zzz_cinema_occurrences = cinema_compiled
                 self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels

@@ -141,7 +141,7 @@ def _payload(ctx, current, content, catalogue, registry):
     coverage['presentation_owners'] = {**coverage['presentation_owners'],
         'subtitle_audio_acquisition': 'partial-subtitle-tracks-and-original-film-contexts'}
     available = {locale for row in rows for locale in row['texts']}
-    return {'format': 2, 'game': 'zzz', 'source_locale': ctx.request.source_locale, 'content_mode': 'text-audio',
+    payload = {'format': 2, 'game': 'zzz', 'source_locale': ctx.request.source_locale, 'content_mode': 'text-audio',
         'source_mode': 'publisher', 'publisher_region': ctx.request.region, 'install': None,
         'fingerprint': voice.descriptor(current)[0],
         'metadata_revision': current['build'] + '/' + current['hotfix']['revisions']['design'],
@@ -149,6 +149,11 @@ def _payload(ctx, current, content, catalogue, registry):
         'missing_translation_locales': [locale for locale in ctx.request.target_locales
             if resolve_locale(locale, zzz_assets.TEXT_LOCALES) not in available],
         'coverage_warnings': [publisher.SCOPE], 'message': 'Official ZZZ dialogue and selected original audio prepared.'}
+    from .zzz_cinema_occurrences import FIELD, build
+    occurrences = build(payload, content['cinema_occurrences'], ctx.request.json()) if content.get('cinema_occurrences') else None
+    if occurrences is not None:
+        payload[FIELD] = occurrences
+    return payload
 
 
 def _selection(ctx, current, content, sources):
@@ -251,7 +256,8 @@ def _audio_key(audio):return hashlib.sha256(encoded({key: value for key, value i
 
 
 def _binding_keys(payload):
-    return {(row['text_id'], _audio_key(row['audio'])) for row in payload['records']
+    from .zzz_cinema_occurrences import recording_rows
+    return {(row['text_id'], _audio_key(row['audio'])) for row in (*payload['records'], *recording_rows(payload))
             if row.get('audio') and row['voice_status'] == 'voiced'}
 
 

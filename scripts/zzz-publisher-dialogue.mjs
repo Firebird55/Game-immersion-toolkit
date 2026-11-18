@@ -497,12 +497,13 @@ function catalogue(work, input, reader) {
     for (const pair of comicVoicePairs(cab)) comicPairs.push(pair);
   }
   const comics = uniqueComicLinks(comicPairs).map(link => ({...link, dialogue_kind:'comic', channels:['cinematic']}));
-  const cinemaLinks = [], cinemaUnsupported = [];
+  const cinemaLinks = [], cinemaUnsupported = [], cinemaOccurrences=[];
   let cinemaTimelines = 0;
   for(const cab of sceneCabs(work, cinemaBlocks, reader)) {
     const result = cinemaSubtitleTimeline(cab); cinemaTimelines++;
     cinemaUnsupported.push(...result.unsupported);
     cinemaLinks.push(...cinemaSubtitleLinks(result,input.namespace));
+    if(includeAudio)cinemaOccurrences.push(...result.occurrences.filter(row=>locales.has(row.locale)));
   }
 
   const messages = tableStrings(tables.get(key(bindings[0])), [7, 3, 5, 12, 13, 15, 16]);
@@ -548,6 +549,7 @@ function catalogue(work, input, reader) {
   }
   const knownTimelines = new Set(input.knownTimelineKeys || []);
   return {recorded_messages:recorded.messages.size, ambiguous_messages:recorded.unresolved,
+    ...(includeAudio?{cinema_occurrences:cinemaOccurrences}:{}),
     cinema_timelines:cinemaTimelines, cinema_subtitle_references:cinemaLinks.length, unsupported_cinema_timelines:cinemaUnsupported,
     cinema_text_sources:cinemaTextSources,
     typed_timeline_callers:{keys:timelineKeys.size, original_owners:[...timelineKeys].filter(key => knownTimelines.has(key)).length,

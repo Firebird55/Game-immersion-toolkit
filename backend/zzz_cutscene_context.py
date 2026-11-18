@@ -7,6 +7,7 @@ import re
 from .languages import normalize_text, resolve_locale, study_language
 from .models import TextMatch
 from .textmaps import display_text
+from .zzz_cinema_context import CinemaContext
 
 
 def cutscene_scene(text_id):
@@ -50,6 +51,7 @@ class ZzzCutsceneContext:
         self.reset()
 
     def reset(self):
+        self.authored = CinemaContext()
         self.scope = None
         self.proxy = None
         self.player_pending = None
@@ -87,7 +89,9 @@ class ZzzCutsceneContext:
             return self.proxy
         return None
 
-    def clear_scene(self):
+    def clear_scene(self, *, authored=True):
+        if authored:
+            self.authored.reset()
         self.scene = None
         self.seen_at = 0.
         self.position = -1
@@ -116,13 +120,17 @@ class ZzzCutsceneContext:
                     break
 
     def accepts(self, match):
-        return bool(self.scene and cutscene_scene(match.text_id) == self.scene)
+        return self.authored.accepts(match) or bool(self.scene and cutscene_scene(match.text_id) == self.scene)
 
-    def match(self, index, groups, defaults, *, now, stable_frames, configured):
+    def match(self, index, groups, defaults, *, now, stable_frames, configured, frame=None):
+        contextual = self.authored.observe(index, groups, scope=self.scope, frame=frame,
+            now=now, stable_frames=stable_frames)
+        if contextual:
+            return contextual
         if getattr(index, 'game', None) != 'zzz' or not hasattr(index, '_lookup'):
             return [hit for hit in defaults if cutscene_scene(hit.text_id)]
         if self.scene and now - self.seen_at > 30:
-            self.clear_scene()
+            self.clear_scene(authored=False)
         proxy = configured if configured in {'male', 'female'} else self.proxy
         observations = []
         anchors = []
