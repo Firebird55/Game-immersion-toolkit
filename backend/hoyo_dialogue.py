@@ -27,8 +27,8 @@ RELEASE_MARKERS = {
 
 def voice_namespace(game, locale):
     if game == 'zzz':
-        return {'en': 'English(EN)', 'ja': 'Japanese(JP)', 'ko': 'Korean(KR)',
-                'zh-Hans': 'Chinese(PRC)', 'zh-Hant': 'Chinese(PRC)'}[locale]
+        from .zzz_dialogue_records import voice_namespace as zzz_voice_namespace
+        return zzz_voice_namespace(locale)
     if game == 'genshin' and locale in ('zh-Hans', 'zh-Hant'):
         return 'Chinese'
     return 'English' if game == 'starrail' and locale == 'en' else VOICE_NAMES[locale]

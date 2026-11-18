@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import re
-import struct
 import subprocess
 import time
 from tempfile import TemporaryDirectory
@@ -20,14 +19,12 @@ from .publisher_regions import REGIONS, selected_region
 from .runtime_bundle import discover_layout
 from .runtime_paths import voice_work_root
 from .voice_assets import voice_hash
-from .zzz_assets import TEXT_LOCALES
+from .zzz_dialogue_records import SCOPE, TEXT_LOCALES, _omit_requested_audio
+from .zzz_scene_sources import stage_scenes
 from . import zzz_publisher_cinematics as cinema
 
 CHANNELS = {'global': 'zzz-global', 'cn': 'zzz-cn'}
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
-SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
-         'Selected original updater inventories include in-version text, scene and voice changes. Other presentations remain partially covered.')
-
 # A source name and its Wwise directory do not always use the same family.
 # Only an exact file ID in the selected publisher pack establishes a binding.
 VOICE_DIRECTORIES = {
@@ -47,43 +44,6 @@ def _poll(region, _period):
 
 def fingerprint(region='global'):
     return _poll(region, int(time.monotonic() // 30))
-
-
-def stage_scenes(work, cache, files, ranges, *, extension='scenes'):
-    grouped = defaultdict(list)
-    for row in ranges:
-        name = row['block']
-        if not re.fullmatch(r'Blocks/\d+\.blk', name):
-            raise ValueError('Invalid scene block identity.')
-        grouped[name].append((row['offset'], row['size']))
-
-    def stage(item):
-        name, ranges = item
-        asset = files[BASE + name]
-
-        @lru_cache(maxsize=3)
-        def chunk(position, length):
-            return asset.read(cache, position, length)
-
-        out = work / (name.split('/')[-1] + '.' + extension)
-        with out.open('xb') as handle:
-            for start, length in sorted(ranges):
-                if not 0 < length <= 64 * 1024**2 or not 0 <= start <= asset.size - length:
-                    raise ValueError('Scene exceeds its released package.')
-                end = start + length
-                handle.write(struct.pack('<I', length))
-                begin = handle.tell()
-                for offset, size, *_ in asset.chunks:
-                    if offset >= end:
-                        break
-                    if offset + size > start:
-                        handle.write(chunk(offset, size)[max(0, start - offset):min(size, end - offset)])
-                if handle.tell() - begin != length:
-                    raise ValueError('Incomplete staged scene.')
-        return out.name
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        return list(pool.map(stage, sorted(grouped.items())))
 
 
 def source_paths(source, version):
@@ -304,34 +264,6 @@ def original_bindings(links, entries, dub, version, directory=None):
         if len(resolved) == len(sources) and len({item['file_id'] for item in resolved}) == 1:
             result[identity] = resolved[0]
     return result
-
-
-def _omit_requested_audio(rows, links, expanded, stamp, dub):
-    """Keep original authored evidence without making it a playable binding.
-
-    A source/event reference alone does not establish that its selected-dub
-    recording exists. In particular it must not promote unavailable to voiced.
-    The ordinary caption matcher still applies duplicate/player/context guards.
-    """
-    sources, events = defaultdict(set), defaultdict(set)
-    for link in expanded:
-        sources[link['text_id']].add(link['source'])
-    for link in links:
-        if link.get('cinematic_event'):
-            events[link['text_id']].add(link['cinematic_event'])
-    for row in rows:
-        identity = row['text_id']
-        original = (row.get('member_text_ids') or [identity])[0]
-        binding = {'publisher': stamp, 'locale': dub,
-                   'sources': sorted(sources.get(identity, sources.get(original, ()))),
-                   'cinematic_events': sorted(events.get(original, ())),
-                   'voice_status': row['voice_status']}
-        row.update(audio=None, source_voice_binding=binding if binding['sources'] or binding['cinematic_events'] else None,
-                   audio_omitted_by_request=row['voice_status'] != 'unvoiced',
-                   text_capture_verified=True)
-        if binding['cinematic_events']:
-            row['audio_scope'] = 'context'
-    return rows
 
 
 def build_language(data_dir, source_locale, target_locales, progress, *, content_mode='text-audio'):

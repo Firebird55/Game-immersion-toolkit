@@ -12,18 +12,14 @@ from pathlib import Path
 from . import game_tools
 from .honkai_assets import package_tables
 from .languages import audio_locale, resolve_locale
-from .models import is_comic_text_id
-from .textmaps import display_text, gender_variants
+from .zzz_dialogue_records import LANGUAGE_INDEX_VERSION, TEXT_LOCALES, _dialogue_records, _group_links
 from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_hash
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 24
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
-TEXT_LOCALES = {'en': 'EN', 'zh-Hans': '', 'zh-Hant': 'CHT', 'ja': 'JA', 'ko': 'KO',
-    'fr': 'FR', 'de': 'DE', 'es-ES': 'ES', 'pt-BR': 'PT', 'ru': 'RU', 'th': 'TH', 'vi': 'VI', 'id': 'ID'}
 # Authored TextMap ID, male alternative, female/default source fields. Unknown
 # schemas must fail instead of silently removing all free-roam dialogue.
 ONGOING_SCHEMAS = (
@@ -210,11 +206,6 @@ def localized_inventory(root, locale):
     return namespace, entries
 
 
-def _text(text, gender):
-    variants = gender_variants(text)
-    return variants.get(gender, '') if variants else display_text(text)
-
-
 def build_records(tables, source_locale, selected, links, prefixes, entries, cinematic, namespace):
     expanded, channels, evidence, kinds = _group_links(links)
     bindings = resolve_links(expanded, prefixes, entries, namespace=namespace) if namespace else {}
@@ -224,61 +215,6 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
         bindings[identity] = {**binding, 'locale': audio_locale(source_locale), 'namespace': namespace,
                               'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
     return _dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings, set(cinematic))
-
-
-def _group_links(links):
-    expanded, channels, evidence, kinds = [], {}, {}, {}
-    for link in links:
-        identity = link['text_id']
-        channels.setdefault(identity, set()).update(link.get('channels', ['dialogue', 'cinematic']))
-        kinds.setdefault(identity, set()).add(link.get('dialogue_kind') or
-            ('comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation'))
-        status = link.get('voice_status') or ('unavailable' if link.get('source') else 'unknown')
-        sources = gender_variants(link['source'])
-        if sources:
-            expanded.extend({'text_id': identity + ':' + gender, 'source': source} for gender, source in sources.items() if source)
-            for gender, source in sources.items():
-                evidence.setdefault(identity + ':' + gender, set()).add(status if source else 'unknown')
-        elif link.get('gender'):
-            expanded.append({'text_id': identity + ':' + link['gender'], 'source': link['source']})
-            evidence.setdefault(identity + ':' + link['gender'], set()).add(status)
-        else:
-            if link['source']:
-                expanded.append({'text_id': identity, 'source': link['source']})
-            evidence.setdefault(identity, set()).add(status)
-    return expanded, channels, evidence, kinds
-
-
-def _dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings, extra_ids=()):
-    identities = set(channels).union(extra_ids, (key for key in tables[source_locale] if is_comic_text_id(key)))
-    rows = []
-    for identity in sorted(identities):
-        values = {locale: table.get(identity, '') for locale, table in tables.items()}
-        gendered = any(gender_variants(values.get(locale, '')) for locale in selected) or any(
-            identity + ':' + gender in evidence or identity + ':' + gender in bindings for gender in ('M', 'F'))
-        for gender in ('M', 'F') if gendered else (None,):
-            text = _text(values.get(source_locale, ''), gender)
-            if not text:
-                continue
-            texts = {locale: value for locale in selected if (value := _text(values.get(locale, ''), gender))}
-            row_id = identity + ':' + gender if gender else identity
-            binding = bindings.get(row_id)
-            if gender and row_id not in evidence and not binding:
-                binding = bindings.get(identity)
-            audio = binding
-            states = evidence.get(row_id, evidence.get(identity, {'unknown'}))
-            voice_status = 'voiced' if audio else 'unavailable' if 'unavailable' in states else 'unvoiced' if states == {'unvoiced'} else 'unknown'
-            kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'message', 'choice', 'narration', 'ambient', 'gameplay_tip') if kind in kinds.get(identity, set())),
-                'comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation')
-            rows.append({'text_id': row_id, 'source_locale': source_locale, 'source_text': text,
-                'texts': texts, 'english': _text(values.get('en', ''), gender), 'chinese': texts.get('zh-Hans', ''),
-                'audio_locale': audio_locale(source_locale), 'audio': audio,
-                **({'audio_scope': 'context'} if audio and audio.get('audio_scope') == 'context' else {}),
-                'player_voice': {'M': 'male', 'F': 'female'}.get(gender),
-                'member_text_ids': [identity] if gender else None,
-                'voice_status': voice_status, 'dialogue_kind': kind,
-                'channels': sorted(channels.get(identity, {'cinematic'}))})
-    return rows
 
 
 def _tables(directory, revision, locales):

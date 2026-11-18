@@ -40,9 +40,9 @@ def stage_file(path):
         yield Path(folder) / 'download'
 
 
-def write_bytes(path, data):
+def write_bytes(path, data, *, check=None):
     """Stage private bytes beside their target and preserve it on failure."""
     path = Path(path)
     with stage_file(path) as staged:
         staged.write_bytes(data)
-        replace(staged, path)
+        replace(staged, path, check=check)
