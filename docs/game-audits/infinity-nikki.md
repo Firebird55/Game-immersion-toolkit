@@ -744,8 +744,15 @@ complete shared carriers, unused mixed content, temporary storage and generation
 checks. Complete chunk SHA-1 and all five file SHA-1 checks are required before
 retention; a companion file's checksum is not independent signature acceptance.
 Requote, interruption cleanup, modified consent and offline retained-file
-checks use the ordinary preparation contexts. The resulting stage remains
-inert: native-compatible PAK indices and ordered INI members are still required.
+checks use the ordinary preparation contexts. The next ordinary plan now derives
+the zero-GUID material afresh from the retained authenticated native consumer,
+checks this complete Global PAK's main/directory plaintext hashes, and sizes
+only index-owned settings-category members. Nonzero GUIDs stop before trying
+the default producer. CustomConfig variants are discovered from the directory,
+without a regional-label allowlist or profile selection. Members remain inert:
+the required decoded disk size and compression names are shown, but no neutral
+owned Oodle capability has been accepted for this provider. No member decode or
+desktop fallback occurs during that plan. Ordered INI preparation is still open.
 The nine private research INIs cannot supply that missing preparation. CMS
 construction must consume its future verified source receipt and keep the
 response/keychain gate explicit.
@@ -790,6 +797,14 @@ original hashes stay unchanged. The initial wrapper-only assumption safely
 stopped on the original plain document and was corrected before replay; the
 actual SDK response and request timestamp were retained without a second POST.
 No snapshot, selected profile, dynamic keychain or language readiness is proved.
+
+The frozen configuration-carrier continuation also passes from the normal
+retained parent receipts with zero new response bytes and no research INI input.
+It reconstructs all five complete source files and verifies the same manifest
+SHA-1 values. Its quote is 958,838 bytes / 2,649,484 additional disk bytes; peak
+temporary files are 272,730,445 bytes, below 300 MiB. Only exact temporary copies
+are removed. This replay uses the carrier's historical original ETag and does
+not establish a fresh configuration-server generation or companion RSA trust.
 
 ## Presentation inventory and finite completion boundary
 

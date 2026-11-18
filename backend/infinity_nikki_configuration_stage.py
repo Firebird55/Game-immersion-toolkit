@@ -116,8 +116,8 @@ def _retained(provider,handle,ctx):
 def plan(provider,previous,ctx):
     ctx.check()
     if previous['stage']=='global-configuration-source':
-        _retained(provider,previous,ctx)
-        return GameDataPlan('global-configuration-index-reader',0,0,previous,stage='global-configuration-source',message=GATE)
+        from .infinity_nikki_settings_index import plan_members
+        return plan_members(provider,previous,ctx)
     if previous['stage']=='global-configuration-packages':
         old=_read(ctx,previous['receipt_sha256']);_artifact_selection(provider,old,ctx)
         previous=old['build_handle']

@@ -2,6 +2,7 @@
 from dataclasses import replace
 import hashlib
 import json
+import zlib
 
 import pytest
 
@@ -16,7 +17,8 @@ from backend.tests.test_publisher_transport import Response
 class Fixture(Build):
     def generation(self,numbered):
         super().generation(numbered)
-        pak,_=archive_fixture(revision=numbered)
+        pak,_=archive_fixture(revision=numbered,mount='../../../X6Game/Config/',
+            specs=[('DefaultX6PackageSettings.ini',b'authored settings'+bytes([numbered]),True)])
         self.files=dict(zip(('pak','sig','ucas','udirhash','utoc'),(pak,b'authored-signature',b'ucas',b'hash',b'utoc')))
         self.basename='Default_Ini_'+self.version+'_P'
         rows=[];body=bytearray()
@@ -63,6 +65,18 @@ class Fixture(Build):
         self.context('plan').stage_handle=self.build_source()
         return self.provider.plan(self.request,self.ctx)
 
+    def replace_pak(self,raw):
+        old=self.files['pak'];assert len(raw)==len(old)
+        decoded=zlib.decompress(self.carrier[62:]);assert decoded.startswith(old)
+        decoded=raw+decoded[len(old):]
+        manifest=json.loads(self.manifests[self.manifest_urls[0]])
+        rolling=int.from_bytes(bytes(int(manifest['ChunkHashList'][A][i:i+3]) for i in range(0,24,3)),'little')
+        self.carrier=chunk(decoded,A,rolling)
+        manifest['FileManifestList'][0]['FileHash']=blob(hashlib.sha1(raw).digest())
+        manifest['ChunkShaList'][A]=hashlib.sha1(decoded).hexdigest().upper()
+        manifest['ChunkFilesizeList'][A]=number(len(self.carrier),8)
+        self.manifests[self.manifest_urls[0]]=json.dumps(manifest).encode();self.files['pak']=raw
+
 
 @pytest.mark.parametrize('mode',['text','text-audio'])
 def test_whole_owned_config_carrier_cost_and_files_are_verified_without_profile_or_ready(tmp_path,apk_fixture,monkeypatch,mode):
@@ -80,8 +94,12 @@ def test_whole_owned_config_carrier_cost_and_files_are_verified_without_profile_
         assert configuration._path(fixture.ctx,row['sha256'],'data').read_bytes()==fixture.files[row['name'].rsplit('.',1)[1]]
     assert fixture.carrier_reads==['bytes=0-31',None,'bytes=0-31']
     before=len(fixture.calls);fixture.context('plan').stage_handle=result.restore_handle
+    from backend.infinity_nikki_pak import Archive
+    monkeypatch.setattr(Archive,'read_many',lambda *a,**kw:pytest.fail('Index planning must not decode settings members.'))
     gate=fixture.provider.plan(fixture.request,fixture.ctx)
     assert not gate.runtime_available and gate.stage=='global-configuration-source' and gate.source_proof is None
+    assert gate.required_disk_bytes==len(b'authored settings\0') and gate.download_bytes==0
+    assert '1 settings members' in gate.message and 'Oodle' in gate.message
     with pytest.raises(GameDataError) as error:fixture.provider.restore(result.restore_handle,fixture.context('restore'))
     assert error.value.code=='publisher_configuration_index_reader_unresolved' and len(fixture.calls)==before
 
@@ -135,3 +153,23 @@ def test_pending_source_requote_uses_actual_new_validator_without_old_consent(tm
     assert first.handle!=second.handle and second.download_bytes==first.download_bytes
     with pytest.raises(GameDataError):fixture.download(first)
     assert isinstance(fixture.download(second),PreparationStage)
+
+
+@pytest.mark.parametrize('failure',['dynamic-guid','index-integrity'])
+def test_actual_archive_compatibility_is_required_after_file_integrity(tmp_path,apk_fixture,monkeypatch,failure):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
+    raw=bytearray(fixture.files['pak'])
+    if failure=='dynamic-guid':raw[-221]=1
+    else:
+        import struct
+        index=struct.unpack_from('<Q',raw,len(raw)-221+25)[0];raw[index]^=1
+    fixture.replace_pak(bytes(raw))
+    result=fixture.download(fixture.configuration_plan())
+    if failure=='dynamic-guid':
+        from backend import infinity_nikki_pak_material
+        monkeypatch.setattr(infinity_nikki_pak_material,'extract_default_pak_material',
+            lambda *a,**kw:pytest.fail('A nonzero GUID must not be tested with the default producer.'))
+    before=len(fixture.calls);fixture.context('plan').stage_handle=result.restore_handle
+    with pytest.raises(GameDataError) as error:fixture.provider.plan(fixture.request,fixture.ctx)
+    expected='publisher_dynamic_keychain_unresolved' if failure=='dynamic-guid' else 'publisher_configuration_index_unresolved'
+    assert error.value.code==expected and len(fixture.calls)==before

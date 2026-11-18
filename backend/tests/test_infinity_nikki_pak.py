@@ -40,12 +40,13 @@ def encrypt(raw):
 
 
 def fixture(*, encrypted=True, index_encrypted=True, wide=False, long_fields=False,
-            failure=None, revision=0, compressed=True):
+            failure=None, revision=0, compressed=True, specs=None,mount='../../../X6Game/Content/Script/'):
     payload, encoded = bytearray(), bytearray()
-    specs = [('plain.lua', b'authored plain source' + bytes([revision]), False),
-             ('empty.lua', b'', False)]
-    if compressed:
-        specs += [('packed.lua', (b'authored block data' * 300) + bytes([revision]), True)]
+    if specs is None:
+        specs = [('plain.lua', b'authored plain source' + bytes([revision]), False),
+                 ('empty.lua', b'', False)]
+        if compressed:
+            specs += [('packed.lua', (b'authored block data' * 300) + bytes([revision]), True)]
     rows = []
     for name, plain, packed in specs:
         offset, position = len(payload), len(encoded)
@@ -86,7 +87,7 @@ def fixture(*, encrypted=True, index_encrypted=True, wide=False, long_fields=Fal
     directory = align(directory) if index_encrypted else directory
     index_offset = len(payload)
     declared = len(rows) + int(failure == 'declared-count')
-    prefix = string('../../../X6Game/Content/Script/', wide) + number(declared) + number(27, 'Q')
+    prefix = string(mount, wide) + number(declared) + number(27, 'Q')
     prefix += number(1) + bytes(36) + number(1)
     suffix = number(len(encoded)) + encoded + number(int(failure == 'nonencoded'))
     main_size = len(prefix) + 36 + len(suffix)
