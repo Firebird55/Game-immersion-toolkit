@@ -94,13 +94,28 @@ occurrence digests for subsequent original-recording stages.
 Generate the optional software asset directory with
 `node scripts/stage-android-zzz-catalogue.mjs <retained-reader-software> <fresh-asset-directory>`.
 Its 13 modules, host, worker and manifest total 249,355 bytes. The separate
-`sources/` inventory totals 34,202,547 bytes and includes the exact Oodle
+`sources/` inventory totals 34,202,547 bytes across 20 files and includes the exact Oodle
 and Emscripten sources and notices, the MIT reader and xxHash sources and
 notices, and the build and adaptation recipes. The staged software includes
-no game payloads. Android packaging must explicitly admit and verify the
-runtime closure and supply its corresponding source and notices. Without the
-assets the native capability reports unavailable. An Android WebView with
-WASM SIMD and gzip decompression support is also required.
+no game payloads.
+
+The Android build accepts that directory through
+`build-android-app.ps1 -ZzzCatalogueAssets <staged-software>`. The assembly
+checks it against the reviewed manifest and current maintained JS sources
+and recipes before copying 16 runtime files and the full corresponding-source
+bundle into `assets/zzz-catalogue/`. The APK auditor requires exactly those
+17 files and verifies every byte receipt, including the 20 files inside
+`sources.bundle`. That opaque archive preserves the original compressed
+source bytes through AAPT. The Android candidate provenance records the two
+software digests. Without the optional assets the native capability reports
+unavailable.
+
+The hosted Android candidate job restores a cache keyed by the exact
+manifest policy. On a miss it uses the existing pinned desktop Node,
+Emscripten, Oodle and reader build recipes on Linux. The same complete
+verification runs on both paths before the software-only artifact can pass
+to the Windows APK job. Gradle and the APK auditor verify it again. The
+runtime requires Android WebView WASM SIMD and gzip decompression support.
 
 The authored parity test uses the shared operation graph and compares all
 outputs byte-for-byte with the Windows CLI for the five stages in both
@@ -109,6 +124,8 @@ An offline Chromium run checks the real pinned WASM and XXH64 initialization,
 malformed MHY input, bad input digest, changed software and cancellation on
 the isolated message port. The native host tests check scope, bounded
 handoffs and retained-library behavior. Java compilation checks the port API.
+The retained exact software passed the asset assembler and APK component
+auditor after a local AAPT2 package, including corresponding-source checks.
 This work has not yet run an original encrypted stage on Android.
 The Android provider still stops before these catalogue operations. It
 needs a context-bound original gateway/transfer stage, verified catalogue

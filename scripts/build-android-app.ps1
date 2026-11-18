@@ -8,6 +8,7 @@ param(
     [Parameter(Mandatory=$true)][string]$NdkArchive,
     [Parameter(Mandatory=$true)][string]$PublisherCryptoSourceArchive,
     [Parameter(Mandatory=$true)][string]$PublisherHashSourceArchive,
+    [string]$ZzzCatalogueAssets,
     [string]$DecoderSourceArchive,
     [string]$GradleUserHome,
     [ValidateSet('debug','ownerCandidate')][string]$Variant='debug',
@@ -77,6 +78,14 @@ $env:ANDROID_PUBLISHER_HASH=$hashRoot
 $env:ANDROID_CRYPTO_FIXTURES=Join-Path $BuildRoot 'crypto-authored'
 & $Python (Join-Path $PSScriptRoot 'prepare-publisher-crypto-probes.py') --work-dir $env:ANDROID_CRYPTO_FIXTURES --fixtures-only
 if($LASTEXITCODE -ne 0){throw 'The bounded authored cryptography fixtures could not be prepared.'}
+$env:ANDROID_ZZZ_CATALOGUE_ASSETS=$null
+if($ZzzCatalogueAssets){
+    $ZzzCatalogueAssets=Resolve-AndroidSupplierPath $ZzzCatalogueAssets 'Staged Android ZZZ catalogue software' @('manifest.json')
+    $catalogueRoot=Join-Path $BuildRoot 'zzz-catalogue-assets'
+    & $Python (Join-Path $PSScriptRoot 'android-zzz-catalogue-assets.py') --input $ZzzCatalogueAssets --output $catalogueRoot
+    if($LASTEXITCODE -ne 0){throw 'The reviewed Android ZZZ catalogue software and corresponding source did not verify.'}
+    $env:ANDROID_ZZZ_CATALOGUE_ASSETS=$catalogueRoot
+}
 $env:ANDROID_WUWA_FIXTURE=Join-Path $BuildRoot 'wuwa-authored-bootstrap.json'
 & $Python (Join-Path $PSScriptRoot 'prepare-android-wuwa-probe.py') --output $env:ANDROID_WUWA_FIXTURE
 if($LASTEXITCODE -ne 0){throw 'The bounded authored publisher bootstrap fixture could not be prepared.'}
@@ -140,6 +149,9 @@ $audit=Join-Path $BuildRoot 'apk-audit.json'
 & $Python (Join-Path $PSScriptRoot 'verify-android-apk.py') $apk --output $audit
 if($LASTEXITCODE -ne 0){throw 'The Android APK failed its closed native/shared-core audit.'}
 $nativeAudit=Get-Content -LiteralPath $audit -Raw | ConvertFrom-Json
+if([bool]$nativeAudit.zzz_catalogue_component.present -ne [bool]$ZzzCatalogueAssets){
+    throw 'The Android APK differs from the requested ZZZ catalogue software selection.'
+}
 $baseReceipt=Read-AndroidBoundBaseReceipt $Wheelhouse $receipt $policyHash
 foreach($abi in $policy.abis) {
     $nativeReceipt=$baseReceipt.native.PSObject.Properties[$abi].Value
@@ -177,6 +189,7 @@ $proof.publisher_crypto_authored_fixtures=$nativeAudit.native_publisher_crypto.a
 $proof.native_publisher_hash_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $hashRoot 'assets/publisher-hash-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
 $proof.publisher_hash_authored_fixture=$nativeAudit.native_publisher_hash.authored_fixture
 $proof.genshin_profile_component=$nativeAudit.genshin_profile_component
+$proof.zzz_catalogue_component=$nativeAudit.zzz_catalogue_component
 $proof.wuwa_authored_fixture=$nativeAudit.wuwa_authored_fixture
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'

@@ -39,7 +39,44 @@ concurrency:
   group: android-shared-core-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  zzz-catalogue-software:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ANDROID_SOURCE_COMMIT }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        id: catalogue-cache
+        with:
+          path: output/android-zzz/catalogue
+          key: android-zzz-catalogue-${{ hashFiles('packaging/android/zzz-catalogue/manifest-pin.json') }}
+      - name: Rebuild missing catalogue software with the existing pinned desktop recipe
+        if: steps.catalogue-cache.outputs.cache-hit != 'true'
+        run: |
+          python scripts/build-node-toolchain.py --platform linux-x64 --output output/android-zzz/node
+          node="$PWD/output/android-zzz/node/toolchains/node/node"
+          python scripts/build-ooz-runtime.py --output output/android-zzz/ooz --work output/android-zzz/ooz-work --cache output/android-zzz/ooz-inputs --node "$node"
+          python scripts/build-zzz-toolchain.py --platform linux-x64 --output output/android-zzz/reader --evidence-root output/android-zzz/reader-evidence --node-executable "$node" --ooz-build-root output/android-zzz/ooz
+          "$node" scripts/stage-android-zzz-catalogue.mjs output/android-zzz/reader/toolchains/zzz output/android-zzz/catalogue
+      - name: Verify the complete reviewed catalogue software before reuse
+        run: python scripts/android-zzz-catalogue-assets.py --input output/android-zzz/catalogue --output output/android-zzz/verified-apk-assets
+      - uses: actions/cache/save@v4
+        if: steps.catalogue-cache.outputs.cache-hit != 'true'
+        with:
+          path: output/android-zzz/catalogue
+          key: ${{ steps.catalogue-cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-zzz-catalogue-software
+          if-no-files-found: error
+          retention-days: 7
+          path: output/android-zzz/catalogue/
   construct:
+    needs: zzz-catalogue-software
     runs-on: windows-2025
     timeout-minutes: 100
     defaults:
@@ -77,6 +114,8 @@ jobs:
           python -m pytest -q backend/tests/test_android_workflow_acquisition.py backend/tests/test_android_build_native_receipt.py backend/tests/test_android_crypto_probe.py backend/tests/test_android_publisher_crypto_bundle.py backend/tests/test_android_publisher_hash.py backend/tests/test_android_publisher_hash_build.py backend/tests/test_android_publisher_hash_bundle.py backend/tests/test_android_genshin_profile.py backend/tests/test_android_hash_assembly.py backend/tests/test_endfield_crypto_adapter.py backend/tests/test_publisher_crypto.py backend/tests/test_publisher_apk.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_android_wuwa_bootstrap.py backend/tests/test_android_bootstrap_native.py backend/tests/test_android_native_inventory.py backend/tests/test_android_original_audio_readiness.py backend/tests/test_wuwa_game_data.py backend/tests/test_publisher_apk_zip.py backend/tests/test_wuthering_elf_bootstrap.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q backend/tests/test_android_zzz_catalogue.py backend/tests/test_android_zzz_catalogue_assets.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -125,6 +164,10 @@ jobs:
         run: |
           python -c "import importlib.util,json;from pathlib import Path;s=importlib.util.spec_from_file_location('software_inputs','scripts/build-android-python-dependencies.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/publisher-hash-native.json').read_text())['source'];d=Path('output/android-hash-source');d.mkdir(parents=True,exist_ok=True);m.acquire(d,{'artifact':'xxhash-4.1.0.tar.gz',**v},download=True)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-zzz-catalogue-software
+          path: output/android-zzz-catalogue
       - name: Construct signed debug candidate without a release identity
         run: |
           # Both versions use one temporary debug identity within this run.
@@ -132,7 +175,7 @@ jobs:
           $build = Join-Path $pwd 'output/android-build'
           $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
           foreach ($code in @(1, 2)) {
-            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -PublisherCryptoSourceArchive (Join-Path $pwd 'output/android-crypto-source/pycryptodome-3.24.1.tar.gz') -PublisherHashSourceArchive (Join-Path $pwd 'output/android-hash-source/xxhash-4.1.0.tar.gz') -VersionCode $code -DownloadGradle -DownloadDecoderSource
+            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -PublisherCryptoSourceArchive (Join-Path $pwd 'output/android-crypto-source/pycryptodome-3.24.1.tar.gz') -PublisherHashSourceArchive (Join-Path $pwd 'output/android-hash-source/xxhash-4.1.0.tar.gz') -ZzzCatalogueAssets (Join-Path $pwd 'output/android-zzz-catalogue') -VersionCode $code -DownloadGradle -DownloadDecoderSource
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
             New-Item -ItemType Directory -Path $target -Force | Out-Null
