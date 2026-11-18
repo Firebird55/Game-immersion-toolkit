@@ -34,7 +34,8 @@ def verify_bootstrap_native(archive):
     for name in archive.namelist():
         if name.startswith(prefix) and name.endswith('.so'):
             parts = name.removeprefix(prefix).split('/')
-            if len(parts) != 2 or parts[0] not in {'arm64-v8a','x86_64'}:
+            if (parts[0] not in {'arm64-v8a','x86_64'}
+                    or not (len(parts)==2 or parts[1:]==['java','chaquopy.so'])):
                 raise ValueError('Unexpected Android bootstrap-native namespace')
             result[name] = native(archive.read(name),parts[0])
     for abi in ('arm64-v8a','x86_64'):

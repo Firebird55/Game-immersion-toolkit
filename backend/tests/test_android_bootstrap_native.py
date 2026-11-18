@@ -26,10 +26,14 @@ def test_bootstrap_extensions_including_mmap_require_both_real_abi_and_16k_heade
             archive.writestr('assets/chaquopy/bootstrap-native/'+abi+'/'+member,
                 authored_elf(machine=62 if fault=='wrong-machine' else machine,
                     alignment=4096 if fault=='small-pages' else 16384))
+            # The actual Chaquopy embedding bridge lives in a package subdir;
+            # this does not authorize arbitrary nested native extensions.
+            archive.writestr('assets/chaquopy/bootstrap-native/'+abi+'/java/chaquopy.so',
+                authored_elf(machine=machine))
     with ZipFile(io.BytesIO(raw.getvalue())) as archive:
         if fault:
             with pytest.raises(ValueError):audit().verify_bootstrap_native(archive)
         else:
             result=audit().verify_bootstrap_native(archive)
-            assert len(result)==2 and {row['machine'] for row in result.values()}=={183,62}
+            assert len(result)==4 and {row['machine'] for row in result.values()}=={183,62}
             assert all(row['minimum_load_alignment']==16384 for row in result.values())
