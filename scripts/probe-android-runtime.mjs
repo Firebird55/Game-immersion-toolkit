@@ -3,6 +3,7 @@ import {assertNativePublisherHash} from './android-publisher-hash-proof.mjs';
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
 import {assertNativeWuwaBootstrap} from './android-wuwa-bootstrap-proof.mjs';
+import {assertNativeZzzCatalogue} from './android-zzz-catalogue-proof.mjs';
 import {waitForOwnedOriginalAudio} from './android-original-audio-readiness.mjs';
 // Authored fixtures only. The APK runs the production shared Python core and UI.
 import assert from 'node:assert/strict';
@@ -118,6 +119,7 @@ assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(direct
 assertNativePublisherCrypto(core.native_publisher_crypto, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, provenance);
 assertNativePublisherHash(core.native_publisher_hash, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_hash, provenance);
 assertNativeWuwaBootstrap(core.native_wuwa_bootstrap, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_publisher_crypto.runtime);
+assertNativeZzzCatalogue(core.native_zzz_catalogue, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 // Measure the normal reader in its own process after the heavy DEBUG native
@@ -290,6 +292,7 @@ assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(joi
 assertNativePublisherCrypto(upgradedCore.native_publisher_crypto, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, update);
 assertNativePublisherHash(upgradedCore.native_publisher_hash, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_hash, update);
 assertNativeWuwaBootstrap(upgradedCore.native_wuwa_bootstrap, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update, upgradedCore.native_publisher_crypto.runtime);
+assertNativeZzzCatalogue(upgradedCore.native_zzz_catalogue, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);

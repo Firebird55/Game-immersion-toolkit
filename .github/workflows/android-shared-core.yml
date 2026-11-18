@@ -119,7 +119,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-publisher-crypto-proof.test.mjs tests/android-publisher-hash-proof.test.mjs tests/android-genshin-profile-proof.test.mjs tests/android-wuwa-bootstrap-proof.test.mjs tests/android-original-audio-readiness.test.mjs
+          node --test tests/android-publisher-crypto-proof.test.mjs tests/android-publisher-hash-proof.test.mjs tests/android-genshin-profile-proof.test.mjs tests/android-wuwa-bootstrap-proof.test.mjs tests/android-zzz-catalogue-proof.test.mjs tests/android-original-audio-readiness.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()

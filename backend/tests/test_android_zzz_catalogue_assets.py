@@ -119,6 +119,8 @@ def test_apk_audit_checks_real_verified_software_through_aapt2(tmp_path):
     proof = tool.assemble(source, target / 'zzz-catalogue')
     assert proof['manifest_sha256'] == json.loads((ROOT / tool.PIN).read_bytes())['manifest_sha256']
     assert proof['runtime_files'] == 16 and proof['source_files'] == 20
+    fixture = (ROOT / 'packaging/android/zzz-catalogue/authored-operation.json').read_bytes().replace(b'\r\n', b'\n')
+    (target / 'zzz-catalogue-authored.json').write_bytes(fixture)
 
     manifest = tmp_path / 'AndroidManifest.xml'
     manifest.write_text('<manifest xmlns:android="http://schemas.android.com/apk/res/android" '
@@ -128,4 +130,5 @@ def test_apk_audit_checks_real_verified_software_through_aapt2(tmp_path):
                    check=True, capture_output=True, timeout=30)
     apk_audit = load('verify-android-apk')
     with zipfile.ZipFile(apk) as archive:
-        assert apk_audit.verify_zzz_catalogue_component(archive, ROOT) == proof
+        assert apk_audit.verify_zzz_catalogue_component(archive, ROOT) == {
+            **proof, 'authored_fixture_sha256': receipt(fixture)['sha256']}
