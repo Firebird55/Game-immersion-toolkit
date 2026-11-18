@@ -691,9 +691,10 @@ constructed by the inspected methods.
 This real-source phase stops at its eight-body limit: 736 instruction bytes,
 32 try-table bytes and 19 handler bytes. Each selected body is checked against
 its complete signed DEX hash and typed instruction, register, branch and
-handler bounds. All DEX input is existing signed cache, and the SSR is the existing
-publisher-linked response; new origin bytes and client execution remain zero. The remaining concrete boundary is the
-source's `FileDownloaderType` and the consumer that populates or resolves its
+handler bounds. All DEX input is existing signed cache, and the SSR is the
+existing publisher-linked response; new origin bytes and client execution
+remain zero. The remaining concrete boundary is the source's
+`FileDownloaderType` and the consumer that populates or resolves its
 stored URL from the MD5/size descriptor. No anonymous delivery route, original
 game module, key, text/audio catalog or Ready state is established.
 
@@ -710,6 +711,42 @@ relevant earlier locator results changes only that base-class false negative;
 the other definitions remain unchanged. The overrun and failed preflight
 checks remain recorded. The independently verified signed model annotations
 and retained SSR descriptor are not reclassified as a transfer proof.
+
+### Concrete download-engine and descriptor-fetch consumer
+
+The next exact source getter returns `FileDownloaderType.APK`. A formal
+operand-only inventory for the three approved `tc.d` method signatures finds
+only `classes4.dex` as a carrier and six call sites for its type getter.
+`getUrl` and its setter are not declared under that interface owner; the actual
+engine uses the inherited `tc.b.getUrl` operand. This is an owner distinction,
+not a failed source format. The complete signed source and formal instruction,
+payload, branch and handler checks pass for the positive carrier. The bounded
+locator consumes a conservative 78,617,063 existing bytes in 2.078 seconds;
+there is no generic string, URL or key search.
+
+One concrete consumer, `downloadv3.e.r`, directly calls `downloadv3.f.m`.
+That engine reads the stored URL, creates `tapfiledownload.core.b` and calls
+`start()`. Its preparatory `f.d` only handles local reset state and is stopped.
+Before engine construction, `e.r` also delegates through `impl.a.h` and `g`
+to `downinfo.a.c`, which calls the actual file-info fetcher `downinfo.fetch.c.i`.
+These are original typed edges, not a claim that every runtime setting selects
+this engine.
+
+The actual fetcher builds a map with `id` from its own string field, `node`,
+`abi`, `screen_densities`, conditional endpoint/sandbox/automatic-download and
+patch fields, and a separately delegated context map. It allocates the exact
+`fetch.c$a` coroutine and uses `runBlocking`. **The meaning/initialization of
+that `id` field is still unproved**; it is not replaced with either the website
+app ID, numeric APK ID or MD5. This is a different producer from the stopped
+title/icon helper. Its coroutine request builder and response-to-source URL
+mapping remain unread, as do necessary context/config initialization edges.
+No endpoint, method, transmitted identity or accountless behavior is guessed.
+
+This consumer phase stops at eight bodies / 3,174 instruction bytes, 72
+try-table bytes and 26 handler bytes, with the original signed-source and typed
+bounds checks. New origin bytes and code execution remain zero. The next source
+step is the exact allocated fetch coroutine and its concrete request/response
+owners, not another broad store-client or Windows packed-code search.
 
 ### Community key candidate: research only
 
