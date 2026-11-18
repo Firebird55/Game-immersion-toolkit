@@ -1,3 +1,4 @@
+import {assertNativePublisherHash} from './android-publisher-hash-proof.mjs';
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
 import {assertNativeWuwaBootstrap} from './android-wuwa-bootstrap-proof.mjs';
@@ -113,6 +114,7 @@ assertProtectedStorage(core.native_protected_storage);
 assertNativeDataDecoder(core.native_x64_decoder, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_data_decoder, provenance.native_decoder_manifest_sha256);
 assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(core.native_publisher_crypto, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, provenance);
+assertNativePublisherHash(core.native_publisher_hash, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_hash, provenance);
 assertNativeWuwaBootstrap(core.native_wuwa_bootstrap, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_publisher_crypto.runtime);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
@@ -277,6 +279,7 @@ assertProtectedStorage(upgradedCore.native_protected_storage);
 assertNativeDataDecoder(upgradedCore.native_x64_decoder, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_data_decoder, update.native_decoder_manifest_sha256);
 assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(upgradedCore.native_publisher_crypto, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, update);
+assertNativePublisherHash(upgradedCore.native_publisher_hash, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_hash, update);
 assertNativeWuwaBootstrap(upgradedCore.native_wuwa_bootstrap, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update, upgradedCore.native_publisher_crypto.runtime);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);

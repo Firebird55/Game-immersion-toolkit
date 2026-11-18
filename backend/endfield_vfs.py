@@ -11,8 +11,6 @@ from pathlib import Path
 import struct
 import zlib
 
-from Crypto.Cipher import ChaCha20
-
 MAX_INDEX = 32 * 1024 * 1024
 MAX_VOICE = 64 * 1024 * 1024
 MAX_ENTRIES = 2_000_000
@@ -71,10 +69,18 @@ def _audio_master(parameters):
             previous_snapshot_retained=True)
 
 
-def chacha(data, key, nonce, offset=0):
-    cipher = ChaCha20.new(key=key, nonce=nonce)
-    cipher.seek(64 + offset)
-    return cipher.decrypt(data)
+def chacha(data, key, nonce, offset=0, *, crypto=None):
+    from .publisher_crypto import AndroidPublisherCrypto, DesktopPublisherCrypto, MAX_BYTES, CHACHA_LIMIT
+    _require(type(data) is bytes and len(data) <= 96 * 1024**2)
+    _require(type(key) is bytes and len(key) == 32 and type(nonce) is bytes and len(nonce) == 12)
+    _require(type(offset) is int and 0 <= offset and 64 + offset <= CHACHA_LIMIT
+             and len(data) <= CHACHA_LIMIT - 64 - offset)
+    selected = DesktopPublisherCrypto() if crypto is None else crypto
+    _require(isinstance(selected, (DesktopPublisherCrypto, AndroidPublisherCrypto)))
+    # Existing text indexes may be 96 MiB. Keep that format bound while every
+    # platform primitive call retains its reviewed 64-MiB limit.
+    return b''.join(selected.chacha20(key, nonce, data[start:start + MAX_BYTES], position=64 + offset + start)
+                    for start in range(0, len(data), MAX_BYTES))
 
 
 def xor_data(data: bytes, seed: int, parameters: Parameters, offset=0) -> bytes:
@@ -129,9 +135,9 @@ class File:
     content_hashes: tuple = ()
 
 
-def parse_index(data: bytes, parameters: Parameters | IndexParameters, block: int, *, suffix='.pck', names=None) -> tuple[File, ...]:
+def parse_index(data: bytes, parameters: Parameters | IndexParameters, block: int, *, suffix='.pck', names=None, crypto=None) -> tuple[File, ...]:
     _require(16 <= len(data) <= (96 * 1024**2 if block == 11 and suffix == '.ab' else MAX_INDEX))
-    plain = chacha(data[12:], parameters.key, data[:12])
+    plain = chacha(data[12:], parameters.key, data[:12], crypto=crypto)
     _require(zlib.crc32(plain[:-4]) == struct.unpack('<I', plain[-4:])[0], 'Endfield voice index checksum mismatch')
     cursor = Cursor(plain[:-4])
     version = cursor.number('i')
@@ -176,8 +182,9 @@ def parse_index(data: bytes, parameters: Parameters | IndexParameters, block: in
 
 class PackageSource:
     """A bounded view of one file in a chunk; packages are never inflated whole."""
-    def __init__(self, stream, file: File, parameters: Parameters | IndexParameters):
+    def __init__(self, stream, file: File, parameters: Parameters | IndexParameters, *, crypto=None):
         self.stream, self.file, self.parameters = stream, file, parameters
+        self.crypto = crypto
         self.size = file.size
         stream.seek(0, 2)
         _require(file.size <= MAX_PACKAGE and file.offset + file.size <= stream.tell(), 'Endfield voice chunk is truncated')
@@ -187,7 +194,7 @@ class PackageSource:
         self.stream.seek(self.file.offset + offset)
         data = self.stream.read(size)
         _require(len(data) == size, 'Endfield voice chunk changed during reading')
-        return chacha(data, self.parameters.key, self.file.nonce, offset) if self.file.nonce else data
+        return chacha(data, self.parameters.key, self.file.nonce, offset, crypto=self.crypto) if self.file.nonce else data
 
 
 @dataclass(frozen=True)

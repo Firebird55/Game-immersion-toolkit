@@ -107,3 +107,34 @@ static control. The complete original native file's manifest MD5 is rechecked;
 no metadata dump or original instruction execution is used for this graph.
 This proves the delivered Windows graph contract, while complete metadata-key
 recovery and ordinary worker/platform acceptance remain separate.
+
+## Android DATA-IR adapter
+
+`backend/starrail_android_ir.py` implements the existing helper `disassemble`
+and `native-graph` operations over the APK-verified `PackagedX64Decoder`. It
+requires the real Android provider and binds the decoder proof and owned adapter
+source into its identity. A missing runtime/source binding or unrepresented IR
+semantics raises a typed unresolved-contract error. It does not diagnose a
+publisher format change. Unsupported vector decorators remain unresolved.
+
+The adapter formats structured operands rather than trusting `op_str`, including
+unsigned/sign-extended immediates, RIP displacement, register and condition
+aliases, `movabs`, implicit string operands and Iced pseudo-operations. Linear
+decoding must consume the entire requested range. Control-flow decoding retains
+the guarded switch-table checks, overlap and branch-bypass rejection; graphs
+retain original PE/unwind ownership and the existing region, byte and instruction
+limits. Calls are opaque. Invalid or incomplete requests create no result and
+cannot replace an earlier output.
+
+An authored-data trial compares the existing authenticated Windows CAPI reference
+and frozen Iced helper: 87 linear ranges and nine control-flow ranges at three
+exact 64-bit addresses match, together with the complete split-PE graph. These
+are synthetic instruction bytes, not original client instructions or Android
+execution. Host regressions cover malformed/partial decoding, missing IR,
+prospective graph limits, wrong ownership and preservation of earlier metadata.
+
+The adapter intentionally has no metadata operation, fallback build or factory
+activation. Portable required-metadata parsing, signed-APK HSR acceptance and
+ordinary preparation/update/recovery remain required. The saved required-method
+projection component is a separate dependency; this adapter does not silently
+import it or modify the C# helper, Android native/JNI code or locale guards.

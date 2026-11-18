@@ -26,20 +26,20 @@ VOICE_LOCALES = {'en', 'zh-Hans', 'zh-Hant', 'ja', 'ko'}
 
 
 class GenshinRuntime:
-    """Explicit installed Windows BLB closure; never builds or downloads helpers."""
+    """Installed Windows native analysis plus the owned portable BLB software."""
     def __init__(self, layout):
         self.layout = layout
         self.helper = self.validate()
 
     def validate(self):
-        # Lazy desktop imports keep the metadata-stage module Android-safe.
-        from .prebuilt_readers import prebuilt_reader
-        from .genshin_blb import Helper
+        # Keep the existing native/host gate before any publisher payload quote.
+        # BLB itself no longer resolves or executes a managed apphost/SDK.
+        from .genshin_blb_portable import PortableHelper
         from .genshin_native_x64 import decoder
-        reader = prebuilt_reader('genshin', layout=self.layout)
+        if getattr(self.layout, 'mode', None) != 'bundle':
+            raise ValueError('The installed Genshin native reader is unavailable.')
         decoder()
-        identity = hashlib.sha256((reader.source_identity + reader.manifest['build_id']).encode()).hexdigest()
-        return Helper((str(reader.executable),), identity)
+        return PortableHelper()
 
     def initial_seed(self, executable, metadata, *, expected_owner):
         from .genshin_native_channel import read_bootstrap_inputs
@@ -259,7 +259,7 @@ def _profile_owner(handle, seed_owner, seed_receipt, files):
             'source': {'name': asset.name, 'md5': asset.digest, 'bytes': asset.size},
             'runtime_identity': handle['runtime_identity'],
             'implementation_sha256': _implementation(('genshin_original_bootstrap', 'genshin_original_containers',
-                'genshin_blb_native', 'genshin_blb', 'genshin_native_x64', 'hoyo_bootstrap_assets')),
+                'genshin_blb_native', 'genshin_blb', 'genshin_blb_portable', 'genshin_native_x64', 'hoyo_bootstrap_assets')),
             'bounds': {'package': MAX_PACKAGE, 'body': MAX_BODY, 'text': MAX_TEXT, 'receipt': MAX_RECEIPT}}
 
 

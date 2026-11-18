@@ -1073,3 +1073,19 @@ actual module-name input and engine trust remain unproved. A separate
 current-core synthetic service fixture verifies older-current/stage-pointer and
 recording retention on publication failure plus offline old activation; this
 does not establish actual Endfield Ready or resolve the remaining capture gates.
+
+The subsequent [official Android source probe](endfield-official-parameters.md#official-android-source-and-bounded-initializer-probe--november-18)
+establishes a publisher-linked mainland APK, its original Manifest identity and
+a complete CRC-checked AArch64 Unity member independently of a game installation.
+Global equivalence and whole-APK authenticity remain unproved. Qualified loader
+metadata and the bounded initializer follow-up identify a conditional weak
+callback whose actual provider and state initialization remain unproved. Both
+branch legs stay qualified; original zero-fill or pointer-file values do not
+select runtime behavior. A separate direct prefix shows ELF-header-shaped
+inspection, without establishing the UnityFS header producer or key contract.
+The route stops at that unowned indirect handoff and does not admit a canonical
+capture library, `SnapshotSource` or Ready state.
+The separately checked `libtprt.so` dependency has no matching name in its
+complete 195-record dynamic symbol table. That specific provider hypothesis
+is negative; no other module or function body is searched, and the actual
+callback/state/header ownership remains unresolved.
