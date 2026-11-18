@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend import starrail_declaration_census as census
 from backend import starrail_portable_metadata as portable
+from backend import starrail_table_candidates as table_candidates
 from backend.starrail_portable_metadata import MetadataCancelled, MetadataFormatError, OriginalInput, read_required
 
 
@@ -512,3 +514,416 @@ def test_late_invalid_record_cannot_read_payload_or_publish_stale_defaults(tmp_p
     assert previous['value'] == -7
     current = _selected_default(_default_sources(tmp_path, payload=b'\x09\0\0\0'))
     assert current == {'status': 'present', 'kind': 'int', 'value': 9}
+
+
+def _census_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _field_boundary_sources(tmp_path, 0)
+    data = bytearray(sources['metadata'].path.read_bytes())
+    native = bytearray(sources['native'].path.read_bytes())
+    prefix = len(_HEADER)
+    first_type = prefix + 0x100
+    if shuffled:
+        original = bytes(data[first_type:first_type + 140])
+        data[first_type:first_type + 140] = original[70:] + original[:70]
+    ranges = [(1, 3), (0, 1)] if shuffled else [(2, 2), (0, 2)]
+    if defect == 'method_gap':
+        ranges[1] = (0, 1)
+    elif defect == 'method_overlap':
+        ranges[1] = (0, 3)
+    elif defect == 'field_gap':
+        struct.pack_into('<H', data, first_type + 70 + 0x32, (-17485) & 0xffff)
+    elif defect == 'field_overlap':
+        struct.pack_into('<I', data, first_type + 0x20, 1954887780)
+        struct.pack_into('<H', data, first_type + 0x32, (2 - 17485) & 0xffff)
+    for owner, (start, count) in enumerate(ranges):
+        at = first_type + 70 * owner
+        struct.pack_into('<I', data, at + 0x08, 0x1a7af5fe ^ start)
+        struct.pack_into('<H', data, at + 0x34, (count - 24467) & 0xffff)
+    owners = (1, 0, 0, 0) if shuffled else (1, 1, 0, 0)
+    # The four original MethodDef payloads carry distinct encoded owner words.
+    row_bases = (0xe6c4db28, 0xddc1e66d, 0x9b18ed32, 0x7beb2d97)
+    for index, (owner, previous) in enumerate(zip(owners, row_bases, strict=True)):
+        struct.pack_into('<I', data, prefix + 0x240 + 26 * index + 0x10, previous ^ owner)
+    if defect == 'foreign':
+        struct.pack_into('<I', data, prefix + 0x250, row_bases[0])
+    pointers = (0x10a0, 0x1030, 0, 0x10a0) if shuffled else (0x1070, 0, 0x1020, 0x1070)
+    if defect == 'noncode':
+        pointers = (_DATA_RVA + 0x5c0, *pointers[1:])
+    struct.pack_into('<4Q', native, 0x600 + 0x560, *(rva + _IMAGE_BASE if rva else 0 for rva in pointers))
+    method_end = 0x2a8
+    if defect == 'nonaligned_end':
+        method_end += 1
+    elif defect == 'unclassified_end':
+        struct.pack_into('<I', native, 0x640 + 0x158, 532747583 + method_end)
+        method_end += 26
+    struct.pack_into('<I', native, 0x640 + 0x30, 587858498 + method_end)
+    outputs = [('native', native), ('metadata', data)]
+    if defect == 'image_tail':
+        startup = bytearray(sources['startup'].path.read_bytes())
+        startup[0x24] ^= 3  # The authored image covers one of the two TypeDefs.
+        outputs.append(('startup', startup))
+    for role, raw in outputs:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_census_uses_original_declarations_and_preserves_nulls_and_aliases(tmp_path, shuffled):
+    sources = _census_sources(tmp_path, shuffled=shuffled)
+    result = census.read_census(sources)
+    assert result.definition_count == 2 and result.method_count == 4
+    assert result.method_endpoint_role == 'parameters'
+    assert result.images == ((0, 'Example.dll'),)
+    with portable.open_records(sources) as (records, identity):
+        source = records.metadata.stream
+        names = [records.name(result.declaration(index).name_index) for index in range(2)]
+        assert result.source_sha256 == identity
+    assert source.closed
+    assert names == (['Other', 'Actor'] if shuffled else ['Actor', 'Other'])
+    assert [result.field_owner(i) for i in range(2)] == ([0, 1] if shuffled else [1, 0])
+    assert [result.method_owner(i) for i in range(4)] == ([1, 0, 0, 0] if shuffled else [1, 1, 0, 0])
+    earlier, latter = (0x1030, 0x10a0) if shuffled else (0x1020, 0x1070)
+    assert result.method_rva(2 if shuffled else 1) is None
+    assert tuple(result.methods_at(latter)) == (0, 3)
+    assert result.next_method_boundary(earlier) == latter
+    with pytest.raises(census.CensusUnresolved, match='managed method boundary'):
+        result.next_method_boundary(latter)
+
+
+@pytest.mark.parametrize(('defect', 'reason'), [
+    ('method_gap', 'method gap'), ('method_overlap', 'method overlap'),
+    ('field_gap', 'field gap'), ('field_overlap', 'field overlap'),
+    ('foreign', 'foreign method declaration'), ('noncode', 'PE address ownership'),
+])
+def test_census_rejects_incomplete_or_foreign_owned_records(tmp_path, defect, reason):
+    with pytest.raises(MetadataFormatError, match=reason):
+        census.read_census(_census_sources(tmp_path, defect=defect))
+
+
+@pytest.mark.parametrize('defect', ['nonaligned_end', 'unclassified_end'])
+def test_census_reports_an_unproved_method_endpoint(tmp_path, defect):
+    with pytest.raises(census.CensusUnresolved, match='method table endpoint'):
+        census.read_census(_census_sources(tmp_path, defect=defect))
+
+
+def test_census_does_not_invent_an_owner_for_trailing_declarations(tmp_path):
+    with pytest.raises(census.CensusUnresolved, match='type image ownership'):
+        census.read_census(_census_sources(tmp_path, defect='image_tail'))
+
+
+@pytest.mark.parametrize(('limit', 'resource', 'count'), [
+    ('_MAX_DECLARATIONS', 'type definitions', 2), ('_MAX_METHODS', 'method definitions', 4),
+])
+def test_census_keeps_resource_limits_distinct_from_metadata_ownership(tmp_path, monkeypatch, limit, resource, count):
+    monkeypatch.setattr(census, limit, 1)
+    with pytest.raises(census.CensusLimitError) as error:
+        census.read_census(_census_sources(tmp_path))
+    assert (error.value.resource, error.value.count, error.value.limit) == (resource, count, 1)
+
+
+@pytest.mark.parametrize('change_source', [False, True])
+def test_census_rejects_cancellation_or_a_changed_source_before_publication(tmp_path, monkeypatch, change_source):
+    sources = _census_sources(tmp_path)
+    previous = census.read_census(sources)
+    original = portable._Source.read
+    cancelled = False
+
+    def read(item, at, size, *, component=None):
+        nonlocal cancelled
+        data = original(item, at, size, component=component)
+        if component == 'census method pointers':
+            if change_source:
+                path = sources['metadata'].path
+                info = path.stat()
+                os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 2_000_000_000))
+            else:
+                cancelled = True
+        return data
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    expected = MetadataFormatError if change_source else MetadataCancelled
+    with pytest.raises(expected):
+        census.read_census(sources, cancelled=lambda: cancelled)
+    assert tuple(previous.methods_at(0x1070)) == (0, 3)
+
+
+def _image_method_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _census_sources(tmp_path, shuffled=shuffled, defect=defect)
+    data = bytearray(sources['metadata'].path.read_bytes())
+    prefix = len(_HEADER)
+    method_bases = (
+        '293beaca7bf903ccde7bd9313779e54728dbc4e6420800006900',
+        '6c06eff13ec406f7a158dc5c7244a07a6de6c1dd7d2b00002c00',
+        '330d36b761cfdfb1f85185162d4fff7132ed189b283200007300',
+        '96cdc557c40f2c519b91f2b6888f5ab1972deb7b83f20000d600',
+    )
+    for index, encoded in enumerate(method_bases):
+        at = prefix + 0x240 + 26 * index
+        owner_byte = data[at + 0x10]
+        data[at:at + 26] = bytes.fromhex(encoded)
+        data[at + 0x10] = owner_byte
+    parameter = prefix + (0x2c1 if defect == 'nonaligned_end' else 0x2c0)
+    data[parameter:parameter + 8] = bytes.fromhex('f31264764a160ec2')
+    if defect == 'encoded_owner':
+        data[prefix + 0x240 + 26 * 2 + 0x10] ^= 1
+    elif defect in {'nested', 'duplicate_nested', 'missing_nested'}:
+        struct.pack_into('<H', data, prefix + 0x13a, 0xb2c0)
+        data[prefix + 0x143] = 0xfe if defect == 'duplicate_nested' else 0xfd
+        struct.pack_into('<I', data, prefix + 0x152, 472568492)
+        child = 0 if defect == 'missing_nested' else 1
+        struct.pack_into('<II', data, prefix + 0x7e0, child, child)
+    outputs = [('metadata', data)]
+    if defect == 'method_window':
+        native = bytearray(sources['native'].path.read_bytes())
+        struct.pack_into('<I', native, 0x640 + 0x30, 587858498 + 0x2a0)
+        outputs.append(('native', native))
+    for role, raw in outputs:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_image_method_lookup_reads_original_owner_and_signature_without_native_slots(tmp_path, monkeypatch, shuffled):
+    sources = _image_method_sources(tmp_path, shuffled=shuffled)
+    sha256 = {role: hashlib.sha256(source.path.read_bytes()).hexdigest() for role, source in sources.items()}
+    original = portable._Source.read
+    slot_start = 0x600 + 0x560
+
+    def read(item, at, size, *, component=None):
+        if item.role == 'native' and hasattr(item, 'sha256'):
+            assert at + size <= slot_start or at >= slot_start + 32
+        return original(item, at, size, component=component)
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    owner, indices = (1, (0,)) if shuffled else (0, (2, 3))
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (owner,)))
+    expected = {'owner': owner, 'name': 'Read', 'return_type': 1, 'flags': 0x16, 'generic_container': -1,
+                'parameters': ((2, 'argument_with_an_original_name_longer_than_the_short_encoding_bound'),)}
+    assert result == {
+        'schema': 'proxy-starrail-image-method-declarations-v1',
+        'sha256': sha256,
+        'image': {'index': 0, 'name': 'Example.dll'},
+        'scope': ({'definition': owner, 'name': 'Actor', 'namespace': 'Demo'},),
+        'methods': dict.fromkeys(indices, expected),
+    }
+
+
+def test_image_method_lookup_requires_explicit_authored_nesting(tmp_path):
+    sources = _image_method_sources(tmp_path, defect='nested')
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (0, 1)), method_indices=(1,))
+    assert result['scope'] == ({'definition': 0, 'name': 'Actor', 'namespace': 'Demo'},
+                               {'definition': 1, 'name': 'Other', 'namespace': 'Demo'})
+    assert tuple(result['methods']) == (1,)
+    assert result['methods'][1]['owner'] == 1
+    empty = census.read_image_methods(sources, census.ImageTypeScope(0, (0, 1)), method_indices=())
+    assert empty['methods'] == {}
+    with pytest.raises(MetadataFormatError, match='method scope image root'):
+        census.read_image_methods(sources, census.ImageTypeScope(0, (1,)))
+
+
+@pytest.mark.parametrize(('defect', 'image', 'path', 'selection', 'reason'), [
+    (None, 1, (0,), None, 'method scope image root'),
+    (None, 0, (0,), (0,), 'method declaration ownership'),
+    (None, 0, (0,), (2, 2), 'requested method declarations'),
+    (None, 0, (0, 0), None, 'method declaration scope'),
+    ('encoded_owner', 0, (0,), (2,), 'method declaration encoded owner'),
+    ('method_window', 0, (0,), (2,), 'method declaration window'),
+    ('duplicate_nested', 0, (0, 1), (1,), 'method scope nested ownership'),
+    ('missing_nested', 0, (0, 1), (1,), 'method scope nested ownership'),
+])
+def test_image_method_lookup_rejects_foreign_or_unowned_declarations(tmp_path, defect, image, path, selection, reason):
+    sources = _image_method_sources(tmp_path, defect=defect)
+    with pytest.raises(MetadataFormatError, match=reason):
+        census.read_image_methods(sources, census.ImageTypeScope(image, path), method_indices=selection)
+
+
+@pytest.mark.parametrize(('defect', 'reason'), [
+    ('image_tail', 'type image ownership'), ('nonaligned_end', 'method table endpoint'),
+])
+def test_image_method_lookup_keeps_complete_census_requirements(tmp_path, defect, reason):
+    sources = _image_method_sources(tmp_path, defect=defect)
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (0,)), method_indices=(2,))
+    assert result['methods'][2]['name'] == 'Read'
+    with pytest.raises(census.CensusUnresolved, match=reason):
+        census.read_census(sources)
+
+
+def test_image_method_lookup_can_select_one_record_above_the_full_owner_budget(tmp_path, monkeypatch):
+    sources = _image_method_sources(tmp_path)
+    scope = census.ImageTypeScope(0, (0,))
+    monkeypatch.setattr(portable, '_MAX_SELECTED', 1)
+    with pytest.raises(census.CensusLimitError) as error:
+        census.read_image_methods(sources, scope)
+    assert (error.value.resource, error.value.count, error.value.limit) == ('selected method declarations', 2, 1)
+    assert tuple(census.read_image_methods(sources, scope, method_indices=(3,))['methods']) == (3,)
+
+
+@pytest.mark.parametrize('change_source', [False, True])
+def test_image_method_lookup_rechecks_selection_before_publication(tmp_path, monkeypatch, change_source):
+    sources = _image_method_sources(tmp_path)
+    scope = census.ImageTypeScope(0, (0,))
+    previous = census.read_image_methods(sources, scope, method_indices=(2,))
+    original = portable._Source.read
+    cancelled = False
+
+    def read(item, at, size, *, component=None):
+        nonlocal cancelled
+        data = original(item, at, size, component=component)
+        if component == 'methods':
+            if change_source:
+                path = sources['metadata'].path
+                info = path.stat()
+                os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 2_000_000_000))
+            else:
+                cancelled = True
+        return data
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    expected = MetadataFormatError if change_source else MetadataCancelled
+    with pytest.raises(expected):
+        census.read_image_methods(sources, scope, method_indices=(2,), cancelled=lambda: cancelled)
+    assert previous['methods'][2]['name'] == 'Read'
+
+
+def _table_candidate_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _image_method_sources(tmp_path, shuffled=shuffled)
+    native, data, startup = (bytearray(sources[role].path.read_bytes()) for role in ('native', 'metadata', 'startup'))
+    root, row, dictionary = (1, 2, 0) if shuffled else (0, 1, 2)
+    alias = defect == 'ambiguous_row'
+    method, array_field = (0, 1) if shuffled else (2, 0)
+    prefix = len(_HEADER)
+    type_at = prefix + 0x100
+    header_at = 0x640
+    template = bytes(data[type_at:type_at + 70])
+    for index in range(4 if alias else 3):
+        at = type_at + 70 * index
+        data[at:at + 70] = template
+        struct.pack_into('<I', data, at + 0x20, 1954887780)
+        field_count = (3 if alias else 2) if index == root else 0
+        struct.pack_into('<H', data, at + 0x32, (field_count - 17485) & 0xffff)
+        struct.pack_into('<I', data, at + 0x08, 0x1a7af5fe ^ (method if index == root else 0))
+        struct.pack_into('<H', data, at + 0x34, ((2 if index == root else 0) - 24467) & 0xffff)
+    names = {
+        row: 0x10000118 if shuffled else 0x12000108,
+        dictionary: 0x18000120,
+    }
+    if defect == 'wrong_generic_definition':
+        names[dictionary] = names[row]
+    if alias:
+        names[3] = names[row]
+    for index, name in names.items():
+        struct.pack_into('<I', data, type_at + 70 * index + 0x28, 369268488 + name)
+    if defect == 'foreign_field':
+        struct.pack_into('<H', data, type_at + 70 * row + 0x32, (1 - 17485) & 0xffff)
+    # Encrypted authored names share the fixture's original string coordinate.
+    for offset, encoded in (
+        (0x100, '0a3a2dff67aefff1'), (0x108, 'b68c95947649b01a94e73632ec634bb4'),
+        (0x118, 'd96434b458efc90a'), (0x120, '20f58b492767e76021e34a4a2045f23f'),
+        (0x130, '74df417f029e4d09'), (0x138, 'b53dafe6f69a1d8d'),
+        (0x140, 'c7bee198f6341211'), (0x148, '26154a32d71b8794'), (0x150, '166ea7ba84cad618'),
+    ):
+        raw = bytes.fromhex(encoded)
+        at = prefix + 0x380 + offset
+        data[at:at + len(raw)] = raw
+    fields = '0a1a1a864ae0c9a2fae477b249ab27cf' if shuffled else 'f2191a8249e0c9a202e577ae4aab27cf'
+    if alias:
+        fields += '12b0d5da4d7685fb'
+        field_at = 0x220
+        struct.pack_into('<I', native, header_at + 0x20, 1292050039 + field_at)
+        struct.pack_into('<I', native, header_at + 0x158, 532747583 + field_at + 4)
+        struct.pack_into('<I', native, header_at + 0x08, 149860775 + field_at + 24)
+    else:
+        field_at = 0x200
+    raw_fields = bytes.fromhex(fields)
+    data[prefix + field_at:prefix + field_at + len(raw_fields)] = raw_fields
+    struct.pack_into('<I', data, prefix + 0x300 + root * 4, 0)
+    struct.pack_into('<I', data, prefix + 0x328, 0)
+    struct.pack_into('<III', data, prefix + 0x360, 32, 72, 80)
+
+    at = prefix + 0x240 + method * 26
+    ctor = '013aeace78f903ccde7bd9313779e24729dbc4e6420800006800' if shuffled else '1b0c36b362cfdfb1f85185162d4ff87132ed189b283200007200'
+    data[at:at + 26] = bytes.fromhex(ctor)
+    data[at + 26 + 0x10] ^= int(shuffled)  # The second authored method follows the same root.
+    flags_xor = {'constructor_access': 0x07, 'constructor_instance': 0x10, 'constructor_virtual': 0x40}.get(defect, 0)
+    data[at + 0x0e] ^= flags_xor
+    if defect == 'constructor_generic':
+        struct.pack_into('<H', data, at + 0x14, 59843 if shuffled else 49117)
+    elif defect == 'foreign_method':
+        data[at + 0x10] ^= 1
+    elif defect == 'ambiguous_constructor':
+        alternate = '4407eff53dc406f7a158dc5c7244a77a6ce6c1dd7d2b00002d00' if shuffled else 'beccc553c70f2c519b91f2b6888f5db1972deb7b83f20000d700'
+        data[at + 26:at + 52] = bytes.fromhex(alternate)
+
+    type_count = 4 if alias else 3
+    struct.pack_into('<I', native, header_at + 0x1a8, 0x729b1a9e ^ (type_count * 70))
+    startup[0x24] ^= 2 ^ type_count
+    struct.pack_into('<ii', startup, 0x20c, dictionary, 0)
+    data_at = 0x600
+    image_data = _IMAGE_BASE + _DATA_RVA
+    struct.pack_into('<Q', native, data_at + 0x360 + 0x38, image_data + 0x900)
+    struct.pack_into('<i4xQ', native, data_at + 0x900, 1 if defect == 'dictionary_arity' else 2, image_data + 0x940)
+    struct.pack_into('<QQ', native, data_at + 0x940, _IMAGE_BASE + _TYPE_RVA + 5 * 8, _IMAGE_BASE + _TYPE_RVA + 4 * 8)
+    attrs = {'array_access': 0x33, 'array_instance': 0x21, 'array_literal': 0x71}.get(defect, 0x31)
+    runtime = ((0, 0, 0x0e), (0, 0, 0x01), (5 if defect == 'array_element' else 0, attrs, 0x1d),
+               (0, 6, 0x15), (row, 0, 0x12), (0, 0, 0x09))
+    if alias:
+        # Another Dictionary value points to a distinct declaration with the same qualified name.
+        struct.pack_into('<ii', startup, 0x214, dictionary, 1)
+        struct.pack_into('<i4xQ', native, data_at + 0x910, 2, image_data + 0x950)
+        struct.pack_into('<QQ', native, data_at + 0x950, _IMAGE_BASE + _TYPE_RVA + 5 * 8, _IMAGE_BASE + _TYPE_RVA + 7 * 8)
+        runtime += ((1, 6, 0x15), (3, 0, 0x12))
+    native[data_at + 0x1000:] = b''.join(struct.pack('<IHBB', target, attrs, tag, 0) for target, attrs, tag in runtime)
+    struct.pack_into('<I', native, data_at + 0x360 + 0x48, 1455078204 + len(runtime))
+    struct.pack_into('<I', native, 0x1c0, 0x1000 + 8 * len(runtime))
+    for role, raw in [('native', native), ('metadata', data), ('startup', startup)]:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources, census.ImageTypeScope(0, (root,)), (row, method, array_field)
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_table_shadow_joins_field_and_constructor_shapes_in_authenticated_scope(tmp_path, shuffled):
+    sources, scope, (row, method, field) = _table_candidate_sources(tmp_path, shuffled=shuffled)
+    result = table_candidates.read_table_candidates(sources, (scope,))
+    assert result == {
+        'schema': 'proxy-starrail-table-candidates-v1',
+        'sha256': {role: hashlib.sha256(item.path.read_bytes()).hexdigest() for role, item in sources.items()},
+        'candidates': ({'definition': scope.definitions[0], 'image': 0, 'name': 'Demo.Other' if shuffled else 'Demo.Actor',
+                        'constructor': method,
+                        'arrays': ({'field': field, 'name': 'assets2' if shuffled else 'paths', 'offset': 72 if shuffled else 32},),
+                        'row': {'definition': row, 'image': 0, 'name': 'Demo.MovedRow' if shuffled else 'Demo.BeaconRow'}},),
+    }
+
+
+@pytest.mark.parametrize('defect', [
+    'constructor_access', 'constructor_instance', 'constructor_virtual', 'constructor_generic',
+    'array_access', 'array_instance', 'array_literal', 'array_element', 'dictionary_arity', 'wrong_generic_definition',
+])
+def test_table_shadow_excludes_mismatched_original_signatures_and_field_kinds(tmp_path, defect):
+    sources, scope, _ = _table_candidate_sources(tmp_path, defect=defect)
+    assert table_candidates.read_table_candidates(sources, (scope,))['candidates'] == ()
+
+
+@pytest.mark.parametrize(('defect', 'error', 'component'), [
+    ('ambiguous_constructor', census.CensusUnresolved, 'table candidate declaration ambiguity'),
+    ('ambiguous_row', census.CensusUnresolved, 'table candidate declaration ambiguity'),
+    ('foreign_method', MetadataFormatError, 'method declaration encoded owner'),
+    ('foreign_field', MetadataFormatError, 'field declaration overlap'),
+])
+def test_table_shadow_requires_unambiguous_source_membership(tmp_path, defect, error, component):
+    sources, scope, _ = _table_candidate_sources(tmp_path, defect=defect)
+    with pytest.raises(error, match=component):
+        table_candidates.read_table_candidates(sources, (scope,))
+
+
+def test_table_shadow_requires_distinct_explicit_authenticated_roots(tmp_path):
+    sources, scope, _ = _table_candidate_sources(tmp_path)
+    with pytest.raises(MetadataFormatError, match='table candidate scopes'):
+        table_candidates.read_table_candidates(sources, (scope, scope))
+    with pytest.raises(MetadataFormatError, match='method scope image root'):
+        table_candidates.read_table_candidates(sources, (census.ImageTypeScope(1, scope.definitions),))
