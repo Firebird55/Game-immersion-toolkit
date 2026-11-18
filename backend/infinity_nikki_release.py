@@ -5,7 +5,7 @@ official anonymous SDK to current base/hotfix manifest pointers. A launcher URL,
 manifest pointer or installer size cannot stand in for a required dialogue
 download size or verified text/voice bindings.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import base64
 import hashlib
 from html.parser import HTMLParser
@@ -59,7 +59,14 @@ def _identity(raw):
     return app, version, timestamp
 
 
-def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
+def _crypto_capability(crypto):
+    if crypto is None:
+        from .publisher_crypto import DesktopPublisherCrypto
+        return DesktopPublisherCrypto()
+    return crypto
+
+
+def decode_launcher_config(encoded: bytes, identity: bytes, *, crypto=None) -> dict:
     """Decode data resources from an independently authenticated launcher member.
 
     The signed Global 1.3.1 format derives its config cipher from that member's
@@ -75,8 +82,8 @@ def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
         key = hashlib.md5(seed.encode('ascii')).hexdigest().encode('ascii')
         raw = base64.b64decode(encoded, validate=True)
         _require(len(raw) >= 16 and len(raw) % 16 == 0)
-        from Crypto.Cipher import AES
-        body = AES.new(key, AES.MODE_CBC, key[:16]).decrypt(raw)
+        body = _crypto_capability(crypto).block_cipher(algorithm='AES', mode='CBC', key=key,
+                                                     data=raw, iv=key[:16], decrypt=True)
         pad = body[-1]
         _require(0 < pad <= 16 and body[-pad:] == bytes([pad]) * pad)
         config = json.loads(body[:-pad].decode('utf-8-sig'), object_pairs_hook=_unique_object)
@@ -87,20 +94,34 @@ def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
         raise ValueError('Infinity Nikki launcher config resources cannot be read.') from error
 
 
-def _transport_cipher(app, timestamp):
+class _TransportCipher:
+    """Ephemeral source-derived request cipher, never a serialized key cache."""
+    def __init__(self, crypto, algorithm, mode, key, block):
+        self.crypto, self.algorithm, self.mode, self.key, self.block = crypto, algorithm, mode, key, block
+
+    def _crypt(self, data, decrypt):
+        return self.crypto.block_cipher(algorithm=self.algorithm, mode=self.mode, key=self.key, data=data,
+            iv=self.key[:self.block] if self.mode == 'CBC' else None, decrypt=decrypt)
+
+    def encrypt(self, data):
+        return self._crypt(data, False)
+
+    def decrypt(self, data):
+        return self._crypt(data, True)
+
+
+def _transport_cipher(app, timestamp, *, crypto=None):
     """Reproduce the signed SDK's per-request cipher, never a saved asset key."""
-    from Crypto.Cipher import AES, DES
     seed = app['aesKey'][2]
     use_aes, use_cbc, use_hex = ord(seed[0]) % 2 != 0, ord(app['appId'][-1]) % 2 != 0, ord(timestamp[-1]) % 2 == 0
     label = (seed + ('#AES' if use_aes else '#DES') + ('#CBC' if use_cbc else '#ECB') +
              '#PKCS7Padding' + ('#HEX' if use_hex else '#BASE64') + '#' + app['appId'] + '#' + timestamp)
     key = hashlib.md5(label.encode('ascii')).hexdigest().encode('ascii')
-    algorithm = AES if use_aes else DES
+    algorithm, block = ('AES', 16) if use_aes else ('DES', 8)
     if not use_aes:
         key = key[:8]
-    cipher = (algorithm.new(key, algorithm.MODE_CBC, key[:algorithm.block_size]) if use_cbc
-              else algorithm.new(key, algorithm.MODE_ECB))
-    return cipher, algorithm.block_size, use_hex
+    cipher = _TransportCipher(_crypto_capability(crypto), algorithm, 'CBC' if use_cbc else 'ECB', key, block)
+    return cipher, block, use_hex
 
 
 def _production_app(config):
@@ -117,14 +138,20 @@ def _production_app(config):
     return app
 
 
-def discover_patchlist(config: dict, identity: bytes, *, opener=None, now=None) -> dict:
-    """Read current Global config anonymously using authenticated source resources.
+@dataclass(frozen=True)
+class PatchlistExchange:
+    url: str
+    data: bytes = field(repr=False)
+    headers: dict = field(repr=False)
+    timestamp: str = field(repr=False)
 
-    The caller supplies its publisher-authenticated launcher data resources.
-    No account, game folder, community extraction, saved key or real device
-    diagnostics are read. This stage returns publisher manifest pointers, not a
-    dialogue catalog or an installed/download size estimate. Mainland transport
-    is not claimed before independently verifying its launcher resources.
+
+def patchlist_request(config: dict, identity: bytes, *, now=None, crypto=None) -> PatchlistExchange:
+    """Build original anonymous metadata bytes for a caller-owned transport.
+
+    Only authenticated original launcher resources may supply this configuration.
+    No account/session or real host/device identity is collected. The ephemeral
+    request does not authorize a connection or certify any returned pointer.
     """
     try:
         app = _production_app(config)
@@ -140,28 +167,34 @@ def discover_patchlist(config: dict, identity: bytes, *, opener=None, now=None) 
         payload = json.dumps({'DOID': '', 'os_platform': '3', 'sdk_channel': app['sdkChannel'],
             'channel': app['sdkChannel'], 'region': app['region'], 'env': app['channelEnv']},
             sort_keys=True, separators=(',', ':')).encode('utf-8')
-        cipher, block, use_hex = _transport_cipher(app, timestamp)
+        cipher, block, use_hex = _transport_cipher(app, timestamp, crypto=crypto)
         pad = block - len(payload) % block
         encrypted = cipher.encrypt(payload + bytes([pad]) * pad)
         encoded = encrypted.hex().upper() if use_hex else base64.b64encode(encrypted).decode('ascii')
         url = app['bffHost'][2] + '/v1/accessories/gameconfig/patchlist'
-        request = urllib.request.Request(url, data=(form + '&sign=' + signature + '&data=' + encode(encoded)).encode('ascii'),
-            headers={'Accept-Encoding': 'identity', 'User-Agent': 'GameImmersionToolkit/1',
+        return PatchlistExchange(url, (form + '&sign=' + signature + '&data=' + encode(encoded)).encode('ascii'),
+            {'Accept-Encoding': 'identity', 'User-Agent': 'GameImmersionToolkit/1',
                 'Content-Type': 'application/x-www-form-urlencoded', 'X-SDK-VERSION': '0.0.1',
                 'X-SDK-PLATFORM': 'pclauncher', 'X-SDK-CHANNEL': app['sdkChannel'],
                 'X-SDK-DEVICE-ID': str(uuid.uuid4()), 'X-SDK-OS-VERSION': '10',
-                'X-SDK-APP-VERSION': version, 'X-SDK-DEVICE-BRAND': 'Microsoft', 'X-SDK-DEVICE-MODEL': 'PC'})
-        open_request = opener or urllib.request.build_opener(_NoRedirect()).open
-        with open_request(request, timeout=45) as response:
-            _require(response.status == 200 and response.geturl() == url)
-            raw = response.read(MAX_RESPONSE + 1)
-            length = response.headers.get('Content-Length')
-            _require(len(raw) <= MAX_RESPONSE and (length is None or length.isdecimal() and int(length) == len(raw)))
+                'X-SDK-APP-VERSION': version, 'X-SDK-DEVICE-BRAND': 'Microsoft', 'X-SDK-DEVICE-MODEL': 'PC'}, timestamp)
+    except (UnicodeError, KeyError, TypeError, RecursionError) as error:
+        raise ValueError('Infinity Nikki anonymous publisher request cannot be constructed.') from error
+
+
+def decode_patchlist_response(raw: bytes, config: dict, exchange: PatchlistExchange, *, crypto=None) -> dict:
+    """Read the actual request-correlated response without opening a connection."""
+    try:
+        app = _production_app(config)
+        _require(isinstance(exchange, PatchlistExchange) and isinstance(exchange.timestamp, str) and
+                 re.fullmatch('[0-9]{1,19}', exchange.timestamp) and int(exchange.timestamp) < 2**63 and
+                 exchange.url == app['bffHost'][2] + '/v1/accessories/gameconfig/patchlist')
+        _require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_RESPONSE)
+        cipher, block, use_hex = _transport_cipher(app, exchange.timestamp, crypto=crypto)
         reply = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_object)
         _require(isinstance(reply, dict) and type(reply.get('code')) is int and reply['code'] == 0 and isinstance(reply['data'], str))
         encrypted = bytes.fromhex(reply['data']) if use_hex else base64.b64decode(reply['data'], validate=True)
         _require(0 < len(encrypted) <= MAX_CONFIG and len(encrypted) % block == 0)
-        cipher, _, _ = _transport_cipher(app, timestamp)
         body = cipher.decrypt(encrypted)
         pad = body[-1]
         _require(0 < pad <= block and body[-pad:] == bytes([pad]) * pad)
@@ -171,6 +204,19 @@ def discover_patchlist(config: dict, identity: bytes, *, opener=None, now=None) 
         return value
     except (UnicodeError, KeyError, TypeError, RecursionError) as error:
         raise ValueError('Infinity Nikki anonymous publisher manifest metadata cannot be read.') from error
+
+
+def discover_patchlist(config: dict, identity: bytes, *, opener=None, now=None, crypto=None) -> dict:
+    """Legacy discovery entry point; maintained preparation uses its own context I/O."""
+    exchange = patchlist_request(config, identity, now=now, crypto=crypto)
+    request = urllib.request.Request(exchange.url, data=exchange.data, headers=exchange.headers)
+    open_request = opener or urllib.request.build_opener(_NoRedirect()).open
+    with open_request(request, timeout=45) as response:
+        _require(response.status == 200 and response.geturl() == exchange.url)
+        raw = response.read(MAX_RESPONSE + 1)
+        length = response.headers.get('Content-Length')
+        _require(len(raw) <= MAX_RESPONSE and (length is None or length.isdecimal() and int(length) == len(raw)))
+    return decode_patchlist_response(raw, config, exchange, crypto=crypto)
 
 
 class _NextData(HTMLParser):

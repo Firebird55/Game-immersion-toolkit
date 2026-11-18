@@ -703,13 +703,29 @@ post-verification hash checks. Endfield's wrapper retains its existing publisher
 16 MiB limit, API, receipt and unavailable-host failure. This adds no Android PE
 chain capability; the shared APK/JCA RSA primitive is not a substitute.
 
-The ordinary Nikki provider currently stops after native bootstrap. It still
-needs a context-owned, quoted Global launcher/SDK/current-build continuation,
-then original base/FastPatch BuildPatch manifests and the selected configuration
-carriers, full-file hashes, PAK indices and ordered INI members. The nine private
-research INIs cannot supply that missing stage. CMS construction must consume
-that future stage's verified source receipt and keep the response/keychain gate
-explicit. Separately bounded native registration work identifies two original
+The ordinary Nikki provider now continues from the verified native stage to a
+context-owned Global launcher-source quote. It discovers the current official
+website/NSIS metadata, pins actual source size and strong ETag and quotes the
+complete selected member plus its final generation check before transfer. Disk
+requirements bound the temporary decode; an upper-bound label remains explicit.
+The consented download checks framing/Deflate EOF and complete PE publisher
+trust, retains the verified original source and a hashed receipt, and returns
+only `global-sdk-source`. Requote rediscovers changed validators; cancellation,
+source/signature failure and damaged receipts preserve prior data. Restore is
+local and reports the next SDK reader gate. Android's missing PE verification
+capability is disclosed before the native bootstrap download and cannot fall
+back to a verifier running on the development PC.
+
+Launcher config/SDK ciphers now accept the explicit shared cryptography object;
+their default desktop implementation is lazy. Pure anonymous SDK request and
+response functions are also used by the retained legacy discovery entry point;
+the next ordinary continuation still has to wire these through context-owned
+transport. The remaining steps are current SDK/build pointers, original
+base/FastPatch BuildPatch manifests and selected configuration carriers,
+full-file hashes, PAK indices and ordered INI members. The nine private research
+INIs cannot supply that missing preparation. CMS construction must consume its
+future verified source receipt and keep the response/keychain gate explicit.
+Separately bounded native registration work identifies two original
 consumers: creation receives `(chainName, Base64value)` and group serialization
 receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
 native call edges are identified; their bodies and serialized schema remain
