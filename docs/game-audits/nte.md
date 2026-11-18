@@ -29,6 +29,22 @@ requested another container's metadata; it has not completed the current
 required closure or activated a new Text + audio source. This quote refinement
 does not expand the retained Android/native-reader or key-rotation claims.
 
+The subsequent ordinary Global Japanese request with a Simplified Chinese
+target acquired the complete Patch3 header in one approved selection: 40 blocks,
+10,452,176 data bytes and 10,768,202 bytes including original source checks.
+All stored-block hashes, the full plaintext length, header signature, version
+five and container identity passed verification. The unchanged owned reader
+then returned an explicit missing-dependency receipt during local authoring.
+This proves that source step, not the complete current required closure or a
+new Text + audio source.
+
+The exact next ordinary quote contains five authenticated ranges in the Patch0
+and Patch1 containers: 871,104 data bytes plus 316,026 source-check bytes,
+1,187,130 bytes total, with a 1,002,176-byte disk estimate. That quote remains
+unexecuted. The retained previous Global Text-only source, its active pointer
+and the saved-recording control remained byte-identical. No further dependency
+was acquired and no partial source was activated.
+
 ## Context-owned Text-only completion · November 18, 2026
 
 The shared game-data service now connects its separately quoted original
