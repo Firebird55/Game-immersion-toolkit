@@ -20,9 +20,9 @@ from backend.tests.test_publisher_transport import Response
 
 
 class Fixture(Native):
-    def __init__(self, root, apk, monkeypatch, *, mode='text'):
+    def __init__(self, root, apk, monkeypatch, *, mode='text', resource_factory=resource_fixture):
         super().__init__(root, apk, mode=mode)
-        member, _, _ = resource_fixture()
+        member, _, _ = resource_factory()
         self.member = member+b'authored inert PE padding'*30
         compressed = deflate(self.member)
         self.member_block = struct.pack('<I', len(compressed)|0x80000000)+compressed
@@ -127,14 +127,7 @@ def test_ordinary_provider_quotes_selected_original_then_retains_verified_source
     pe = list(fixture.ctx.cache_directory.rglob('*.pe'))
     assert len(pe) == 1 and pe[0].read_bytes() == fixture.member
     assert not list(fixture.ctx.cache_directory.rglob('pending-*'))
-    fixture.context('plan').stage_handle = result.restore_handle
     before = len(fixture.calls)
-    gate = fixture.provider.plan(fixture.request, fixture.ctx)
-    assert gate.stage == 'global-sdk-source' and gate.download_bytes == 0 and not gate.runtime_available
-    assert gate.source_proof is None and len(fixture.calls) == before
-    with pytest.raises(GameDataError) as failure:
-        fixture.download(gate)
-    assert failure.value.code == 'publisher_sdk_reader_unresolved' and len(fixture.calls) == before
     with pytest.raises(GameDataError) as failure:
         fixture.provider.restore(result.restore_handle, fixture.context('restore'))
     assert failure.value.code == 'publisher_sdk_reader_unresolved' and len(fixture.calls) == before

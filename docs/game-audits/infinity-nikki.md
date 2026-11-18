@@ -720,17 +720,43 @@ Launcher config/SDK ciphers now accept the explicit shared cryptography object;
 their default desktop implementation is lazy. Pure anonymous SDK request and
 response functions are also used by the retained legacy discovery entry point;
 the next ordinary continuation still has to wire these through context-owned
-transport. The remaining steps are current SDK/build pointers, original
-base/FastPatch BuildPatch manifests and selected configuration carriers,
-full-file hashes, PAK indices and ordered INI members. The nine private research
-INIs cannot supply that missing preparation. CMS construction must consume its
-future verified source receipt and keep the response/keychain gate explicit.
+transport. `infinity_nikki_build_stage.py` now supplies that ordinary continuation:
+it reconstructs the anonymous request from the verified PE, uses only
+context-owned POST/GET operations, follows the returned Global build pointer,
+and decodes the wrapper with material freshly derived from the retained,
+verified native source. It quotes both actual manifest sizes/strong ETags before
+whole transfer. Complete local SHA-256, authored JSON/chunk/file ownership and
+final generation-prefix checks bind the retained base/FastPatch manifests.
+These local manifest hashes are not separately published publisher signatures.
+Requote reads fresh SDK/build identities; modified consent, damaged sources or
+interrupted updates retain old data. Local restore reports the explicit
+configuration-reader gate. SDK region/channel values and `build.Region` stay
+separate; patch precedence is not inferred from role labels or `CustomFields`.
+
+Selected configuration carriers, full-file hashes, PAK indices and ordered INI
+members remain the next ordinary stage. The nine private research INIs cannot
+supply that missing preparation. CMS construction must consume its future
+verified source receipt and keep the response/keychain gate explicit.
 Separately bounded native registration work identifies two original
 consumers: creation receives `(chainName, Base64value)` and group serialization
 receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
 native call edges are identified; their bodies and serialized schema remain
 unread. Neither a cache-getter's direction nor a UClass owner is inferred from
 adjacency alone. No extra remote source bytes or CMS requests are acquired.
+
+A frozen ordinary launcher-stage replay uses the actual previously retained
+official NSIS/PE bytes, the normal provider and preparation contexts, the actual
+Windows PE trust verifier, and local restore. Its quote is 6,849,423 bytes,
+including the final four-byte generation check, with a 74,217,459-byte disk
+upper bound. Peak additional files are 229,713,140 bytes, below the approved
+230 MiB replay cap; exact temporary native/PE copies are then removed. Original
+source and complete earlier APK-v2 receipt hashes remain unchanged. The native
+input is explicitly adapted from that historical complete receipt and passes
+the native consumer/retained-source checks again. The missing old launcher ETag
+is replaced only by an explicitly authored offline HTTP validator. This proves
+the frozen source-stage boundary, not a fresh server generation, real original
+ETag exchange, repeated cold APK stream, current SDK server reply or game data
+readiness. It fetches zero new source bytes and uses no research INI shortcut.
 
 ## Presentation inventory and finite completion boundary
 

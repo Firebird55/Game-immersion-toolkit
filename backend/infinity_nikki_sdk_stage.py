@@ -171,8 +171,8 @@ def _retained(handle, ctx):
 def plan(provider, previous, ctx):
     ctx.check()
     if previous['stage'] == 'global-sdk-source':
-        _retained(previous, ctx)
-        return GameDataPlan('global-sdk-reader', 0, 0, previous, stage='global-sdk-source', message=GATE)
+        from . import infinity_nikki_build_stage
+        return infinity_nikki_build_stage.plan(provider, previous, ctx)
     if previous['stage'] == 'global-launcher-bootstrap':
         prior = _read(ctx, previous['receipt_sha256'])
         _selection(prior, ctx)
