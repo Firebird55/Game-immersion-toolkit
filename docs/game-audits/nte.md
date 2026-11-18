@@ -245,6 +245,24 @@ source's required native closure, selected localized text, voice inventory, comp
 audio readiness and changed-content recovery still require their own ordinary
 stages; the initial acquisition does not establish those results.
 
+Three subsequent ordinary stages on the same frozen `a915da48` producer acquired
+the new footer, main-index and directory-index ranges. Their respective transfer
+quotes, including source guards, were 686,465, 2,806,394 and 5,231,226 bytes.
+All 20 current archives now have complete main and directory plaintext SHA1
+verification after actual decryption: 40 full-index proofs, rather than header
+checks. The existing catalogue key still opens these indices; this is not a
+key-rotation trial. Each stage revalidated the current original pointer and
+retained the previous source and saved recording without helper/client execution.
+
+A fresh ordinary quote then selected 47 text-metadata members: the registry,
+Japanese and Chinese localization, and 44 authored SRT resources. An existing
+65,536-byte carrier passed its original signature-bound CRC before receiving
+cache credit. The remaining quote is 41,079,418 bytes, comprising 40,763,392 new
+carrier bytes and 316,026 source-guard bytes. This dated quote does not establish
+that these members were acquired or parsed. Native closure, changed text/audio
+comparison, complete Audio Ready and old-recording update recovery remain open;
+the complete new voice-transfer budget is not yet known.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before
