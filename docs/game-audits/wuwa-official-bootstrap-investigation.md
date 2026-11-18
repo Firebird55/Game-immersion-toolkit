@@ -155,6 +155,41 @@ Sources: [publisher download page](https://web-static.kurogames.com/mcDownloadPa
 [original transfer script](https://download.kurogames.com/assets/index-e5f35666.js)
 and [source-derived mainland download metadata](https://download.kurogames.com/mc_WnGtDn85y8lJB4mTmYHYuNjIl9n6YGVm/official/cn/zh-Hans/android_app.json).
 
+### November 18 current catalogue availability
+
+The live Android plan-only attempt could not reach the original
+`download.kurogames.com` catalogue; an independent desktop request timed out
+also. This is a source-availability failure, not demonstrated TLS, signature,
+ENTRY or package-format failure. The successful authored Android runtime
+fixture does not establish that this live publisher source is reachable.
+
+A separate bounded investigation read **six publisher responses totaling
+2,503,606 bytes**, with no APK, client, audio or runtime acquisition. The
+current Global and mainland main pages succeeded and exactly matched the
+retained complete page bodies. The mainland page's published main script
+imports separate mobile and desktop components; both were read as static data.
+The mobile component's current
+[download landing page](https://web-static.kurogames.com/mcDownloadPage/index.html)
+and the desktop component's Android button still point to the same
+`download.kurogames.com/transfer/.../official/cn/zh-Hans/android_app` route.
+No independent current Android descriptor was established in this source chain.
+
+Complete HTML, mobile and desktop script Content-MD5 checks passed. The main
+script supplies no Content-MD5; its complete body MD5 matches its ETag. The
+landing page's multipart ETag is retained as an identity, not treated as a
+whole-body digest. Complete local SHA-256s and original URL ownership are
+recorded separately. These website checks establish neither a newly observed
+APK version/size/ETag nor module integrity.
+
+The desktop script also publishes a `download.kurogames.net` Global
+`pc_app` route, including an Android-labelled UI button. That label does not
+establish an Android payload: no host/path substitution or request to a guessed
+`android_app` counterpart was made. The failing catalogue was not retried
+unchanged, and no old APK or retained native output was promoted into a current
+cold-download fallback. The provider remains honestly gated on live source
+availability. This bounded result does not prove every official alternative
+is unavailable.
+
 ### Authenticated native default producer
 
 One complete 1,396,149,288-byte original APK stream passed the canonical APK-v2
