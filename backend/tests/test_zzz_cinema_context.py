@@ -219,6 +219,22 @@ def test_conditional_row_roundtrips_to_real_original_adapter_without_provenance_
     assert row in recording_rows(payload)
 
 
+def test_retained_binding_receipt_admits_new_cue_only_for_original_approved_media(tmp_path):
+    import hashlib
+    from backend.zzz_pc_audio import _audio_key, _restore_player_bindings
+
+    payload, index = source(tmp_path, player_branches=True)
+    snapshot = tmp_path / 'textmap.json'
+    receipt = {'snapshot_sha256': hashlib.sha256(snapshot.read_bytes()).hexdigest(), 'bindings_sha256': 'x'}
+    base = payload['records'][0]
+    keys = frozenset({(base['text_id'], _audio_key(base['audio']))})
+    restored = _restore_player_bindings(SimpleNamespace(check=lambda: None), receipt, snapshot, keys, {})
+    assert keys < restored
+    for identity, digest in restored - keys:
+        assert digest == _audio_key(base['audio'])
+        assert index._zzz_cinema_occurrences['rows'][identity]['audio']['event'] == base['audio']['event']
+
+
 def test_source_scope_or_media_tampering_cannot_create_conditional_keys(tmp_path):
     payload, _ = source(tmp_path)
     payload[FIELD]['region'] = 'cn'

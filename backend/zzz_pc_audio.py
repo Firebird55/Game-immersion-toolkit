@@ -245,7 +245,8 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     ctx.check();write_bytes(_safe(ctx.directory / 'original-bindings.json'), raw_keys, check=ctx.check)
     receipt = {'schema': SCHEMA, 'revision': planned.revision, 'request': ctx.request.json(), 'build': handle['build'],
         'reader': reader.identity, 'codecs': codecs.identity, 'candidate': handle['candidate'], 'audio_plan': handle['audio_plan'],
-        'snapshot_sha256': snapshot_sha, 'bindings_sha256': hashlib.sha256(raw_keys).hexdigest()}
+        'snapshot_sha256': snapshot_sha, 'bindings_sha256': hashlib.sha256(raw_keys).hexdigest(),
+        'player_bindings': 1}
     raw = encoded(receipt);digest = hashlib.sha256(raw).hexdigest()
     ctx.check();write_bytes(_safe(ctx.directory / 'source-receipt.json'), raw, check=ctx.check)
     restored = {'schema': SCHEMA, 'game': 'zzz', 'revision': planned.revision, 'request': ctx.request.json(),
@@ -282,6 +283,33 @@ def _restore_keys(ctx, receipt, verification):
             raise GameDataError('zzz_audio_restore_integrity', 'The original binding index has an unsupported schema.', 409)
         cached[key] = frozenset(tuple(row) for row in value['keys'])
     ctx.check();return cached[key]
+
+
+def _restore_player_bindings(ctx, receipt, snapshot, keys, verification):
+    if receipt.get('player_bindings') == 1:
+        return keys
+    from .zzz_cinema_occurrences import recording_rows
+    identity = receipt['snapshot_sha256'], receipt['bindings_sha256']
+    cache = {} if verification is None else verification.setdefault('player_bindings', {})
+    if identity not in cache:
+        # Existing installations already verified these media. Derive the new
+        # occurrence IDs only from the exact retained snapshot and key receipt.
+        with snapshot.open('rb') as stream:
+            raw = stream.read(MAX_TEXT + 1)
+        if len(raw) > MAX_TEXT or hashlib.sha256(raw).hexdigest() != identity[0]:
+            raise GameDataError('zzz_audio_restore_integrity', 'The retained dialogue failed validation.', 409)
+        payload = json.loads(raw)
+        approved_audio = {digest for _, digest in keys}
+        extra = set()
+        for row in recording_rows(payload):
+            digest = _audio_key(row['audio'])
+            if digest in approved_audio:
+                extra.add((row['text_id'], digest))
+        if len(cache) >= 16:
+            cache.pop(next(iter(cache)))
+        cache[identity] = extra - keys
+    ctx.check()
+    return keys | cache[identity]
 
 
 class LocalOriginals:
@@ -332,5 +360,6 @@ def restore(ctx, handle, codecs, *, transport_factory, verification=None):
     if expected != document['files'] or not sources.ranges_available(files, document['ranges']):
         raise GameDataError('zzz_original_not_downloaded', 'Some downloaded originals are missing. Check the game download size again.', 409)
     keys = _restore_keys(ctx, receipt, verification)
+    keys = _restore_player_bindings(ctx, receipt, snapshot, keys, verification)
     ctx.check();source = LocalOriginals(sources, files, handle['revision'], keys, codecs)
     return SnapshotSource(snapshot, handle, SourceProof('official', handle['receipt_sha256'], True), source)
