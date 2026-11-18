@@ -1025,6 +1025,19 @@ including bootstrap, with zero native pointer slot reads. Nested scopes have
 authored-fixture coverage. Independent signature parity and the complete
 method census remain open.
 
+The opt-in catalogue shadow query accepts up to 16 explicit original image
+roots. It matches a private static parameterless void constructor, a public or
+private static `string[]` field, and one distinct dictionary row declaration.
+It verifies MethodDef ownership and complete field intervals before joining the
+field types and offsets. Readonly static arrays qualify. Competing same-name row
+declarations retain their TypeDef identities and make the candidate unresolved.
+The result includes constructor, field and row identities. Authored fixtures
+cover relocated identities, changed names, modifier differences and ambiguous
+ownership. Production table discovery still uses the existing index for
+candidate selection, literal binding and native verification. Global catalogue
+candidate parity awaits a retained-original comparison.
+[Catalogue shadow query](../../backend/starrail_table_candidates.py)
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and

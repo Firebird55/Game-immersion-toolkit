@@ -819,6 +819,9 @@ class _TypeProjection:
         image = self.records.image
         return self.records.runtime_row(image.offset(rva, self.stride, executable=False), self.stride)
 
+    def row(self, rva):
+        return self.cached(self.rows, rva, 64, 'projected runtime node count', self.native_row)
+
     def native_read(self, rva, width, size, component):
         _require(0 < size <= width, component)
         image = self.records.image
@@ -849,6 +852,12 @@ class _TypeProjection:
         data = self.native_read(_integer(row, 8, 8) - image_base, count * 8, count * 8, 'runtime generic arguments')
         return tuple(_integer(data, i * 8, 8) - image_base for i in range(count))
 
+    def generic_definition(self, index):
+        return self.cached(self.classes, index, 8, 'projected generic class count', self.generic_class)
+
+    def generic_arguments(self, index):
+        return self.cached(self.instances, index, 8, 'projected generic instance count', self.generic_instance)
+
     def parameter(self, index):
         _require(0 <= index < _MAX_INDEX, 'projected generic parameter index')
         row = self.records.read('generic_parameters', 14 * index, 14)
@@ -869,7 +878,7 @@ class _TypeProjection:
         if rva not in self.names:
             self.active.add(rva)
             try:
-                row = self.cached(self.rows, rva, 64, 'projected runtime node count', self.native_row)
+                row = self.row(rva)
                 value, height = self.describe(row, depth)
                 _require(len(value) <= 4096, 'projected runtime name length')
                 self.names[rva] = value, height
@@ -891,11 +900,11 @@ class _TypeProjection:
         if role == 'generic_parameter':
             return self.generic_parameter(index)[0], 0
         if role == 'generic_class':
-            definition, instance = self.cached(self.classes, index, 8, 'projected generic class count', self.generic_class)
+            definition, instance = self.generic_definition(index)
             stem = self.qualified_name(self.definition(definition)).split('`', 1)[0]
             if instance == -1:
                 return stem, 0
-            args = self.cached(self.instances, instance, 8, 'projected generic instance count', self.generic_instance)
+            args = self.generic_arguments(instance)
             values = [self.named(rva, depth + 1) for rva in args]
             return f"{stem}<{', '.join(name for name, _ in values)}>", 1 + max((height for _, height in values), default=-1)
         if role == 'array_rva':

@@ -7,6 +7,7 @@ import pytest
 
 from backend import starrail_declaration_census as census
 from backend import starrail_portable_metadata as portable
+from backend import starrail_table_candidates as table_candidates
 from backend.starrail_portable_metadata import MetadataCancelled, MetadataFormatError, OriginalInput, read_required
 
 
@@ -786,3 +787,143 @@ def test_image_method_lookup_rechecks_selection_before_publication(tmp_path, mon
     with pytest.raises(expected):
         census.read_image_methods(sources, scope, method_indices=(2,), cancelled=lambda: cancelled)
     assert previous['methods'][2]['name'] == 'Read'
+
+
+def _table_candidate_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _image_method_sources(tmp_path, shuffled=shuffled)
+    native, data, startup = (bytearray(sources[role].path.read_bytes()) for role in ('native', 'metadata', 'startup'))
+    root, row, dictionary = (1, 2, 0) if shuffled else (0, 1, 2)
+    alias = defect == 'ambiguous_row'
+    method, array_field = (0, 1) if shuffled else (2, 0)
+    prefix = len(_HEADER)
+    type_at = prefix + 0x100
+    header_at = 0x640
+    template = bytes(data[type_at:type_at + 70])
+    for index in range(4 if alias else 3):
+        at = type_at + 70 * index
+        data[at:at + 70] = template
+        struct.pack_into('<I', data, at + 0x20, 1954887780)
+        field_count = (3 if alias else 2) if index == root else 0
+        struct.pack_into('<H', data, at + 0x32, (field_count - 17485) & 0xffff)
+        struct.pack_into('<I', data, at + 0x08, 0x1a7af5fe ^ (method if index == root else 0))
+        struct.pack_into('<H', data, at + 0x34, ((2 if index == root else 0) - 24467) & 0xffff)
+    names = {
+        row: 0x10000118 if shuffled else 0x12000108,
+        dictionary: 0x18000120,
+    }
+    if defect == 'wrong_generic_definition':
+        names[dictionary] = names[row]
+    if alias:
+        names[3] = names[row]
+    for index, name in names.items():
+        struct.pack_into('<I', data, type_at + 70 * index + 0x28, 369268488 + name)
+    if defect == 'foreign_field':
+        struct.pack_into('<H', data, type_at + 70 * row + 0x32, (1 - 17485) & 0xffff)
+    # Encrypted authored names share the fixture's original string coordinate.
+    for offset, encoded in (
+        (0x100, '0a3a2dff67aefff1'), (0x108, 'b68c95947649b01a94e73632ec634bb4'),
+        (0x118, 'd96434b458efc90a'), (0x120, '20f58b492767e76021e34a4a2045f23f'),
+        (0x130, '74df417f029e4d09'), (0x138, 'b53dafe6f69a1d8d'),
+        (0x140, 'c7bee198f6341211'), (0x148, '26154a32d71b8794'), (0x150, '166ea7ba84cad618'),
+    ):
+        raw = bytes.fromhex(encoded)
+        at = prefix + 0x380 + offset
+        data[at:at + len(raw)] = raw
+    fields = '0a1a1a864ae0c9a2fae477b249ab27cf' if shuffled else 'f2191a8249e0c9a202e577ae4aab27cf'
+    if alias:
+        fields += '12b0d5da4d7685fb'
+        field_at = 0x220
+        struct.pack_into('<I', native, header_at + 0x20, 1292050039 + field_at)
+        struct.pack_into('<I', native, header_at + 0x158, 532747583 + field_at + 4)
+        struct.pack_into('<I', native, header_at + 0x08, 149860775 + field_at + 24)
+    else:
+        field_at = 0x200
+    raw_fields = bytes.fromhex(fields)
+    data[prefix + field_at:prefix + field_at + len(raw_fields)] = raw_fields
+    struct.pack_into('<I', data, prefix + 0x300 + root * 4, 0)
+    struct.pack_into('<I', data, prefix + 0x328, 0)
+    struct.pack_into('<III', data, prefix + 0x360, 32, 72, 80)
+
+    at = prefix + 0x240 + method * 26
+    ctor = '013aeace78f903ccde7bd9313779e24729dbc4e6420800006800' if shuffled else '1b0c36b362cfdfb1f85185162d4ff87132ed189b283200007200'
+    data[at:at + 26] = bytes.fromhex(ctor)
+    data[at + 26 + 0x10] ^= int(shuffled)  # The second authored method follows the same root.
+    flags_xor = {'constructor_access': 0x07, 'constructor_instance': 0x10, 'constructor_virtual': 0x40}.get(defect, 0)
+    data[at + 0x0e] ^= flags_xor
+    if defect == 'constructor_generic':
+        struct.pack_into('<H', data, at + 0x14, 59843 if shuffled else 49117)
+    elif defect == 'foreign_method':
+        data[at + 0x10] ^= 1
+    elif defect == 'ambiguous_constructor':
+        alternate = '4407eff53dc406f7a158dc5c7244a77a6ce6c1dd7d2b00002d00' if shuffled else 'beccc553c70f2c519b91f2b6888f5db1972deb7b83f20000d700'
+        data[at + 26:at + 52] = bytes.fromhex(alternate)
+
+    type_count = 4 if alias else 3
+    struct.pack_into('<I', native, header_at + 0x1a8, 0x729b1a9e ^ (type_count * 70))
+    startup[0x24] ^= 2 ^ type_count
+    struct.pack_into('<ii', startup, 0x20c, dictionary, 0)
+    data_at = 0x600
+    image_data = _IMAGE_BASE + _DATA_RVA
+    struct.pack_into('<Q', native, data_at + 0x360 + 0x38, image_data + 0x900)
+    struct.pack_into('<i4xQ', native, data_at + 0x900, 1 if defect == 'dictionary_arity' else 2, image_data + 0x940)
+    struct.pack_into('<QQ', native, data_at + 0x940, _IMAGE_BASE + _TYPE_RVA + 5 * 8, _IMAGE_BASE + _TYPE_RVA + 4 * 8)
+    attrs = {'array_access': 0x33, 'array_instance': 0x21, 'array_literal': 0x71}.get(defect, 0x31)
+    runtime = ((0, 0, 0x0e), (0, 0, 0x01), (5 if defect == 'array_element' else 0, attrs, 0x1d),
+               (0, 6, 0x15), (row, 0, 0x12), (0, 0, 0x09))
+    if alias:
+        # Another Dictionary value points to a distinct declaration with the same qualified name.
+        struct.pack_into('<ii', startup, 0x214, dictionary, 1)
+        struct.pack_into('<i4xQ', native, data_at + 0x910, 2, image_data + 0x950)
+        struct.pack_into('<QQ', native, data_at + 0x950, _IMAGE_BASE + _TYPE_RVA + 5 * 8, _IMAGE_BASE + _TYPE_RVA + 7 * 8)
+        runtime += ((1, 6, 0x15), (3, 0, 0x12))
+    native[data_at + 0x1000:] = b''.join(struct.pack('<IHBB', target, attrs, tag, 0) for target, attrs, tag in runtime)
+    struct.pack_into('<I', native, data_at + 0x360 + 0x48, 1455078204 + len(runtime))
+    struct.pack_into('<I', native, 0x1c0, 0x1000 + 8 * len(runtime))
+    for role, raw in [('native', native), ('metadata', data), ('startup', startup)]:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources, census.ImageTypeScope(0, (root,)), (row, method, array_field)
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_table_shadow_joins_field_and_constructor_shapes_in_authenticated_scope(tmp_path, shuffled):
+    sources, scope, (row, method, field) = _table_candidate_sources(tmp_path, shuffled=shuffled)
+    result = table_candidates.read_table_candidates(sources, (scope,))
+    assert result == {
+        'schema': 'proxy-starrail-table-candidates-v1',
+        'sha256': {role: hashlib.sha256(item.path.read_bytes()).hexdigest() for role, item in sources.items()},
+        'candidates': ({'definition': scope.definitions[0], 'image': 0, 'name': 'Demo.Other' if shuffled else 'Demo.Actor',
+                        'constructor': method,
+                        'arrays': ({'field': field, 'name': 'assets2' if shuffled else 'paths', 'offset': 72 if shuffled else 32},),
+                        'row': {'definition': row, 'image': 0, 'name': 'Demo.MovedRow' if shuffled else 'Demo.BeaconRow'}},),
+    }
+
+
+@pytest.mark.parametrize('defect', [
+    'constructor_access', 'constructor_instance', 'constructor_virtual', 'constructor_generic',
+    'array_access', 'array_instance', 'array_literal', 'array_element', 'dictionary_arity', 'wrong_generic_definition',
+])
+def test_table_shadow_excludes_mismatched_original_signatures_and_field_kinds(tmp_path, defect):
+    sources, scope, _ = _table_candidate_sources(tmp_path, defect=defect)
+    assert table_candidates.read_table_candidates(sources, (scope,))['candidates'] == ()
+
+
+@pytest.mark.parametrize(('defect', 'error', 'component'), [
+    ('ambiguous_constructor', census.CensusUnresolved, 'table candidate declaration ambiguity'),
+    ('ambiguous_row', census.CensusUnresolved, 'table candidate declaration ambiguity'),
+    ('foreign_method', MetadataFormatError, 'method declaration encoded owner'),
+    ('foreign_field', MetadataFormatError, 'field declaration overlap'),
+])
+def test_table_shadow_requires_unambiguous_source_membership(tmp_path, defect, error, component):
+    sources, scope, _ = _table_candidate_sources(tmp_path, defect=defect)
+    with pytest.raises(error, match=component):
+        table_candidates.read_table_candidates(sources, (scope,))
+
+
+def test_table_shadow_requires_distinct_explicit_authenticated_roots(tmp_path):
+    sources, scope, _ = _table_candidate_sources(tmp_path)
+    with pytest.raises(MetadataFormatError, match='table candidate scopes'):
+        table_candidates.read_table_candidates(sources, (scope, scope))
+    with pytest.raises(MetadataFormatError, match='method scope image root'):
+        table_candidates.read_table_candidates(sources, (census.ImageTypeScope(1, scope.definitions),))
