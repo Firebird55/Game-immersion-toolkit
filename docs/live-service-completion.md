@@ -1,17 +1,25 @@
 # Live-service subtitle completion
 
-Owner acceptance scope, agreed November 16 and amended November 17, 2026,
-for issues #83–#88. The endpoint is reliable subtitle support and normal content
-updates under the per-game source policy below.
+The owner agreed the scope on November 16 and updated it on November 18, 2026.
+Issues #83–#88, #144 and #145 cover the international release of each game.
+Issue #81 applies the same scope to standalone Android preparation. Each game
+must support all official voices, relevant text selections and player branches
+available in its international release.
+
+The endpoint is reliable subtitle support and normal content updates from the
+publisher with unchanged toolkit software. Existing validated readers and fixed
+format descriptions can be reused. A changed bootstrap key needs an official
+source investigation. An actively maintained community key file is acceptable
+only after the official recovery route is shown to be impossible. Earlier
+regional evidence remains in the audit reports.
 It does not require cataloguing every sound without subtitles or cutting every
 film utterance at word boundaries. No release is requested.
 
-## Per-game update policy · November 17, 2026
+## Earlier per-game update policy · November 17, 2026
 
-The owner accepted this split after reviewing the remaining maintenance work.
-This replaces the earlier requirement that all six games be independent of
-new community publications. It does not claim that the target routes are
-already implemented or that current coverage gaps have disappeared.
+This split records the earlier agreed maintenance approaches. The current
+scope above governs acceptance. The implementation notes below describe the
+state at that earlier checkpoint.
 
 | Games | Update target | Remaining implementation |
 | --- | --- | --- |
@@ -58,17 +66,19 @@ unavailable successors use the separate missing-audio control.
 
 Use these published generations as the starting inventories. Later publisher
 changes require a delta audit; they do not invalidate unchanged evidence or
-restart an entire game audit. Regional resources and dub revisions are separate
-identities even when their displayed version numbers agree.
+restart an entire game audit. Publisher resources and dub revisions retain
+separate identities even when their displayed version numbers agree.
 
 | Issue | Game | Starting generation | Detailed evidence |
 | --- | --- | --- | --- |
-| #83 | Genshin Impact | 7.2, resource 49411577 / design 49419538 / silence 49291486, independently discovered Global and mainland editions | [Genshin](game-audits/genshin.md) |
-| #84 | Honkai: Star Rail | Global 4.7, including the original Lua revision 17175930; regional editions tracked separately | [Star Rail](game-audits/starrail.md) |
-| #85 | Zenless Zone Zero | Global and mainland 3.3.0, resource/design 20245314, audio 19815450, silence 20080629 | [ZZZ](game-audits/zzz.md) |
-| #86 | Arknights: Endfield | Global 1.6.4, resource 11775769-12; regional publisher inventories tracked independently | [Endfield](game-audits/endfield.md) |
-| #87 | Wuthering Waves | Global launcher 3.8.0 / core 3.8.11, independently selected dub manifests and mainland edition | [Wuthering Waves](game-audits/wuwa.md) |
-| #88 | Neverness to Everness | Global 1.5.4 and mainland 1.5.6; separate manifests and all official dubs | [NTE](game-audits/nte.md) |
+| #83 | Genshin Impact | Global 7.2, resource 49411577 / design 49419538 / silence 49291486 | [Genshin](game-audits/genshin.md) |
+| #84 | Honkai: Star Rail | Global 4.7, including the original Lua revision 17175930 | [Star Rail](game-audits/starrail.md) |
+| #85 | Zenless Zone Zero | Global 3.3.0, resource/design 20245314, audio 19815450, silence 20080629 | [ZZZ](game-audits/zzz.md) |
+| #86 | Arknights: Endfield | Global 1.6.4, resource 11775769-12 | [Endfield](game-audits/endfield.md) |
+| #87 | Wuthering Waves | Global launcher 3.8.0 / core 3.8.11 and the corresponding dub manifests | [Wuthering Waves](game-audits/wuwa.md) |
+| #88 | Neverness to Everness | Global 1.5.4 and the corresponding dub manifests | [NTE](game-audits/nte.md) |
+| #144 | Reverse: 1999 | Global Windows 3.9.0, resource 111.0.1065 | [Reverse: 1999](game-audits/reverse1999.md) |
+| #145 | Infinity Nikki | Global. The base and hotfix dialogue generation requires verification before fixing a subtitle inventory. | [Infinity Nikki](game-audits/infinity-nikki.md) |
 
 These are audit anchors, not an assertion that the inventories are complete.
 Each game report must count actual presentations, locales and relevant player

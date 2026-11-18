@@ -25,6 +25,15 @@ namespace test checks the production registry and shared service with authored
 responses. Gateway execution, the full catalogue reader and actual APK runtime
 acceptance remain separate requirements.
 
+The updated provider also reproduced the official bootstrap provenance from
+the retained Global 3.3.0 originals. The replay verified the publisher MD5
+and before/after SHA-256 of all 22 source objects (38,777,589 bytes).
+The same Unity object and native initializer receipts matched the previous
+Global run. The replay blocked network, PyCryptodome and Brotli, and passed on
+the host with no writes to original files. This is retained original-source
+evidence for the bootstrap reader. Live discovery and playback still require
+their existing acceptance checks.
+
 The later PC provider now continues through five explicit source stages to a
 ready **text-only** library when its verified compiler-free Node reader is
 available. A current Global Japanese run retained 289,967 original records and
