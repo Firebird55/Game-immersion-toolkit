@@ -1197,6 +1197,53 @@ interceptors remain separate original-source gates. There is still no live
 endpoint request, completed anonymous wire contract, game-key derivation or
 preparation-ready claim.
 
+### Managed request serialization and response dispatch
+
+The next pass recovers the two cached DEX members after the earlier worker's
+input session becomes inaccessible. The read uses 5,606,093 stored bytes and
+verifies 17,551,452 inflated bytes. The exact cached ZIP positions, retained
+central directory metadata, local headers, Deflate termination, CRCs and
+previously authenticated manifest member digests all agree. The scope remains
+individual signed members of the distributor APK. No origin transfer or
+new raw copy is needed.
+
+The eight quoted bodies use 808 instruction bytes, 5,142 bytes of related
+metadata and no exception tables. The signing serializer copies the input
+map, supplies an entry from the SDK's XUA producer, renders key/value pairs,
+sorts them through a concrete comparator and joins them before character
+encoding. The selected comparator, SDK entry producer and charset field
+remain separate source dependencies. The nonce owner uses Java's random
+generator with an original fixed alphabet and a caller-supplied length. The
+ordinary SDK branch supplies that length. The time owner divides a delegated
+value by 1,000 and formats the result with a fixed US locale. The original
+clock provider remains unread, so the timestamp's origin is still open.
+
+The URL callback delegates to `v2.f.d` with its stored string, incoming path
+and parameter map. The parameter transformation has one authored prefix
+exclusion. The known relative detail path does not match the prefix. The
+normalizer's output still needs proof because the callback passes that
+output to the feature. The ordinary transform calls `features.a.x` and
+conditionally `features.a.v`, then conditionally adds values from account,
+login information and SDK identity producers. This exposes nullable and
+empty-value handling without resolving those producers. A separate transform
+adds its mock value only under the explicit `isRND` configuration gate.
+
+The exact `compat.net.b.c` interface annotation pass uses 808 metadata
+bytes. It proves a Retrofit `POST` with dynamic URL, header map and raw
+`RequestBody` arguments, and a raw `ResponseBody` inside the Retrofit response.
+The existing transport selects this interface when the request model supplies
+body bytes and a second map-based interface when it supplies none. The
+ordinary detail route still needs the exact body getter to close that choice.
+The map-based interface's annotations also remain unread. The response
+callback delegates non-Protobuf handling to `common.net.b.h`. It is the original
+owner to inspect for the outer wire envelope before the already established
+typed `apk.download` field can be joined to it.
+
+The remaining transport interceptors, absent-account producer behavior,
+outgoing request contract and game-key producer stay open. The pass executes
+no client code and makes no request or signature. Neither preparation mode
+changes availability.
+
 ### Community key candidate: research only
 
 The original author repository
