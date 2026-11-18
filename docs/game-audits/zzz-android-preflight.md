@@ -65,6 +65,58 @@ reader execution. The Node command is an explicitly prepared immutable toolkit
 artifact; runtime compilation, system Node and client-code execution are absent.
 That desktop closure does not provide an Android reader/codec bridge.
 
+## Android catalogue execution
+
+The optional Android catalogue worker executes the same five staged JS
+operations as the Windows reader. The app's `FrameOcr` owns the Java
+`ZzzCatalogueWorker` and its dedicated WebView. The scoped Python host,
+`backend/android_zzz_catalogue.py`, accepts verified local input receipts
+from a preparation context. It passes only selected stage leaves over a
+private message port and returns completed files in a private staging
+directory for the provider to validate. The worker has no viewer bridges,
+account access, filesystem or network capability. Native code cancels the
+port and destroys the WebView when the context stops, the renderer exits or
+the 180-second stage deadline expires. Failure removes pending files and
+preserves the previous accepted library.
+
+The runtime checks the software manifest pin
+`e2c8551d8841c7447689b356d09d77e6c72651d94b9bc9bf245634b3362bc24b`,
+then verifies every runtime member before executing it. Its selected operations
+use the confined Node-compatible byte methods, fatal UTF-8, XXH64,
+WebCrypto AES and SHA-256, bounded gzip, and the existing pinned Oodle
+WASM. It admits up to 512 named input leaves per operation, 128 MiB per file,
+256 MiB of total output and 16 MiB of stored or expanded Oodle data per
+block. The port transfers at most 24 KiB of data at a time and the worker
+rechecks each input digest. Text mode omits the original voice-directory and
+audio registry reads. Text + audio emits their catalogue products and film
+occurrence digests for subsequent original-recording stages.
+
+Generate the optional software asset directory with
+`node scripts/stage-android-zzz-catalogue.mjs <retained-reader-software> <fresh-asset-directory>`.
+Its 13 modules, host, worker and manifest total 249,355 bytes. The separate
+`sources/` inventory totals 34,202,547 bytes and includes the exact Oodle
+and Emscripten sources and notices, the MIT reader and xxHash sources and
+notices, and the build and adaptation recipes. The staged software includes
+no game payloads. Android packaging must explicitly admit and verify the
+runtime closure and supply its corresponding source and notices. Without the
+assets the native capability reports unavailable. An Android WebView with
+WASM SIMD and gzip decompression support is also required.
+
+The authored parity test uses the shared operation graph and compares all
+outputs byte-for-byte with the Windows CLI for the five stages in both
+catalogue modes. It supplies authored CAB data at the MHY reader boundary.
+An offline Chromium run checks the real pinned WASM and XXH64 initialization,
+malformed MHY input, bad input digest, changed software and cancellation on
+the isolated message port. The native host tests check scope, bounded
+handoffs and retained-library behavior. Java compilation checks the port API.
+This work has not yet run an original encrypted stage on Android.
+The Android provider still stops before these catalogue operations. It
+needs a context-bound original gateway/transfer stage, verified catalogue
+selection receipts, and the separate selected-dub index, bank and playback
+pipeline before it can publish a complete library.
+
+## Original bootstrap stage
+
 The new `zzz_game_data.create_provider(platform=..., native=...)` implements
 the shared protocol's **official bootstrap stage**. Its HoYoPlay discovery,
 manifest and PE-header reads use the shared context-bound publisher transport;

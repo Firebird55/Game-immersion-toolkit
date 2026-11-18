@@ -170,7 +170,8 @@ function fixtures() {
     'export function xxHash64(name){ if(!Object.hasOwn(hashes,name)) throw Error("Unknown authored hash input"); return BigInt(hashes[name]); }\n' +
     'export function unpackMhyFile(bytes, offset){ const key=bytes.toString("ascii",offset,offset+1); ' +
     'return {end:offset+1, files:[Buffer.from(cabs[key],"base64")]}; }';
-  return {files, stagedFiles:b64(files), stages, reader, registry, cinemaDigest:createHash('sha256').update(cinema).digest('hex'), b64};
+  return {files, stagedFiles:b64(files), stages, reader, registry, hashes, cabs:b64(cabs),
+    cinemaDigest:createHash('sha256').update(cinema).digest('hex'), b64};
 }
 
 const portableHost = String.raw`
@@ -235,6 +236,54 @@ for (const [mode, input] of stages) {
 process.stdout.write(JSON.stringify(result));
 `;
 
+const androidHost = String.raw`
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const {stagedFiles, stages, hashes, cabs} = JSON.parse(readFileSync(0));
+const NodeBuffer = globalThis.Buffer;
+const {CatalogueBytes} = await import(process.argv[2]);
+const {executeStage, aes128EncryptBlock} = await import(process.argv[3]);
+const {runPublisherOperation} = await import(process.argv[1]);
+const file = name => NodeBuffer.from(stagedFiles[name], 'base64');
+globalThis.Buffer = CatalogueBytes;
+const reader = {
+  xxHash64(name) { assert.ok(Object.hasOwn(hashes, name)); return BigInt(hashes[name]); },
+  async unpackMhyFile(bytes, offset, check) {
+    check();
+    const key = bytes.toString('ascii', offset, offset + 1);
+    assert.ok(Object.hasOwn(cabs, key));
+    return {end:offset+1, files:[CatalogueBytes.from(NodeBuffer.from(cabs[key], 'base64'))]};
+  },
+};
+const result = [];
+for (const [mode, input] of stages) {
+  const files = {};
+  await executeStage({mode, input, operation:runPublisherOperation, reader, check() {},
+    host: {
+      async read(name) {
+        if (input.includeAudio === false) assert.doesNotMatch(name, /voice-directory/);
+        return file(name);
+      },
+      async write(name, bytes) { files[name] = NodeBuffer.from(bytes).toString('base64'); },
+    }});
+  result.push(files);
+}
+const [mode, input] = stages.at(-2);
+await assert.rejects(executeStage({mode, input:{...input, voiceDirectory:['1.blk.voice-directory']},
+  operation:runPublisherOperation, reader, check() {}, host:{}}), /cannot open voice data/);
+let cancelled = false, writes = 0;
+await assert.rejects(executeStage({mode, input, operation:runPublisherOperation, reader,
+  check() { if (cancelled) throw Error('authored cancellation'); },
+  host:{async read(name) { return file(name); }, async write() { writes++; cancelled = true; }}}), /authored cancellation/);
+assert.equal(writes, 1);
+const hex = value => CatalogueBytes.from(value, 'hex');
+const encrypted = await aes128EncryptBlock(
+  hex('000102030405060708090a0b0c0d0e0f'), hex('00112233445566778899aabbccddeeff'));
+assert.equal(NodeBuffer.from(encrypted).toString('hex'), '69c4e0d86a7b0430d8cdb78070b4c55a');
+await assert.rejects(aes128EncryptBlock(hex('00'), hex('00112233445566778899aabbccddeeff')), /Invalid ZZZ MHY AES block/);
+process.stdout.write(JSON.stringify(result));
+`;
+
 test('five publisher stages preserve CLI bytes in an isolated host without external capabilities', () => {
   const fixture = fixtures();
   const {stagedFiles, stages, reader} = fixture;
@@ -242,6 +291,13 @@ test('five publisher stages preserve CLI bytes in an isolated host without exter
     {input:JSON.stringify({stagedFiles, stages, reader}), encoding:'utf8'});
   assert.equal(isolated.status, 0, isolated.stderr || isolated.error?.message);
   const results = JSON.parse(isolated.stdout);
+  const browserSource = name => new URL('../packaging/android/zzz-catalogue/' + name, import.meta.url).href;
+  const android = spawnSync(process.execPath, ['--input-type=module', '-e', androidHost,
+    new URL('../scripts/zzz-publisher-dialogue.mjs', import.meta.url).href, browserSource('catalogue-bytes.mjs'),
+    browserSource('catalogue-runtime.mjs')],
+  {input:JSON.stringify({stagedFiles, stages, hashes:fixture.hashes, cabs:fixture.cabs}), encoding:'utf8'});
+  assert.equal(android.status, 0, android.stderr || android.error?.message);
+  assert.deepEqual(JSON.parse(android.stdout), results);
   const json = (i, name) => JSON.parse(Buffer.from(results[i][name], 'base64'));
   assert.deepEqual(json(0, 'scene-plan-output.json').ranges, [{block:'Blocks/1.blk',offset:0,size:1}]);
   assert.equal(json(1, 'presentation-config-plan-output.json').timelineConfigs, 1);
