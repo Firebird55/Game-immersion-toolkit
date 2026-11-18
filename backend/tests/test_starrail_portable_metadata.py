@@ -361,8 +361,8 @@ def test_type_projection_bounds_the_combined_requested_and_nested_definitions(ro
             stage.project((0,), roots, {})
 
 
-def _field_boundary_sources(tmp_path, other_owner):
-    sources = _sources(tmp_path)
+def _field_boundary_sources(tmp_path, other_owner, *, runtime_rows=bytes(48)):
+    sources = _sources(tmp_path, runtime_rows=runtime_rows)
     native = bytearray(sources['native'].path.read_bytes())
     metadata = bytearray(sources['metadata'].path.read_bytes())
     # Put the opaque header slot inside Actor's field row. Literal data owns
@@ -392,3 +392,123 @@ def test_field_extension_requires_exact_nonoverlapping_declared_ownership(tmp_pa
     sources = _field_boundary_sources(tmp_path, other_owner)
     with pytest.raises(MetadataFormatError, match=f'field declaration {failure}'):
         read_required(sources, type_indices=(0,))
+
+
+def _default_sources(tmp_path, *, declared=0x08, storage=0x08, payload=b'\xf9\xff\xff\xff',
+                     rows=((0, 0, 1),), boundary_type=-1, literal=True, enum_backing=None):
+    type_definition = 1 if enum_backing is not None else 0
+    native_types = struct.pack('<IHBBIHBBIHBB', type_definition if storage in {0x11, 0x12} else 0, 0, storage, 0,
+                               0, 0x0606, enum_backing or 0x08, 0,
+                               type_definition, 0x0046 if literal else 0x0006, declared, 0)
+    sources = _field_boundary_sources(tmp_path, 0, runtime_rows=native_types)
+    native = bytearray(sources['native'].path.read_bytes())
+    metadata = bytearray(sources['metadata'].path.read_bytes())
+    defaults = b''.join(struct.pack('<iii', *row) for row in rows)
+    # A separate owned data window, then the complete record role and its
+    # 12-byte index-table witness. The second index row maps Actor's field.
+    metadata.extend(payload.ljust(32, b'\0') + defaults + struct.pack('<iiiIII', boundary_type, 0, 0, 0, 0, 2))
+    struct.pack_into('<I', native, 0x640 + 0x3c, 1752438875 + 0x900)
+    struct.pack_into('<I', native, 0x640 + 0x1fc, 0x6238cdb0 ^ 0x920)
+    struct.pack_into('<I', native, 0x640 + 0x9c, 1132541481 + 0x920 + len(defaults))
+    if enum_backing is not None:
+        at = len(_HEADER)
+        metadata[at + 0x100 + 70 + 0x38] = 3  # Other is an enum/value type.
+        metadata[at + 0x200:at + 0x208] = bytes.fromhex('52191a8648e0c9a2')
+        metadata[at + 0x410:at + 0x418] = bytes.fromhex('b20c5eef719ec0bb')  # Authored value__ name.
+    for role, value in [('native', native), ('metadata', metadata)]:
+        path = sources[role].path
+        path.write_bytes(value)
+        sources[role] = OriginalInput(path, len(value), hashlib.md5(value).hexdigest())
+    return sources
+
+
+def _selected_default(sources):
+    result = read_required(sources, type_indices=(0,), field_default_indices=(1,))
+    assert result['field_defaults']['schema'] == 'proxy-starrail-selected-field-defaults-v1'
+    return result['field_defaults']['records'][1]
+
+
+@pytest.mark.parametrize(('tag', 'payload', 'kind', 'value'), [
+    (0x08, b'\xf9\xff\xff\xff', 'int', -7),
+    (0x09, b'\xff\xff\xff\xff', 'uint', 4294967295),
+    (0x02, b'\x80', 'bool', True),
+    (0x03, b'\xa9\x03', 'char', 'Ω'),
+    (0x0c, b'\x00\x00\xa0\x3f', 'float', 1.25),
+    (0x0d, b'\x00\x00\x00\x00\x00\x00\xf4\xbf', 'double', -1.25),
+])
+def test_selected_scalar_defaults_preserve_native_width_and_kind(tmp_path, tag, payload, kind, value):
+    selected = _selected_default(_default_sources(tmp_path, declared=tag, storage=tag, payload=payload))
+    assert selected == {'status': 'present', 'kind': kind, 'value': value}
+    assert type(selected['value']) is type(value)
+
+
+@pytest.mark.parametrize(('storage', 'backing', 'payload', 'kind', 'value'), [
+    (0x11, 0x08, b'\xf9\xff\xff\xff', 'int', -7),
+    (0x07, 0x07, b'\xff\xff', 'ushort', 65535),
+])
+def test_enum_defaults_require_the_original_backing_field(tmp_path, storage, backing, payload, kind, value):
+    sources = _default_sources(tmp_path, declared=0x11, storage=storage, payload=payload, enum_backing=backing)
+    assert _selected_default(sources) == {
+        'status': 'present', 'kind': kind, 'value': value, 'enum_definition': 1,
+    }
+
+
+@pytest.mark.parametrize(('declared', 'storage', 'backing'), [
+    (0x0e, 0x0e, None), (0x55, 0x55, None), (0x11, 0x11, None), (0x11, 0x11, 0x07),
+])
+def test_unsupported_default_kinds_stay_explicit_and_skip_payload_reads(tmp_path, monkeypatch, declared, storage, backing):
+    sources = _default_sources(tmp_path, declared=declared, storage=storage, enum_backing=backing)
+    original = portable._Records.read
+
+    def read(records, role, at, size):
+        assert role != 'default_data'
+        return original(records, role, at, size)
+
+    monkeypatch.setattr(portable._Records, 'read', read)
+    assert _selected_default(sources) == {'status': 'unsupported', 'declared_tag': declared, 'storage_tag': storage}
+
+
+@pytest.mark.parametrize(('rows', 'literal', 'reason'), [
+    (((0, 0, 0),), True, 'no_row'), ((), True, 'no_row'), (((0, 0, 1),), False, 'nonliteral'),
+])
+def test_missing_row_and_nonliteral_have_distinct_absence_reasons(tmp_path, rows, literal, reason):
+    assert _selected_default(_default_sources(tmp_path, rows=rows, literal=literal)) == {
+        'status': 'absent', 'reason': reason,
+    }
+
+
+@pytest.mark.parametrize(('options', 'reason'), [
+    ({'boundary_type': 0}, 'default record table terminator'),
+    ({'rows': ((0, 0, 2),)}, 'default record field order or ownership'),
+    ({'rows': ((3, 0, 1),)}, 'default record type index'),
+    ({'rows': ((0, 32, 1),)}, 'default record data offset'),
+    ({'storage': 0x09}, 'default record storage type'),
+    ({'rows': ((0, 31, 1),)}, 'default_data record ownership'),
+])
+def test_invalid_default_owner_end_type_or_data_fails_closed(tmp_path, options, reason):
+    with pytest.raises(MetadataFormatError, match=reason):
+        _selected_default(_default_sources(tmp_path, **options))
+
+
+def test_default_request_must_select_the_field_owner(tmp_path):
+    sources = _default_sources(tmp_path)
+    with pytest.raises(MetadataFormatError, match='default field ownership'):
+        read_required(sources, type_indices=(0,), field_default_indices=(0,))
+
+
+def test_late_invalid_record_cannot_read_payload_or_publish_stale_defaults(tmp_path, monkeypatch):
+    previous = _selected_default(_default_sources(tmp_path))
+    broken = _default_sources(tmp_path, rows=((0, 0, 1), (0, 4, 1)))
+    original = portable._Records.read
+
+    def read(records, role, at, size):
+        assert role != 'default_data'
+        return original(records, role, at, size)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(portable._Records, 'read', read)
+        with pytest.raises(MetadataFormatError, match='default record field order or ownership'):
+            _selected_default(broken)
+    assert previous['value'] == -7
+    current = _selected_default(_default_sources(tmp_path, payload=b'\x09\0\0\0'))
+    assert current == {'status': 'present', 'kind': 'int', 'value': 9}

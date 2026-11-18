@@ -41,6 +41,18 @@ _PRIMITIVE_TYPES = {
 _LAYOUT_TYPE_TAGS = frozenset(range(1, 0x17)) | {
     0x18, 0x19, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x40, 0x41, 0x45, 0x55, 0xff,
 }
+_DEFAULT_SCHEMA = 'proxy-starrail-selected-field-defaults-v1'
+_DEFAULT_ROW = struct.Struct('<iii')
+_DEFAULT_BLOCK = _BLOCK // _DEFAULT_ROW.size * _DEFAULT_ROW.size
+_DEFAULT_CODECS = {tag: struct.Struct('<' + code) for tag, code in {
+    0x02: 'B', 0x03: 'H', 0x04: 'b', 0x05: 'B', 0x06: 'h', 0x07: 'H', 0x08: 'i',
+    0x09: 'I', 0x0a: 'q', 0x0b: 'Q', 0x0c: 'f', 0x0d: 'd', 0x18: 'q', 0x19: 'Q',
+}.items()}
+_ENUM_INTEGER_TAGS = frozenset(range(0x04, 0x0c))
+_TYPE_DEFINITION_TAGS = {0x11, 0x12}
+_LITERAL_FIELD = 0x0040
+_ENUM_BACKING_FIELD = 0x0600
+_STATIC_FIELD = 0x0010
 
 # Image and generic-class offsets refer to startup metadata. The global
 # table envelopes use the global payload coordinates after its file prefix.
@@ -339,6 +351,7 @@ class _Records:
     def __init__(self, files, cancelled):
         self.cancelled = cancelled
         self.field_extent_proved = False
+        self.type_layout = None
         self.metadata = files['metadata']
         self.startup = files['startup']
         self.image = _Image(files['native'])
@@ -499,20 +512,30 @@ class _Records:
 
     def runtime_types(self, indices, cancelled):
         _require(all(0 <= index < self.type_count for index in indices), 'runtime type index')
-        offset, available = self.image.span(self.runtime_types_rva, executable=False)
-        stride = _runtime_type_stride(self.image, offset, available, self.type_count, cancelled)
+        offset, stride = self.runtime_layout(cancelled)
         rows = {}
         for index in indices:
             _check_cancelled(cancelled)
             rows[index] = self.runtime_row(offset + index * stride, stride)
         return stride, rows
 
-    def runtime_row(self, offset, stride):
+    def runtime_layout(self, cancelled):
+        if self.type_layout is None:
+            offset, available = self.image.span(self.runtime_types_rva, executable=False)
+            stride = _runtime_type_stride(self.image, offset, available, self.type_count, cancelled)
+            self.type_layout = offset, stride
+        return self.type_layout
+
+    def runtime_words(self, offset, stride):
         data_width = 4 if stride == 8 else 8
         raw = self.image.source.read(offset, data_width + 4, component='runtime type row')
         data = _integer(raw, 0, data_width)
         attributes = _integer(raw, data_width, 2)
         tag, flags = raw[data_width + 2:data_width + 4]
+        return data, attributes, tag, flags
+
+    def runtime_row(self, offset, stride):
+        data, attributes, tag, flags = self.runtime_words(offset, stride)
         return {'data': data, 'attributes': attributes, 'tag': tag, 'modifiers': flags & 0x3f,
                 'by_reference': bool(flags & 0x40), 'pinned': bool(flags & 0x80),
                 'target': self.runtime_target(tag, data, stride)}
@@ -520,7 +543,7 @@ class _Records:
     def runtime_target(self, tag, data, stride):
         if tag in _PRIMITIVE_TYPES or (tag == 0x0f and data == 0):
             return None
-        if tag in {0x11, 0x12}:
+        if tag in _TYPE_DEFINITION_TAGS:
             _require(data < self.definition_count, 'runtime type definition index')
             return 'type_definition', data
         if tag in {0x13, 0x1e}:
@@ -559,6 +582,142 @@ class _Records:
         key = (((0xde8c09c836133dbd * index) ^ 0x18d025c96ee74e86) + 0x2c6833cc6f0a9c48) & _MASK64
         # The pinned SIMD offsets equal two, four, six, and eight scalar steps.
         return _xor_words(self.read('literal_data', at, (length + 7) & ~7), length, key, 0x464c46540f730312)
+
+
+class _FieldDefaults:
+    def __init__(self, records):
+        self.records = records
+        self.offset, self.stride = records.runtime_layout(records.cancelled)
+        self.native_types = {}
+        self.enum_types = {}
+        self.remaining_enum_fields = _MAX_SELECTED
+
+    def native_type(self, index):
+        _check_cancelled(self.records.cancelled)
+        _require(0 <= index < self.records.type_count, 'default runtime type index')
+        if index not in self.native_types:
+            row = self.records.runtime_words(self.offset + index * self.stride, self.stride)
+            if row[2] in _TYPE_DEFINITION_TAGS:
+                _require(row[0] < self.records.definition_count, 'default type definition index')
+            self.native_types[index] = row
+        return self.native_types[index]
+
+    def row_count(self):
+        records = self.records
+        start, available = records.windows['field_defaults']
+        end, _ = records.windows['index_table']
+        length = end - start
+        competing = any(start <= offset <= end for role, (offset, _) in records.windows.items()
+                        if role not in {'field_defaults', 'index_table'})
+        _require(not competing and (length == 0 or length == available) and length % _DEFAULT_ROW.size == 0,
+                 'default record table boundary')
+        # The competing table owns this row. It must both fit the field-offset
+        # index contract and stop the pinned default-record loop.
+        fake_type, _, offset_slot = _DEFAULT_ROW.unpack(records.read('index_table', 0, _DEFAULT_ROW.size))
+        offset_slots = records.windows['field_offsets'][1] // 4
+        _require(0 <= offset_slot < offset_slots and
+                 (not 0 <= fake_type <= records.type_count or offset_slot > 10_000_000),
+                 'default record table terminator')
+        return length // _DEFAULT_ROW.size
+
+    def references(self, requested):
+        records = self.records
+        records.prove_field_extent()
+        slots = records.windows['fields'][1] // 8
+        data_size = records.windows['default_data'][1]
+        count = self.row_count()
+        _require(count <= slots, 'default record count')
+        length = count * _DEFAULT_ROW.size
+        previous = -1
+        matches = {}
+        for at in range(0, length, _DEFAULT_BLOCK):
+            _check_cancelled(records.cancelled)
+            data = records.read('field_defaults', at, min(_DEFAULT_BLOCK, length - at))
+            for type_index, offset, field in _DEFAULT_ROW.iter_unpack(data):
+                _require(previous < field < slots and field <= 10_000_000, 'default record field order or ownership')
+                _require(0 <= type_index < records.type_count, 'default record type index')
+                _require(0 <= offset < data_size, 'default record data offset')
+                if field in requested:
+                    matches[field] = type_index, offset
+                previous = field
+        return matches
+
+    def enum_underlying(self, index):
+        if index not in self.enum_types:
+            self.enum_types[index] = self.enum_backing_field(index)
+        return self.enum_types[index]
+
+    def enum_backing_field(self, index):
+        records = self.records
+        bitfield = _integer(records.read('types', index * 70 + 0x38, 4), 0)
+        if not bitfield & 2:
+            return None
+        owner = records.type(index)
+        start, count = owner['field_start'], owner['field_count']
+        _require(count <= self.remaining_enum_fields and (count == 0 or 0 <= start < _MAX_INDEX),
+                 'default enum field extent')
+        self.remaining_enum_fields -= count
+        backing = []
+        for field in range(start, start + count):
+            _check_cancelled(records.cancelled)
+            row = records.field(field, index, owner)
+            if row['name'] == 'value__':
+                backing.append(self.native_type(row['type']))
+        _require(len(backing) <= 1, 'default enum backing field')
+        if backing:
+            _, attributes, tag, flags = backing[0]
+            if (attributes & _ENUM_BACKING_FIELD == _ENUM_BACKING_FIELD and
+                    not attributes & (_LITERAL_FIELD | _STATIC_FIELD) and not flags & 0xc0
+                    and tag in _ENUM_INTEGER_TAGS):
+                return tag
+        return None
+
+    def decode(self, declared, source_index, offset):
+        definition, _, tag, flags = declared
+        stored_definition, _, stored_tag, stored_flags = self.native_type(source_index)
+        _require(not (flags | stored_flags) & 0xc0, 'default record type qualifiers')
+        unsupported = {'status': 'unsupported', 'declared_tag': tag, 'storage_tag': stored_tag}
+        enum = tag in _TYPE_DEFINITION_TAGS
+        if enum:
+            kind = self.enum_underlying(definition)
+            if kind is None:
+                return unsupported
+            if stored_tag in _TYPE_DEFINITION_TAGS:
+                _require(stored_definition == definition, 'default record enum owner')
+                # The pinned decoder reads Int32 for a value/class row. Other
+                # enum widths need an explicit primitive storage type.
+                if kind != 0x08:
+                    return unsupported
+            else:
+                _require(stored_tag == kind, 'default record enum storage type')
+        else:
+            if tag not in _DEFAULT_CODECS or stored_tag not in _DEFAULT_CODECS:
+                return unsupported
+            _require(tag == stored_tag, 'default record storage type')
+            kind = tag
+        codec = _DEFAULT_CODECS[kind]
+        value, = codec.unpack(self.records.read('default_data', offset, codec.size))
+        if kind == 0x02:
+            value = bool(value)
+        elif kind == 0x03:
+            value = chr(value)
+        result = {'status': 'present', 'kind': _PRIMITIVE_TYPES[kind], 'value': value}
+        if enum:
+            result['enum_definition'] = definition
+        return result
+
+    def selected(self, indices, fields):
+        types = {index: self.native_type(fields[index]['type']) for index in indices}
+        literals = {index for index, row in types.items() if row[1] & _LITERAL_FIELD}
+        references = self.references(literals) if literals else {}
+        result = {}
+        for index, declared in types.items():
+            _check_cancelled(self.records.cancelled)
+            if index in references:
+                result[index] = self.decode(declared, *references[index])
+            else:
+                result[index] = {'status': 'absent', 'reason': 'no_row' if index in literals else 'nonliteral'}
+        return {'schema': _DEFAULT_SCHEMA, 'records': result}
 
 
 class _TypeProjection:
@@ -768,7 +927,7 @@ class _TypeProjection:
 
 
 def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices=(), runtime_type_indices=(),
-                  project_types=False, cancelled=None):
+                  field_default_indices=(), project_types=False, cancelled=None):
     """Authenticate all three original inputs and return selected raw records.
 
     A requested type includes its fields. Methods independently identify their
@@ -777,14 +936,18 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
     Explicit runtime type requests decode the PE-backed nodes and validate
     their direct references. Optionally project names, generics and nesting
     through the bounded selected type graph.
+    Requested defaults must belong to the selected types' fields. The result
+    distinguishes missing and nonliteral fields from unsupported storage kinds.
     No output files or persistent state are created by this operation.
     """
     _require(isinstance(inputs, dict) and set(inputs) == set(_LIMITS), 'source inputs')
-    for indices in (type_indices, method_indices, literal_indices, runtime_type_indices):
+    for indices in (type_indices, method_indices, literal_indices, runtime_type_indices, field_default_indices):
         _require(isinstance(indices, (list, tuple)) and len(indices) <= _MAX_SELECTED
                  and all(type(index) is int and 0 <= index < _MAX_INDEX for index in indices)
                  and len(set(indices)) == len(indices), 'requested indices')
-    _require(type_indices or method_indices or literal_indices or runtime_type_indices, 'empty request')
+    _require(type_indices or method_indices or literal_indices or runtime_type_indices or field_default_indices,
+             'empty request')
+    _require(not field_default_indices or type_indices, 'default field ownership')
     _require(type(project_types) is bool, 'type projection request')
     if project_types:
         _require(0 < len(runtime_type_indices) <= 16
@@ -829,8 +992,12 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
             if project_types:
                 runtime['type_projection'] = _TypeProjection(records, stride, rows, types, cancelled).project(
                     runtime_type_indices, types, methods)
+        defaults = {}
+        if field_default_indices:
+            _require(all(index in fields for index in field_default_indices), 'default field ownership')
+            defaults['field_defaults'] = _FieldDefaults(records).selected(field_default_indices, fields)
         for file in files.values():
             _check_cancelled(cancelled)
             file.check_source()
         return {'sha256': {role: file.sha256 for role, file in files.items()},
-                'types': types, 'fields': fields, 'methods': methods, 'literals': literals, **runtime}
+                'types': types, 'fields': fields, 'methods': methods, 'literals': literals, **runtime, **defaults}

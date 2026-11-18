@@ -934,8 +934,55 @@ A separate scalar probe checked eight source-owned fields per generation.
 One field in each had the original `Literal` flag and a matching default
 record. Both four-byte values decoded to the same digest. The seven other
 fields in each generation lacked the literal flag. This is selected scalar
-evidence. A production default resolver, the required native-index
-projection and Android device acceptance remain open.
+evidence.
+
+`read_required` now accepts explicit `field_default_indices` from its selected
+type owners. The result carries the selected-default schema and the three
+original source hashes. The resolver checks the complete field declarations,
+the sorted default-record window and the typed index-table terminator before
+decoding any selected literal value. Each record remains in the authenticated
+input generation, with file identity checked again before returning.
+
+The resolver distinguishes present values, missing rows, nonliteral fields
+and unsupported kinds. It handles the pinned fixed-width scalars. Enum values
+require a source enum declaration and an owned `value__` instance field with
+an integral type. An explicit primitive storage tag must match that type. A
+class/value-type storage row uses the pinned signed 32-bit representation only
+for an enum with that underlying type. Other enum storage forms and variable
+values remain unsupported. Malformed ownership, reference or bounds evidence
+fails the request. The new resolver has authored coverage. The original scalar
+probe above exercised the format separately.
+
+### Native-index adapter contract
+
+The current provider uses `NativeIndex` in native preparation, config catalog
+construction and voice-choice augmentation. The adapter needs a generation-bound
+metadata census that can stream original declaration candidates and load their
+required records on demand. It needs to preserve these discovery paths.
+
+- Route derivation resolves its existing semantic names and signatures against
+  original definitions. Table derivation starts with requested table names and
+  original resource literals, then searches for constructor, static array and
+  row-type shapes before verifying native references. [Routes](../../backend/starrail_native_routes.py)
+  · [Table discovery](../../backend/starrail_native_tables.py)
+- Config derivation identifies its reader through the LevelGraphConfig method
+  and native calls, scans registry signature and field shapes, and resolves
+  original MethodDef usages. Voice-choice discovery scans original field sets
+  and constructor shapes. The census must cover these candidate searches before
+  selecting their metadata closure. [Config usage discovery](../../backend/starrail_native_usages.py)
+  · [Voice-choice discovery](../../backend/starrail_native_voice_choices.py)
+- The adapter needs unique-name and nested-owner lookup, complete aliases by
+  RVA, lookup by original MethodDef identity, and selected field, default and
+  signature records. It needs a complete executable method-boundary census
+  for managed extents and the existing PE unwind contract for unmanaged extents.
+  Literal lookup must join original table indexes to the pinned registration's
+  pointer slots. Required addresses with invalid UTF-8 stay unresolved. [NativeIndex](../../backend/starrail_native_index.py)
+  · [Pinned literal slot mapping](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Output/StringLiteralWriter.cs)
+
+The adapter receipt must bind the source implementation, decoder and all three
+original inputs to the publisher generation. Dynamic candidate and description
+results need fresh comparison against pinned controls before provider activation.
+Native-index integration and Android device acceptance remain open.
 
 ## Original hotfix discovery prototype · November 16, 2026
 
