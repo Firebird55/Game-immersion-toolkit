@@ -151,7 +151,7 @@ normal flow. The current Windows worker proof does not establish this boundary.
 
 | Dependency | Existing implementation | Required Android work |
 | --- | --- | --- |
-| Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. Original PE/x64 instructions are parsed as data through managed Iced; client code is never executed. | Supply a packaged Android-compatible invocation of the same owned metadata/disassembly contract, or a controlled exact-generation schema source. There is no accepted Android helper artifact or runtime resolver. |
+| Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. The portable reader can locate and read selected raw records from authenticated publisher files. | Resolve the remaining field and literal cases, join runtime types and method owners into the native index contract, and verify the provider on signed Android. |
 | Publisher formats and cache | Python readers use HTTPS, protobuf, zstandard, JSON and checksummed files. Native preparation currently authenticates complete original Windows launcher inputs. | Validate those libraries on the Android ABI and keep all files in app-controlled storage. Windows publisher data may be read as data, but platform/edition identity must remain explicit. |
 | Playback and export | `VoiceDecoder` and `LocalVoiceAssetService` invoke desktop vgmstream and ffmpeg processes. Movie extraction validates complete ADX tracks and requires reviewed spoken windows. | Integrate the corresponding Android codec/runtime, then prove sample/window equivalence and offline historical playback. No Android codec or movie coverage is implied by current desktop playback. |
 | Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. The shared service can estimate staged original metadata/text packages, account for their cache and restore completed text locally. | Prove these stages with actual source files and connect original audio with reference-aware full-library removal. A metadata-only stage is not a complete game download size. |
@@ -808,6 +808,43 @@ stage is planned; they cannot be presented as zero or as a complete installation
 estimate. No new source transport or Android execution was used to make this
 plan. A complete Android worker, physical playback and Settings accounting
 remain unaccepted.
+
+## Portable original metadata records · November 18, 2026
+
+`starrail_portable_metadata.read_required` reads the Windows launcher PE,
+global metadata and startup metadata as data. It checks the complete publisher
+MD5 for each role and can also verify an existing source SHA-256. During the
+256 KiB hash reads, it retains only bounded candidate offsets. After
+authentication, it resolves a unique header and native registration, checks
+table and record bounds, and reads selected images, type definitions, fields,
+method parameters, executable method pointers and string literals. The parser
+returns raw records in memory and checks file identity again before returning.
+
+The scalar descriptions adapt the pinned GPL HSRGlobalMetadata source. The
+portable module and its accompanying license are available as corresponding
+source. The desktop helper's pinned software and notices are documented with
+the Star Rail reader. [Pinned source](https://github.com/im-remi/HSRGlobalMetadata/tree/bb66f7c59d73cadcd026d817a011598ea23c5313)
+· [Portable module license](../../backend/starrail_portable_metadata.LICENSE.txt)
+· [Desktop reader provenance](../../packaging/starrail-reader/README.md)
+
+An offline Windows probe verified all three source identities against retained
+publisher receipts for Global 4.6 and 4.7. Both headers declare three trailing
+type bytes and two trailing image bytes. The pinned codec counts complete
+records and the portable reader leaves the trailing bytes outside those rows.
+The 4.6 and 4.7 probes read 18,326 and 18,406 selected bytes after separately
+streaming 650,775,340 and 675,093,264 bytes for whole-input verification. Both
+generations retained their original input files.
+
+Each generation located the three native registrations and decoded 12 sampled
+type definitions and nine methods. Eight methods had executable entry pointers
+and the selected methods supplied four parameters. Four of eight selected
+fields fit the current bounded table window and seven of eight selected
+literals decoded as UTF-8. The remaining fields failed a table ownership check
+and the remaining literal failed UTF-8 validation in each generation. These
+reads have no independently regenerated C# record comparison. Exact field table
+limits, literal decoding parity, runtime type resolution, generic and nested
+type joins, defaults and required native-index projection remain open. The
+Android provider gate continues to require that projection and device evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
 
