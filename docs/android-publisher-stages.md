@@ -63,7 +63,45 @@ A fresh service restores the completed stage without transport. The native
 acceptance assertion additionally binds the actual JNI crypto proof and loaded
 mmap extension hash to the audited candidate. Host fixtures passing these paths
 do not establish Android/JNI execution, publisher HTTP or whole-game readiness.
-No APK from this 73-module source cohort has yet established target acceptance.
+The source-specific physical result below establishes this authored stage on one
+Android target; it does not establish a prepared game.
+
+## Physical authored bootstrap acceptance, November 18, 2026
+
+Source `3029583d5ebd6f7982ac00df3d9b65bdef0ba49e` produced debug version 57,
+115,390,204 bytes, SHA-256
+`d49c9549dee1578fe8da2b828e5a5e1dc237b4547e6f71ffc6de4ec8826f881e`.
+The complete 73-source namespace, policy, generated fixture, native notices,
+signature and all 65 native ELF entries passed the candidate's static audit.
+The audit now includes the existing 24 Chaquopy bootstrap extensions; the nested
+`java/chaquopy.so` bridge is explicitly admitted, while unexpected nested
+libraries, missing mmap, wrong ABIs and insufficient alignment are rejected.
+
+That exact installed APK passed a normal version-56-to-57 update and two fresh
+cold self-tests on a Redmi ARM64 device running API 36 with 4-KiB pages. No
+uninstall, data clear, downgrade or owner signing-identity update was used.
+The actual Python-to-Java cryptography capability authenticated the 2,309-byte
+authored APK, and the actual bundled mmap extension read its 14,336-byte
+authenticated ELF member. The loaded ARM64 mmap extension was 25,312 bytes,
+SHA-256 `b33936b6761094939a3c32da9dbe8847b3520c0337163199f1311c8db5393977`,
+matching the APK audit. Both request modes completed the expected native-source
+stage. Corrupt full-carrier and cancelled-transfer cases were rejected, charged
+their received bytes and preserved an existing authored data marker. Reopening
+the real service reused the retained stage without transport and kept the
+unresolved manifest-format gate.
+
+Both cold runs also passed the existing 57 crypto cases, nine Zstandard cases,
+data-decoder contract, native OCR-to-authored-caption/original-clip path,
+MediaPlayer completion, four preview cases and Keystore tests. The earlier
+protected blob reopened after the update and restart. The canonical shared-core
+result remained `1039a44a7b63988cb8df1d11b0924027a8d3e7b40896bd9a4f20f712d0db92b0`.
+Normal startup was restored after testing.
+
+The transport supplied only authored responses: no original game assets or
+official-server HTTPS were exercised, and device-wide egress was not blocked.
+This is neither original-game preparation nor an ENTRY-key solution, text/audio
+Ready result, 16-KiB runtime result or x86_64 execution proof. The static 16-KiB
+checks and the separate older-source hosted emulator run retain their own scope.
 
 The current reviewed baseline is source cohort `0624af55`; NTE's factory also
 includes the reviewed source snapshot `617be276` from its later content-stage
