@@ -942,6 +942,20 @@ proving absence of a runtime provider elsewhere or resolving the original
 Unity member's extra-symbol/count qualification. The callback/state/header
 handoff and canonical admission gates above remain open.
 
+The same mainland APK directory identifies `lib/arm64-v8a/libmain.so`. An
+owner/ETag-pinned range verifies its local ZIP header, complete Deflate stream,
+original CRC and local SHA-256. The section, SysV and GNU hash counts agree on
+13 dynamic symbols, with no `xxxxXXXXxxxx` entry. The original `JNI_OnLoad`
+registers `com/unity3d/player/NativeLoader`. Its `load` method calls the same
+helper with `libunity.so` first and `libil2cpp.so` after the first call returns.
+The helper tries a Java-derived path, then the bare name if that open fails.
+Both calls pass literal flag `1`, leaving the `RTLD_GLOBAL` bit clear. Bounded
+static analysis stops at the conditional call of the pointer returned by
+`dlsym(handle, "JNI_OnLoad")`. The actual Java invocation, resolved address,
+linker scope, weak callback provider, state writer and header/key handoff remain
+unverified. The selected member checks leave whole-APK authenticity and
+mainland/Global equivalence unverified.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
