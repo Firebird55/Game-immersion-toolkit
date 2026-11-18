@@ -41,6 +41,16 @@ Publish the assembled directory as one release on the existing tag. Download
 the public assets again and verify the combined checksums, both platform
 provenance files, and the tag commit before delivery.
 
+For the first ZZZ-only Android release, the owner reserved gameplay testing
+for after installation. Verify an in-place upgrade on physical ARM64 and
+compare the hash of the installed APK to the exact tag build. Use
+`toolkit-android-physical-install-v1` for the receipt, with the source commit,
+installed APK SHA-256, ABI, API, version code, game `zzz` and the observed
+`installed_in_place` check. Assemble with
+`--android-owner-gameplay-pending` and publish as a GitHub prerelease. Its public
+receipt records the verified installation and the pending gameplay checks.
+The stable Android profile uses the regular physical gameplay receipt.
+
 ## Installation and updates
 
 Accepted native assets are the executable installation path described in
