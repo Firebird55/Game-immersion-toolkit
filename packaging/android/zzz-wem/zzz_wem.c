@@ -138,13 +138,17 @@ static bool setup(zzz_wem *wem, int version, off_t setup_offset) {
 }
 
 zzz_wem *zzz_wem_open(const uint8_t *bytes, size_t size, zzz_wem_format *format) {
-    zzz_wem_format verified;
-    if (!format || !inspect(bytes, size, &verified))
+    if (!bytes || !format || size < HEADER_BYTES + 5 || size > MAX_WEM)
         return NULL;
     zzz_wem *wem = calloc(1, sizeof(*wem) + size);
     if (!wem)
         return NULL;
     memcpy(wem->bytes, bytes, size);
+    zzz_wem_format verified;
+    if (!inspect(wem->bytes, size, &verified)) {
+        free(wem);
+        return NULL;
+    }
     wem->input.interface = (STREAMFILE) {
         .read = memory_read, .get_size = memory_size, .get_offset = memory_offset,
         .get_name = memory_name, .open = no_open, .close = no_close,

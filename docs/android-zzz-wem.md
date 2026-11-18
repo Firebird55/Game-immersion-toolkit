@@ -29,8 +29,18 @@ The recipe uses the source pins in [audio-runtime.json](../packaging/codecs/audi
 python scripts/build-android-zzz-wem.py --suppliers <retained-audio-sources> --ndk <verified-ndk> --ndk-archive <retained-ndk-archive> --output <fresh-private-directory>
 ```
 
-The standalone link receipt records both ABI binaries and the three complete
-original notices. Compiling it does not package the Android app.
+The optional bundle records both ABI binaries, their C and JNI exports and
+the three complete original notices. The standalone recipe can recheck an
+existing bundle with `--verify <bundle-directory>`.
+
+Supply `build-android-app.ps1 -ZzzWemSources <retained-audio-sources>` to
+include it in a candidate. The APK audit checks the exact asset and ABI
+namespace, the original notices, the actual ELF headers, the native
+dependencies, and the manifest hashes. The app's Java decoder checks the
+actual installed ABI member before loading it by its exact APK path. The
+Python opener attests that Java capability and uses one scoped JNI ticket
+per recording. Missing assets, mismatched software and unsupported runtime
+identities leave this capability unavailable.
 
 ## Recording handoff
 
@@ -45,8 +55,9 @@ file and keep any previously retained recording. Explicit time windows,
 gain and channel remixes require a verified transform. The prepared-library
 recording store and Android reader already accept PCM WAV.
 
-The group of tests exercises the PCM handoff with authored data and verifies
-that changed bounds, late failure and cancellation leave existing audio
-intact. The Android native loader, service lifetime and hard interruption,
-APK closure, target PCM comparison on the retained original controls and
-original publisher Audio Ready remain pending.
+The local checks exercise the PCM handoff with authored data and verify that
+changed bounds, late failure and cancellation leave existing audio intact.
+They also verify the linked Android software in the APK component auditor.
+The app uses cooperative cancellation between bounded native calls.
+Installed target decode, the PCM comparison on the retained original
+controls, and original publisher Audio Ready remain pending.

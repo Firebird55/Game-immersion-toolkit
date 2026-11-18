@@ -38,6 +38,11 @@ public final class FrameOcr {
     private final Context context;
     private NativeX64Decoder dataDecoder;
     private PublisherCrypto publisherCrypto;
+    private ZzzWemCodec zzzWem;
+    public synchronized ZzzWemCodec zzzWemCodec() {
+        if (zzzWem == null) zzzWem = new ZzzWemCodec(context);
+        return zzzWem;
+    }
     private PublisherHash publisherHash;
     private ZzzCatalogueWorker zzzCatalogueWorker;
     public synchronized ZzzCatalogueWorker zzzCatalogueWorker() {

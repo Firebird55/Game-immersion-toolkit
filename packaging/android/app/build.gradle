@@ -8,6 +8,7 @@ def hashBundle = System.getenv('ANDROID_PUBLISHER_HASH')
 def zzzCatalogueAssets = System.getenv('ANDROID_ZZZ_CATALOGUE_ASSETS')
 def zzzCataloguePin = new File(repository, 'packaging/android/zzz-catalogue/manifest-pin.json')
 def zzzCatalogueFixture = new File(repository, 'packaging/android/zzz-catalogue/authored-operation.json')
+def zzzWemBundle = System.getenv('ANDROID_ZZZ_WEM_BUNDLE')
 if (!hashBundle || !new File(hashBundle, 'assets/publisher-hash-manifest.json').isFile()) {
     throw new GradleException('Build the reviewed bounded publisher hash bundle first.')
 }
@@ -107,8 +108,18 @@ android {
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs'); jniLibs.srcDir new File(cryptoBundle, 'jniLibs'); jniLibs.srcDir new File(hashBundle, 'jniLibs') } }
-    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so', '**/libtoolkit_publisher_crypto.so', '**/libtoolkit_publisher_hash.so'] } }
+    sourceSets { main {
+        assets.srcDir generatedAssets
+        jniLibs.srcDir new File(decoderBundle, 'jniLibs')
+        jniLibs.srcDir new File(cryptoBundle, 'jniLibs')
+        jniLibs.srcDir new File(hashBundle, 'jniLibs')
+        if (zzzWemBundle) jniLibs.srcDir new File(zzzWemBundle, 'jniLibs')
+    } }
+    packaging { jniLibs {
+        useLegacyPackaging false
+        keepDebugSymbols += ['**/libtoolkit_x64_decoder.so', '**/libtoolkit_publisher_crypto.so',
+            '**/libtoolkit_publisher_hash.so', '**/libtoolkit_zzz_wem.so']
+    } }
 }
 
 chaquopy {
@@ -141,6 +152,8 @@ tasks.register('prepareToolkitReader') {
         inputs.file(zzzCataloguePin)
         inputs.file(zzzCatalogueFixture)
     }
+    inputs.property('zzzWemSupplied', !!zzzWemBundle)
+    if (zzzWemBundle) inputs.dir(new File(zzzWemBundle, 'assets'))
     inputs.file(new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'))
     inputs.dir(cryptoFixtures)
     inputs.file(wuwaFixture)
@@ -199,6 +212,11 @@ tasks.register('prepareToolkitReader') {
             copy { from directory; include names; into new File(output, 'zzz-catalogue') }
             new File(output, 'zzz-catalogue-authored.json').setText(
                     zzzCatalogueFixture.getText('UTF-8').replace('\r\n', '\n'), 'UTF-8')
+        }
+        if (zzzWemBundle) copy {
+            from new File(zzzWemBundle, 'assets')
+            include 'zzz-wem-manifest.json', 'zzz-wem-licenses/*'
+            into output
         }
         copy { from new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
