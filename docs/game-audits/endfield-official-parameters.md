@@ -736,11 +736,45 @@ bytes. Complete decoding from the matching original/runtime chained entry then
 establishes a 110-byte dispatch thunk. It preserves the original name/pointer
 arguments across an optional callback loop and tail-jumps through the exact
 named-export slot. The real tail-jump includes a preceding instruction prefix,
-which the initial hit window alone did not prove. Callback bodies and the
-AssetBundle registration producer/handler are not followed. This establishes a
-concrete dispatch edge, not a positional handler alias, runtime pointer value,
-key or canonical-library admission. All analysis is static; no original module
-is loaded, executed or emulated.
+which the initial hit window alone did not prove. At this checkpoint, the
+AssetBundle registration producer/handler remains unfollowed. The dispatch edge
+alone supplies no positional handler alias, runtime pointer value, key or
+canonical-library admission.
+
+The subsequent complete, single-target caller locator examines 682,876 prefixes
+in 1.2727 seconds and finds 57 callers. The earlier 500,000-prefix attempt remains
+explicitly incomplete, without sampled admission. Original and runtime metadata
+agree on all 57 primary owners. Their complete 4,536 code bytes establish the
+actual argument loops: an original image-base reference plus the same zero-based
+eight-byte index loads both a name and its function pointer before the proven
+dispatch call. Exactly one producer owns the previously observed 80 AssetBundle
+names and 80 pointer arguments. Another 1,379 directly referenced metadata bytes
+validate both arrays and the exact synchronous/asynchronous authored names.
+This supplies the previously missing same-index registration contract; it does
+not retroactively validate the earlier column-shape inference or negative
+RIP-column locator. Only the actual synchronous registration is followed.
+
+Its complete 1,478-byte handler and 203-byte object-loader wrapper preserve the
+original path, 32-bit CRC and 64-bit offset. CRC and offset are not interpreted
+as keys. A further bounded phase closes seven original/runtime-owned functions:
+3,329 code bytes, 5,864 ownership/unwind metadata bytes and 16 directly owned
+vtable-cell bytes. The actual constructor's vtable assignment resolves the
+observed virtual dispatch; no neighboring target is selected by position alone.
+The source descriptor and original offset reach a concrete header-reading call,
+followed by compressed/uncompressed block-index processing and a distinct CRC
+check. No AES/header parameters are derived from those operations.
+
+That exact header-reader entry has an original 1,653-byte function extent but a
+gap between the actual runtime directory's bracketing records. No matching
+runtime owner or complete old-function body is accepted. The final separately
+approved 32-byte entry diagnostic shows a five-byte direct jump to another
+executable address followed by 27 padding/trap bytes. Its destination is not
+followed, and this concrete source route stops there. The original parameter
+initialization/header contract remains unproved. This is neither an
+impossibility result nor a package-format-change claim. All analysis is static,
+with zero new downloads during these follow-ups; no original module is loaded,
+executed or emulated. The earlier module-name-input and engine-signature
+qualifications remain open, alongside canonical graph/UI/media and host gates.
 
 The separately frozen shared PE-signature extraction also passes a zero-download
 replay on the retained complete 3,587,464-byte `AkSoundEngine` original: the
