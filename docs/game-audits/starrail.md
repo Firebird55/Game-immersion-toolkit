@@ -592,6 +592,22 @@ state/child/media and physical owner separately from study and spoken locales.
 Stored JSON alone cannot authorize that context. Existing locale guards and
 the selected-audio gate remain unchanged.
 
+The final bounded bank-dependency pass reads only the two directly called
+functions, totaling 2,255 original bytes. The playing-cache routine forwards
+the group/state hashes and a cached playing-record string to the existing
+SoundBankLookUpData lookup, then collects unsigned bank IDs. The enumerable
+SoundBankTicker routine forwards each bank ID and the supplied boolean to its
+unsigned-ID overload. Neither inspected body reads AvatarCobrand.AudioLanguage
+or supplies a demonstrated spoken-language value. The cached string's meaning
+is not independently established as a locale, and current-language selection
+is not inferred from the absence of an explicit parameter. No lookup, bank
+overload or engine callee is followed. This route stops at state/bank dependency
+ownership: a per-row event-to-spoken-language binding remains unproved. The
+archive AudioID locale edge does not fill that event gap. These observations
+authorize neither Japanese event playback nor a Fate-story rule; the 143 state
+choices, 1,565 English missing paths and movie-audio requirements remain
+separate, explicit gates.
+
 The two previously uncached Japanese hotfix directories were then acquired as
 an explicitly separate metadata intake on frozen source `40419611`. Fresh
 28-byte prefixes and conditional directory remainders total 44,208 response
