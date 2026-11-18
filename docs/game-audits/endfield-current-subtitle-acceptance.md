@@ -1073,3 +1073,10 @@ actual module-name input and engine trust remain unproved. A separate
 current-core synthetic service fixture verifies older-current/stage-pointer and
 recording retention on publication failure plus offline old activation; this
 does not establish actual Endfield Ready or resolve the remaining capture gates.
+
+The subsequent [official Android source probe](endfield-official-parameters.md#official-android-source-and-bounded-initializer-probe--november-18)
+establishes a publisher-linked mainland APK, its original Manifest identity and
+a complete CRC-checked AArch64 Unity member independently of a game installation.
+Global equivalence and whole-APK authenticity remain unproved. Qualified loader
+metadata and a 32-byte initializer diagnostic do not yet establish the header
+producer or key contract, and do not admit a canonical capture library.

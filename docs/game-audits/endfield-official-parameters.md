@@ -829,6 +829,67 @@ host/device closure. The one demonstrated active prologue audio family remains
 a separate original-utterance/context exception. Historical or config-only
 references without current-use proof remain nonblocking research inventory.
 
+### Official Android source and bounded initializer probe — November 18
+
+The [official mainland Android-facing download page](https://endfield.hypergryph.com/landing/ua/R5KZ7A3Q?sub_channel=1)
+owns a publisher-hosted website script whose desktop/mobile handlers use the
+same official shortlink. Static source inspection establishes the Android UA
+query passed through the publisher SDK; the website script is not executed.
+The shortlink returns a publisher-CDN APK location with redirects disabled.
+Temporary authorization parameters remain private. This mainland source is
+separate from the [Global Google Play application](https://play.google.com/store/apps/details?id=com.gryphline.endfield.gp),
+`com.gryphline.endfield.gp`; neither matching game branding nor a matching version
+establishes cross-region binary, header or parameter equivalence.
+
+The selected mainland APK has a declared length of **1,691,723,099 bytes**. Its
+actual strong ETag and exact range responses bind one object generation; the
+ETag is not treated as MD5 or another content digest. A 65,557-byte tail and
+94,284-byte directory prefix establish all 1,750 central-directory records.
+Safe unique names and minimum local-span bounds are checked before selected
+local headers/names establish their actual payload ranges. No complete APK,
+large IL2CPP library or managed-metadata body is acquired.
+
+The complete original Manifest member passes bounded Deflate EOF, its exact
+63,544-byte output size and the original directory CRC before inert AXML
+inspection with the existing Android SDK tool. It declares
+`com.hypergryph.endfield`, version name `1.6.4`, version code `61`, minSdk `24`
+and target/compile SDK `34`. Unity activity/application metadata is present;
+the exact Unity engine version is not established. The 1,591-byte APK signing
+block supplies an observed self-signed HyperGryph certificate. Parsing that
+certificate does not verify the signing-data signatures, whole-APK content
+digest or trusted publisher identity. Website HTTPS provenance, selected ZIP
+CRCs and retained local SHA-256 values retain their distinct evidence scopes.
+
+Only `lib/arm64-v8a/libunity.so` is subsequently acquired as inert original data.
+An ETag/owner-pinned range streams **13,951,517 compressed bytes** into exactly
+**30,305,720 bytes**. Full Deflate EOF, original CRC `1ba41c9f`, retained local
+SHA-256 and official-shortlink source checks before/after all pass. The two
+source checks consume another 444 metadata bytes. Only the decoded member is
+retained, within the 32-MiB allowance; there is no compressed copy or execution
+of the library. Its ELF header establishes 64-bit little-endian AArch64.
+
+The next local probes interpret 2,686 bytes of program/section/name metadata,
+then exactly 14,544 bytes of symbol, linked-name, loader and hash-header
+metadata. Actual loader declarations agree on table locations and 24-byte
+symbol records. The loader count is 335; 13 additional section-declared slots
+are not admitted. There are 329 named imports, but all five defined global
+function records have empty names and out-of-image values. No usable export or
+AssetBundle/header registration owner is accepted from those records. Entries
+after `DT_NULL` are not interpreted as loader declarations; invalid symbol
+bounds remain explicit limitations.
+
+The actual `DT_INIT` declaration instead identifies an initializer in a unique
+file-backed executable load segment. Exactly 32 entry bytes, decoded with the
+existing verified Capstone 5.0.7 in AArch64 mode, show a normal prologue, a
+direct call and data references. No indirect branch or zero-fill code target
+appears within that window. The direct callee and referenced cells remain
+unread. This is not a complete function extent, an unprotected-image finding,
+a header producer, a key derivation or a VM/emulation result. The separate
+`libtprt.so` dependency is recorded only as loader metadata, without assigning
+it writer or decryption behavior. Further source work needs its own bounded
+owner/entry proposal. Canonical header, graph/UI/media and independent host
+admission remain open.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
