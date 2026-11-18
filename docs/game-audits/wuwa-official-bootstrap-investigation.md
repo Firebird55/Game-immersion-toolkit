@@ -23,6 +23,17 @@ launcher metadata with gzip encoding even after an identity request. The
 transport bounds and charges its wire bytes before the launcher parser
 validates the decoded document and declared checksum.
 
+The ordinary Windows English worker reproduced all 144,130 records and their
+metadata after sharing the manifest parser. Original archive indices select
+16 uncompressed ConfigDB members from four owners for the five study
+selections. Their exact member-header and body ranges total 322,057,040 bytes
+before index, cache and derived-output costs.
+
+The closed Android package contains the manifest continuation and an opt-in
+isolated debug proof. The source-bound debug APK built and passed its package
+audit. Android refused the USB install on the physical API 36 device while
+the lock screen was active. Native publisher transfer acceptance is pending.
+
 The verified manifest is an intermediate receipt. Portable dialogue-table
 selection and preparation, original voice acquisition and playback, and
 Android update and recovery remain subsequent acceptance steps. Future
