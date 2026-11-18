@@ -876,7 +876,7 @@ rule. The single-chain parameter is `<platform>_PACDKCINFO_<version>`; a group
 uses `<platform>_<group-id>_<version>`. These orders come from instruction
 operands, rather than concatenating a guessed URL from constant names.
 
-The same authenticated native source's reflected string-parameter/result edge
+A selected string-parameter/result candidate in the authenticated native source
 reaches a concrete hash and conversion owner. Bounded passive inspection proves
 ASCII byte preservation in scalar, 32-byte SIMD, 8-byte SIMD and remainder paths
 for the nine checked settings' ASCII signature inputs. The output formats 16
@@ -886,6 +886,9 @@ words, all 64 round constants, all 64 rotations in their canonical order,
 padding/length framing and little-endian digest serialization. This is stronger
 than a function name or IV alone; it is not a complete proof of every transform
 Boolean expression/message-word selection or execution of the original code.
+These are observations of that selected candidate. Its typed registration as the
+Lua-named `GetStringMD5` implementation remains unproven; the observed algorithm
+and original Lua call name must not be conflated.
 
 The final completion phase stops at its eight approved windows and 3,324 new
 instruction bytes, below the 4,096-byte cap, with zero network bytes. Its private
@@ -897,6 +900,37 @@ independent current-edition assertion. Exact requested-key equality, native
 keychain/group framing and compatibility with the current Global package GUID
 and full plaintext index hash remain required before acceptance. No CMS request
 or new preparation capability is delivered by this static protocol checkpoint.
+
+A later, explicitly bounded exploratory host probe on 2026-11-18 makes one
+read-only GET to the original
+[publisher parameter endpoint](https://api.infoldgames.com/v1/gameconfig/parameter).
+The same atomic application-field triplet is verified across all five original
+Oversea/RegionId-4 INI variants; this does not select an effective engine profile.
+The version comes from the selected original package's penultimate filename
+token. `Windows` and a lowercase MD5 signature remain explicit protocol
+candidates, independently of the unproven native-method association. The server
+returns HTTP 200, numeric `ret=0`, the exact requested parameter key and a
+nonempty ASCII value. It does not prove that the server checked the signature,
+that a particular native caller is selected, or that the material fits an archive.
+
+The complete response contains 3,165 entity bytes, with 3,177 wire-body bytes and
+536 header bytes, below the declared bounds. There is no redirect, retry,
+account/device header or cookie. The response remains private. Strict canonical
+standard Base64 decoding maps the 3,008-character value to 2,256 bytes. No tested
+standard prefix or JSON structure is recognized, and the exact source Bin-footer
+GUID appears in none of the 27 explicitly tested binary/text representations.
+The arithmetic `2,256 = 47 * 48` is not proof of a GUID/key-record serializer.
+No key field is extracted or tried, and no decryption, snapshot or cache
+acceptance follows. The decoded envelope/group schema or another source-bound
+GUID-to-material relationship is still required before full main/directory-index
+validation. This host data probe proves no Android or ordinary-provider delivery.
+
+A separate primary-software round uses four targeted searches for that exact
+endpoint and response-field schema. It yields no results and establishes no
+maintained parser, immutable source pin, license or maintenance date that explains
+the 2,256-byte envelope. No repository code is adopted or executed, no community
+key data is used, and no second CMS request is made. This bounded negative search
+is not an exhaustive software-absence or official-unavailability claim.
 
 The shared `publisher_pe_signature.py` now isolates the existing Windows offline
 Authenticode verifier behind explicit publisher identities and a selected-file
