@@ -350,12 +350,14 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStop() {
         foreground = false;lifecycleRevision++;
-        CookieManager.getInstance().flush();
         pauseReaderMedia();
         if (reader != null) {
             reader.onPause();
         }
         pauseCapture();
+        // flush waits for WebView's cookie storage I/O. Run it after the
+        // capture pause on the worker, whose orderly shutdown drains the task.
+        if (reader != null && !worker.isShutdown()) worker.execute(() -> CookieManager.getInstance().flush());
         super.onStop();
     }
     private void pauseReaderMedia() {

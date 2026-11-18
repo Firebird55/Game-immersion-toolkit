@@ -120,6 +120,11 @@ assertNativePublisherHash(core.native_publisher_hash, JSON.parse(readFileSync(jo
 assertNativeWuwaBootstrap(core.native_wuwa_bootstrap, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_publisher_crypto.runtime);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
+// Measure the normal reader in its own process after the heavy DEBUG native
+// self-test. Both processes still use the same installed APK and offline rules.
+adb('shell', 'am', 'force-stop', packageName);
+adb('shell', 'am', 'start', '-W', '-n', component);
+
 async function connectReader() {
   const pid = await until(() => adb('shell', 'pidof', packageName).split(/\s+/)[0], 'app process');
   adb('forward', 'tcp:9222', `localabstract:webview_devtools_remote_${pid}`);
@@ -156,6 +161,7 @@ const normalStartup = await page.evaluate(async () => ({platform: await (await f
   snapshot: await (await fetch('/api/snapshot')).json(), accounts: await (await fetch('/api/lexirise/accounts')).json()}));
 assert.equal(normalStartup.platform.protected_accounts, true);
 assert.equal(normalStartup.platform.authored_account_fixture, false);
+assert.equal(normalStartup.platform.authored_game_data_fixture, false);
 assert.equal(normalStartup.snapshot.lexirise.configured, false);
 assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
