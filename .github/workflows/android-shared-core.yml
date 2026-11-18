@@ -103,9 +103,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build reviewed Zstandard ABIs and compose immutable software cohorts
         run: |
+          . ./scripts/android-build-paths.ps1
+          $ndk = Resolve-AndroidSupplierPath "$env:ANDROID_HOME/ndk/27.3.13750724" 'Installed Android NDK' @('source.properties','toolchains/llvm/prebuilt/windows-x86_64/bin/clang.exe')
           python -c "import importlib.util,json;from pathlib import Path;p=Path('scripts/build-android-python-dependencies.py');s=importlib.util.spec_from_file_location('software_inputs',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/zstandard-native.json').read_text());d=Path('output/android-zstandard');d.mkdir(parents=True,exist_ok=True);m.acquire(d,{'artifact':'zstandard-0.25.0.tar.gz',**v},download=True)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/build-android-zstandard.py --work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --ndk-archive output/android-dependencies/android-ndk-r27d-windows.zip --python-archives output/android-dependencies
+          python scripts/build-android-zstandard.py --work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --ndk-root $ndk --ndk-archive output/android-dependencies/android-ndk-r27d-windows.zip --python-archives output/android-dependencies
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/prepare-android-runtime-wheels.py --base-wheelhouse output/android-base-wheelhouse --zstandard-work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --output output/android-wheelhouse
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
