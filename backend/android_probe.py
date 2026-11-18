@@ -9,7 +9,7 @@ import wave
 import sys
 import time
 import sqlite3
-from contextlib import closing
+from contextlib import closing, contextmanager
 
 from .prepared_library import write_prepared_library
 from .prepared_session import PreparedCaptureSession
@@ -24,6 +24,15 @@ def run_zzz_catalogue(root, native, fixture_json):
     from .android_zzz_catalogue import IDENTITY, create_android_catalogue, run_stage
     from .game_data_protocol import GameDataError, GameDataRequest
     from .private_data_paths import _no_links
+
+    @contextmanager
+    def checkpoint(step):
+        try:
+            yield
+        except GameDataError as error:
+            codes = {'zzz_catalogue_worker_unavailable', 'invalid_zzz_catalogue_stage', 'preparation_cancelled'}
+            code = error.code if error.code in codes else 'unexpected'
+            raise RuntimeError(f'authored-zzz-stage[{step}/{code}]') from error
 
     native.assertAuthoredGameData()
     if not isinstance(fixture_json, str) or not 0 < len(fixture_json) <= 4096:
@@ -45,7 +54,8 @@ def run_zzz_catalogue(root, native, fixture_json):
             raise ValueError('The authored ZZZ catalogue fixture changed')
         data[name], receipts[name] = raw, digest
 
-    worker = create_android_catalogue(native)
+    with checkpoint('attestation'):
+        worker = create_android_catalogue(native)
     root = Path(root)
     _no_links(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -65,7 +75,8 @@ def run_zzz_catalogue(root, native, fixture_json):
                 raise GameDataError('preparation_cancelled', 'The authored ZZZ catalogue stage timed out.', 409)
 
         context = SimpleNamespace(game='zzz', directory=scope, request=GameDataRequest('global', 'ja', ('en',), 'text'), check=check)
-        pending = run_stage(worker, fixture['mode'], wanted, input_dir, receipts, context)
+        with checkpoint('positive'):
+            pending = run_stage(worker, fixture['mode'], wanted, input_dir, receipts, context)
         raw = (pending / fixture['output']['name']).read_bytes()
         result_digest = hashlib.sha256(raw).hexdigest()
         if result_digest != fixture['output']['sha256'] or json.loads(raw) != output:
@@ -73,13 +84,14 @@ def run_zzz_catalogue(root, native, fixture_json):
         before = set(scope.iterdir())
         deadline = time.monotonic() + 25
         wrong_receipt = {**receipts, '1.blk.comic-roots': '0' * 64}
-        try:
-            run_stage(worker, fixture['mode'], wanted, input_dir, wrong_receipt, context)
-        except GameDataError as error:
-            if error.code != 'zzz_catalogue_worker_unavailable':
-                raise
-        else:
-            raise ValueError('The confined worker accepted an unauthenticated input')
+        with checkpoint('negative'):
+            try:
+                run_stage(worker, fixture['mode'], wanted, input_dir, wrong_receipt, context)
+            except GameDataError as error:
+                if error.code != 'zzz_catalogue_worker_unavailable':
+                    raise
+            else:
+                raise ValueError('The confined worker accepted an unauthenticated input')
         if set(scope.iterdir()) != before or accepted.read_bytes() != sentinel or (pending / fixture['output']['name']).read_bytes() != raw:
             raise ValueError('A rejected ZZZ catalogue stage changed the previously retained data')
     return json.dumps({'schema': 'toolkit-android-authored-zzz-catalogue-proof-v1', 'passed': True, 'present': True,

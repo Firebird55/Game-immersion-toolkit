@@ -9,6 +9,7 @@ import android.util.Base64;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebMessage;
 import android.webkit.WebMessagePort;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -38,6 +39,8 @@ public final class ZzzCatalogueWorker {
     private final Context context;
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile Ticket active;
+    private volatile Progress last;
+    private volatile String softwarePhase = "not-started";
     private Software software;
     // Created and destroyed exclusively on the WebView's owning looper.
     private Session session;
@@ -84,6 +87,7 @@ public final class ZzzCatalogueWorker {
     private synchronized Software verifiedSoftware() throws Exception {
         if (Looper.myLooper() == Looper.getMainLooper()) throw unavailable();
         if (software != null) return software;
+        softwarePhase = "verifying-software";
         final byte[] raw = asset("manifest.json", 16 * 1024);
         if (!IDENTITY.equals(sha(raw))) throw unavailable();
         final JSONObject manifest = new JSONObject(new String(raw, StandardCharsets.UTF_8));
@@ -100,12 +104,19 @@ public final class ZzzCatalogueWorker {
         final String host = new String(member(manifest.getJSONObject("host"), "catalogue-host.js"), StandardCharsets.UTF_8);
         if (host.toLowerCase(java.util.Locale.ROOT).contains("</script")) throw unavailable();
         software = new Software(data.toString(), host);
+        softwarePhase = "software-verified";
         return software;
     }
 
     public String proof() throws Exception {
         verifiedSoftware();
         return IDENTITY;
+    }
+
+    String authoredPhase() {
+        if (!BuildConfig.DEBUG) throw unavailable();
+        final Progress progress = last;
+        return progress == null ? softwarePhase : progress.phase;
     }
 
     public synchronized Ticket begin(String mode, String input) throws Exception {
@@ -115,6 +126,7 @@ public final class ZzzCatalogueWorker {
                 .put("identity", IDENTITY).toString();
         if (start.length() > 256 * 1024) throw unavailable();
         final Ticket ticket = new Ticket(start);
+        last = ticket.progress;
         active = ticket;
         main.post(() -> {
             if (active != ticket) return;
@@ -122,6 +134,7 @@ public final class ZzzCatalogueWorker {
                 session = new Session(ticket);
                 session.open(verified);
             } catch (RuntimeException error) {
+                ticket.progress.phase = "open-failed";
                 finish(ticket);
             }
         });
@@ -146,10 +159,18 @@ public final class ZzzCatalogueWorker {
         ticket.closed = true;
     }
 
+    private static final class Progress {
+        volatile String phase = "opening-document";
+    }
+
     public final class Ticket {
         private final String start;
         private final ArrayBlockingQueue<String> events = new ArrayBlockingQueue<>(2);
-        private final Runnable timeout = () -> finish(this);
+        private final Progress progress = new Progress();
+        private final Runnable timeout = () -> {
+            if (active == this) progress.phase = "worker-deadline";
+            finish(this);
+        };
         private volatile boolean closed;
 
         Ticket(String start) { this.start = start; }
@@ -170,6 +191,7 @@ public final class ZzzCatalogueWorker {
                     if (session == null || session.ticket != this || session.port == null) throw unavailable();
                     session.port.postMessage(new WebMessage(message));
                 } catch (RuntimeException error) {
+                    progress.phase = "chunk-send-failed";
                     finish(this);
                 }
             });
@@ -179,14 +201,14 @@ public final class ZzzCatalogueWorker {
     }
 
     private static final class Software {
-        final String data, host;
-        Software(String data, String host) { this.data = data; this.host = host; }
-        String page() {
+        final byte[] document;
+        Software(String data, String host) {
             final String nonce = UUID.randomUUID().toString();
-            return "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\""
+            final String html = "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\""
                     + "default-src 'none'; script-src 'nonce-" + nonce + "' blob: 'wasm-unsafe-eval'; "
                     + "worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'\">"
                     + data + "<script nonce=\"" + nonce + "\">" + host + "</script>";
+            document = html.getBytes(StandardCharsets.UTF_8);
         }
     }
 
@@ -213,8 +235,24 @@ public final class ZzzCatalogueWorker {
             view.setWebViewClient(new WebViewClient() {
                 @Override public boolean shouldOverrideUrlLoading(WebView web, WebResourceRequest request) { return true; }
                 @Override public WebResourceResponse shouldInterceptRequest(WebView web, WebResourceRequest request) {
+                    // Give the port and Blob worker a committed HTTPS
+                    // document origin through the same route as browser CI.
+                    // Network loads remain blocked by WebSettings.
+                    if (active == ticket && request.isForMainFrame() && !request.isRedirect()
+                            && "GET".equals(request.getMethod()) && PAGE.equals(request.getUrl().toString())) {
+                        ticket.progress.phase = "document-served";
+                        return new WebResourceResponse("text/html", "UTF-8", 200, "OK",
+                                Collections.singletonMap("Cache-Control", "no-store"),
+                                new ByteArrayInputStream(software.document));
+                    }
                     return new WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden",
                             Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
+                }
+                @Override public void onReceivedError(WebView web, WebResourceRequest request, WebResourceError error) {
+                    if (active == ticket && request.isForMainFrame()) {
+                        ticket.progress.phase = "document-load-failed";
+                        finish(ticket);
+                    }
                 }
                 @Override public void onPageFinished(WebView web, String url) {
                     if (active != ticket || port != null || !PAGE.equals(url)) return;
@@ -228,16 +266,19 @@ public final class ZzzCatalogueWorker {
                         });
                         web.postWebMessage(new WebMessage("toolkit-zzz-catalogue-v1",
                                 new WebMessagePort[]{ports[1]}), Uri.parse(ORIGIN));
+                        ticket.progress.phase = "port-posted";
                     } catch (RuntimeException error) {
+                        ticket.progress.phase = "port-post-failed";
                         finish(ticket);
                     }
                 }
                 @Override public boolean onRenderProcessGone(WebView web, RenderProcessGoneDetail detail) {
+                    if (active == ticket) ticket.progress.phase = "renderer-exited";
                     finish(ticket);
                     return true;
                 }
             });
-            view.loadDataWithBaseURL(PAGE, software.page(), "text/html", "UTF-8", PAGE);
+            view.loadUrl(PAGE);
         }
 
         void receive(String message) {
@@ -248,12 +289,24 @@ public final class ZzzCatalogueWorker {
                 if (!ready) {
                     if (!type.equals("ready")) throw unavailable();
                     ready = true;
+                    ticket.progress.phase = "port-ready";
                     port.postMessage(new WebMessage(ticket.start));
                     return;
+                }
+                switch (type) {
+                    case "started": ticket.progress.phase = "worker-started"; break;
+                    case "read": ticket.progress.phase = "input-requested"; break;
+                    case "pull": ticket.progress.phase = "input-streaming"; break;
+                    case "write": ticket.progress.phase = "output-requested"; break;
+                    case "chunk": ticket.progress.phase = "output-streaming"; break;
+                    case "complete": ticket.progress.phase = "worker-complete"; break;
+                    case "failed": ticket.progress.phase = "worker-rejected"; break;
+                    default: throw unavailable();
                 }
                 if (!ticket.events.offer(message)) throw unavailable();
                 if (type.equals("complete") || type.equals("failed")) finish(ticket);
             } catch (Exception error) {
+                ticket.progress.phase = "port-protocol-failed";
                 finish(ticket);
             }
         }

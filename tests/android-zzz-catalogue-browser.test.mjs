@@ -44,8 +44,11 @@ test('offline ZZZ worker attests exact software and rejects malformed and unauth
       const external = [];
       let corrupt = false;
       await page.route('**/*', route => {
-        if (route.request().url() === origin)
-          return route.fulfill({status:200, contentType:'text/html', body:html(corrupt)});
+        const request = route.request();
+        if (request.url() === origin && request.method() === 'GET' && request.isNavigationRequest() &&
+            request.frame() === page.mainFrame() && !request.redirectedFrom())
+          return route.fulfill({status:200, contentType:'text/html; charset=utf-8', headers:{'Cache-Control':'no-store'},
+            body:html(corrupt)});
         external.push(route.request().url());
         return route.abort();
       });
