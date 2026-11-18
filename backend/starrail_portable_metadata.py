@@ -7,7 +7,7 @@ for provenance and the remaining runtime type and provider requirements.
 """
 
 from bisect import bisect_right
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 import hashlib
 import os
@@ -108,6 +108,24 @@ class OriginalInput:
     sha256: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class TypeDeclaration:
+    image_index: int
+    name_index: int
+    namespace_index: int
+    parent: int
+    declaring_type: int
+    field_start: int
+    field_count: int
+    method_start: int
+    method_count: int
+    nested_start: int
+    nested_count: int
+    generic_container: int
+    flags: int
+    bitfield: int
+
+
 def _require(condition, component):
     if not condition:
         raise MetadataFormatError(component)
@@ -128,6 +146,27 @@ def _signed(value, bits=32):
 
 def _field_range(start, count):
     return _signed((start - 1954887780) & _MASK32), (count + 17485) & 0xffff
+
+
+def _type_declaration(data, image_index):
+    field_start, field_count = _field_range(_integer(data, 0x20), _integer(data, 0x32, 2))
+    return TypeDeclaration(image_index, (_integer(data, 0x28) - 369268488) & _MASK32,
+                           (_integer(data, 0x24) - 237818487) & _MASK32,
+                           _signed((_integer(data, 0x04) - 1224299847) & _MASK32),
+                           _signed((_integer(data, 0x0c) - 472568492) & _MASK32), field_start, field_count,
+                           _signed(_integer(data, 0x08) ^ 0x1a7af5fe), (_integer(data, 0x34, 2) + 24467) & 0xffff,
+                           _signed(_integer(data, 0x3a, 2) ^ 0xb2c0, 16), (_integer(data, 0x43, 1) + 4) & 0xff,
+                           _signed((_integer(data, 0x3c, 2) - 44028) & 0xffff, 16),
+                           (_integer(data, 0x14) - 17986448) & _MASK32, _integer(data, 0x38))
+
+
+def _method_key(index):
+    factor = (738455933 * ((12769 * index) ^ 0x33914937)) & _MASK64
+    return ((((1410124276 * (factor >> 23)) & _MASK64) >> 21) + 1908176993) & _MASK32
+
+
+def _method_owner(encoded, key):
+    return encoded ^ 0x2a5fabe8 ^ key
 
 
 def _stamp(info):
@@ -403,30 +442,27 @@ class _Records:
         _require('\0' not in value, 'metadata name')
         return value
 
-    def type(self, index):
-        _require(index < self.definition_count, 'type definition index')
-        data = self.read('types', index * 70, 70)
+    def type_image(self, index):
+        _require(0 <= index < self.definition_count, 'type definition index')
         owner = bisect_right(self.image_starts, index) - 1
         _require(owner >= 0 and index < self.images[owner][1], 'type image ownership')
         _, _, image_index, image = self.images[owner]
-        name = self.name((_integer(data, 0x28) - 369268488) & _MASK32)
-        _require(name, 'type name')
-        field_start, field_count = _field_range(_integer(data, 0x20), _integer(data, 0x32, 2))
-        return {'name': name, 'namespace': self.name((_integer(data, 0x24) - 237818487) & _MASK32),
-                'image': image, 'image_index': image_index,
-                'parent': _signed((_integer(data, 0x04) - 1224299847) & _MASK32),
-                'declaring_type': _signed((_integer(data, 0x0c) - 472568492) & _MASK32),
-                'flags': (_integer(data, 0x14) - 17986448) & _MASK32,
-                'field_start': field_start, 'field_count': field_count,
-                'method_start': _signed(_integer(data, 0x08) ^ 0x1a7af5fe),
-                'method_count': (_integer(data, 0x34, 2) + 24467) & 0xffff,
-                'nested_start': _signed(_integer(data, 0x3a, 2) ^ 0xb2c0, 16),
-                'nested_count': (_integer(data, 0x43, 1) + 4) & 0xff,
-                'generic_container': _signed((_integer(data, 0x3c, 2) - 44028) & 0xffff, 16)}
+        return image_index, image
 
-    def prove_field_extent(self):
-        if self.field_extent_proved:
-            return
+    def type(self, index):
+        image_index, image = self.type_image(index)
+        declaration = _type_declaration(self.read('types', index * 70, 70), image_index)
+        name = self.name(declaration.name_index)
+        _require(name, 'type name')
+        return {'name': name, 'namespace': self.name(declaration.namespace_index),
+                'image': image, 'image_index': image_index, 'parent': declaration.parent,
+                'declaring_type': declaration.declaring_type, 'flags': declaration.flags,
+                'field_start': declaration.field_start, 'field_count': declaration.field_count,
+                'method_start': declaration.method_start, 'method_count': declaration.method_count,
+                'nested_start': declaration.nested_start, 'nested_count': declaration.nested_count,
+                'generic_container': declaration.generic_container}
+
+    def field_boundary(self):
         start, _ = self.windows['fields']
         end, _ = self.windows['literal_data']
         length = end - start
@@ -434,6 +470,12 @@ class _Records:
                         if role not in {'fields', 'assemblies', 'literal_data'})
         _require(not competing and 0 < length <= 8 * _MAX_INDEX and length % 8 == 0,
                  'field declaration boundary')
+        return start, length
+
+    def prove_field_extent(self):
+        if self.field_extent_proved:
+            return
+        start, length = self.field_boundary()
         slots = length // 8
         owned = bytearray(slots)
         declared = 0
@@ -473,10 +515,8 @@ class _Records:
 
     def method(self, index, types, remaining_parameters):
         raw = self.read('methods', index * 26, 26)
-        factor = (738455933 * ((12769 * index) ^ 0x33914937)) & _MASK64
-        key = (((1410124276 * (factor >> 23)) & _MASK64) >> 21) + 1908176993
-        key &= _MASK32
-        owner_index = _integer(raw, 0x10) ^ 0x2a5fabe8 ^ key
+        key = _method_key(index)
+        owner_index = _method_owner(_integer(raw, 0x10), key)
         if owner_index not in types:
             types[owner_index] = self.type(owner_index)
         owner = types[owner_index]
@@ -493,15 +533,19 @@ class _Records:
         flags = ((flags >> 16) | ((flags << 16) & _MASK32)) ^ ((key & 0xffff) * 0x10001) ^ 0x09f73733
         pointer_at = self.image.offset(self.method_pointers + index * 8, 8, executable=False)
         pointer = _integer(self.image.source.read(pointer_at, 8), 0, 8)
-        rva = 0
-        if pointer:
-            rva = pointer - self.image.base
-            self.image.offset(rva, 1, executable=True)
+        rva = self.method_rva(pointer)
         name = self.name(_integer(raw, 0) ^ 0x0e714bc1 ^ key)
         _require(name, 'method name')
         return {'owner': owner_index, 'name': name, 'return_type': return_type, 'flags': flags,
                 'generic_container': _signed(((_integer(raw, 0x14, 2) - 30979) ^ key) & 0xffff, 16),
                 'parameters': parameter_rows, 'rva': rva}
+
+    def method_rva(self, pointer):
+        if not pointer:
+            return 0
+        rva = pointer - self.image.base
+        self.image.offset(rva, 1, executable=True)
+        return rva
 
     def parameter(self, index):
         raw = self.read('parameters', index * 8, 8)
@@ -926,6 +970,20 @@ class _TypeProjection:
                 'nested_types': {index: children for index, (children, _) in self.nested.items() if children}}
 
 
+@contextmanager
+def open_records(inputs, *, cancelled=None):
+    """Keep a single authenticated source generation open during a metadata operation."""
+    _require(isinstance(inputs, dict) and set(inputs) == set(_LIMITS), 'source inputs')
+    with ExitStack() as stack:
+        files = {role: _Source(stack, role, inputs[role], cancelled) for role in _LIMITS}
+        records = _Records(files, cancelled)
+        identity = tuple((role, file.sha256) for role, file in files.items())
+        yield records, identity
+        for file in files.values():
+            _check_cancelled(cancelled)
+            file.check_source()
+
+
 def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices=(), runtime_type_indices=(),
                   field_default_indices=(), project_types=False, cancelled=None):
     """Authenticate all three original inputs and return selected raw records.
@@ -940,7 +998,6 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
     distinguishes missing and nonliteral fields from unsupported storage kinds.
     No output files or persistent state are created by this operation.
     """
-    _require(isinstance(inputs, dict) and set(inputs) == set(_LIMITS), 'source inputs')
     for indices in (type_indices, method_indices, literal_indices, runtime_type_indices, field_default_indices):
         _require(isinstance(indices, (list, tuple)) and len(indices) <= _MAX_SELECTED
                  and all(type(index) is int and 0 <= index < _MAX_INDEX for index in indices)
@@ -953,9 +1010,7 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
         _require(0 < len(runtime_type_indices) <= 16
                  and len(type_indices) + len(method_indices) <= _MAX_PROJECTED_DEFINITIONS,
                  'type projection roots')
-    with ExitStack() as stack:
-        files = {role: _Source(stack, role, inputs[role], cancelled) for role in _LIMITS}
-        records = _Records(files, cancelled)
+    with open_records(inputs, cancelled=cancelled) as (records, identity):
         types = {}
         fields = {}
         for index in type_indices:
@@ -996,8 +1051,5 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
         if field_default_indices:
             _require(all(index in fields for index in field_default_indices), 'default field ownership')
             defaults['field_defaults'] = _FieldDefaults(records).selected(field_default_indices, fields)
-        for file in files.values():
-            _check_cancelled(cancelled)
-            file.check_source()
-        return {'sha256': {role: file.sha256 for role, file in files.items()},
+        return {'sha256': dict(identity),
                 'types': types, 'fields': fields, 'methods': methods, 'literals': literals, **runtime, **defaults}

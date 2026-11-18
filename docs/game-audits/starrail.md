@@ -960,6 +960,18 @@ construction and voice-choice augmentation. The adapter needs a generation-bound
 metadata census that can stream original declaration candidates and load their
 required records on demand. It needs to preserve these discovery paths.
 
+The standalone declaration census now streams complete type declarations
+through one authenticated session. It checks that field and method intervals
+tile their owned regions before validating every MethodDef owner and pointer.
+Null slots remain associated with their MethodDef identities. The compact RVA
+index preserves all aliases and can find the next distinct managed entry. A
+method table without a uniquely identified consumed endpoint remains unresolved.
+The current census limits are 100,000 type definitions and 1,000,000 method
+definitions. The caller receives a resource-limit result when either bound is
+exceeded. Authored fixtures cover shuffled identity and address assignments,
+missing or competing ownership, and cancellation or source changes before
+publication. [Declaration census](../../backend/starrail_declaration_census.py)
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and

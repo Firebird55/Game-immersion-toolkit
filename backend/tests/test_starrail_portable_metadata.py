@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend import starrail_declaration_census as census
 from backend import starrail_portable_metadata as portable
 from backend.starrail_portable_metadata import MetadataCancelled, MetadataFormatError, OriginalInput, read_required
 
@@ -512,3 +513,126 @@ def test_late_invalid_record_cannot_read_payload_or_publish_stale_defaults(tmp_p
     assert previous['value'] == -7
     current = _selected_default(_default_sources(tmp_path, payload=b'\x09\0\0\0'))
     assert current == {'status': 'present', 'kind': 'int', 'value': 9}
+
+
+def _census_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _field_boundary_sources(tmp_path, 0)
+    data = bytearray(sources['metadata'].path.read_bytes())
+    native = bytearray(sources['native'].path.read_bytes())
+    prefix = len(_HEADER)
+    first_type = prefix + 0x100
+    if shuffled:
+        original = bytes(data[first_type:first_type + 140])
+        data[first_type:first_type + 140] = original[70:] + original[:70]
+    ranges = [(1, 3), (0, 1)] if shuffled else [(2, 2), (0, 2)]
+    if defect == 'method_gap':
+        ranges[1] = (0, 1)
+    elif defect == 'method_overlap':
+        ranges[1] = (0, 3)
+    elif defect == 'field_gap':
+        struct.pack_into('<H', data, first_type + 70 + 0x32, (-17485) & 0xffff)
+    elif defect == 'field_overlap':
+        struct.pack_into('<I', data, first_type + 0x20, 1954887780)
+        struct.pack_into('<H', data, first_type + 0x32, (2 - 17485) & 0xffff)
+    for owner, (start, count) in enumerate(ranges):
+        at = first_type + 70 * owner
+        struct.pack_into('<I', data, at + 0x08, 0x1a7af5fe ^ start)
+        struct.pack_into('<H', data, at + 0x34, (count - 24467) & 0xffff)
+    owners = (1, 0, 0, 0) if shuffled else (1, 1, 0, 0)
+    # The four original MethodDef payloads carry distinct encoded owner words.
+    row_bases = (0xe6c4db28, 0xddc1e66d, 0x9b18ed32, 0x7beb2d97)
+    for index, (owner, previous) in enumerate(zip(owners, row_bases, strict=True)):
+        struct.pack_into('<I', data, prefix + 0x240 + 26 * index + 0x10, previous ^ owner)
+    if defect == 'foreign':
+        struct.pack_into('<I', data, prefix + 0x250, row_bases[0])
+    pointers = (0x10a0, 0x1030, 0, 0x10a0) if shuffled else (0x1070, 0, 0x1020, 0x1070)
+    if defect == 'noncode':
+        pointers = (_DATA_RVA + 0x5c0, *pointers[1:])
+    struct.pack_into('<4Q', native, 0x600 + 0x560, *(rva + _IMAGE_BASE if rva else 0 for rva in pointers))
+    method_end = 0x2a8
+    if defect == 'nonaligned_end':
+        method_end += 1
+    elif defect == 'unclassified_end':
+        struct.pack_into('<I', native, 0x640 + 0x158, 532747583 + method_end)
+        method_end += 26
+    struct.pack_into('<I', native, 0x640 + 0x30, 587858498 + method_end)
+    for role, raw in [('native', native), ('metadata', data)]:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_census_uses_original_declarations_and_preserves_nulls_and_aliases(tmp_path, shuffled):
+    sources = _census_sources(tmp_path, shuffled=shuffled)
+    result = census.read_census(sources)
+    assert result.definition_count == 2 and result.method_count == 4
+    assert result.method_endpoint_role == 'parameters'
+    assert result.images == ((0, 'Example.dll'),)
+    with portable.open_records(sources) as (records, identity):
+        source = records.metadata.stream
+        names = [records.name(result.declaration(index).name_index) for index in range(2)]
+        assert result.source_sha256 == identity
+    assert source.closed
+    assert names == (['Other', 'Actor'] if shuffled else ['Actor', 'Other'])
+    assert [result.field_owner(i) for i in range(2)] == ([0, 1] if shuffled else [1, 0])
+    assert [result.method_owner(i) for i in range(4)] == ([1, 0, 0, 0] if shuffled else [1, 1, 0, 0])
+    earlier, latter = (0x1030, 0x10a0) if shuffled else (0x1020, 0x1070)
+    assert result.method_rva(2 if shuffled else 1) is None
+    assert tuple(result.methods_at(latter)) == (0, 3)
+    assert result.next_method_boundary(earlier) == latter
+    with pytest.raises(census.CensusUnresolved, match='managed method boundary'):
+        result.next_method_boundary(latter)
+
+
+@pytest.mark.parametrize(('defect', 'reason'), [
+    ('method_gap', 'method gap'), ('method_overlap', 'method overlap'),
+    ('field_gap', 'field gap'), ('field_overlap', 'field overlap'),
+    ('foreign', 'foreign method declaration'), ('noncode', 'PE address ownership'),
+])
+def test_census_rejects_incomplete_or_foreign_owned_records(tmp_path, defect, reason):
+    with pytest.raises(MetadataFormatError, match=reason):
+        census.read_census(_census_sources(tmp_path, defect=defect))
+
+
+@pytest.mark.parametrize('defect', ['nonaligned_end', 'unclassified_end'])
+def test_census_reports_an_unproved_method_endpoint(tmp_path, defect):
+    with pytest.raises(census.CensusUnresolved, match='method table endpoint'):
+        census.read_census(_census_sources(tmp_path, defect=defect))
+
+
+@pytest.mark.parametrize(('limit', 'resource', 'count'), [
+    ('_MAX_DECLARATIONS', 'type definitions', 2), ('_MAX_METHODS', 'method definitions', 4),
+])
+def test_census_keeps_resource_limits_distinct_from_metadata_ownership(tmp_path, monkeypatch, limit, resource, count):
+    monkeypatch.setattr(census, limit, 1)
+    with pytest.raises(census.CensusLimitError) as error:
+        census.read_census(_census_sources(tmp_path))
+    assert (error.value.resource, error.value.count, error.value.limit) == (resource, count, 1)
+
+
+@pytest.mark.parametrize('change_source', [False, True])
+def test_census_rejects_cancellation_or_a_changed_source_before_publication(tmp_path, monkeypatch, change_source):
+    sources = _census_sources(tmp_path)
+    previous = census.read_census(sources)
+    original = portable._Source.read
+    cancelled = False
+
+    def read(item, at, size, *, component=None):
+        nonlocal cancelled
+        data = original(item, at, size, component=component)
+        if component == 'census method pointers':
+            if change_source:
+                path = sources['metadata'].path
+                info = path.stat()
+                os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 2_000_000_000))
+            else:
+                cancelled = True
+        return data
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    expected = MetadataFormatError if change_source else MetadataCancelled
+    with pytest.raises(expected):
+        census.read_census(sources, cancelled=lambda: cancelled)
+    assert tuple(previous.methods_at(0x1070)) == (0, 3)
