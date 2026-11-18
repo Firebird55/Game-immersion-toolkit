@@ -646,3 +646,143 @@ def test_census_rejects_cancellation_or_a_changed_source_before_publication(tmp_
     with pytest.raises(expected):
         census.read_census(sources, cancelled=lambda: cancelled)
     assert tuple(previous.methods_at(0x1070)) == (0, 3)
+
+
+def _image_method_sources(tmp_path, *, shuffled=False, defect=None):
+    sources = _census_sources(tmp_path, shuffled=shuffled, defect=defect)
+    data = bytearray(sources['metadata'].path.read_bytes())
+    prefix = len(_HEADER)
+    method_bases = (
+        '293beaca7bf903ccde7bd9313779e54728dbc4e6420800006900',
+        '6c06eff13ec406f7a158dc5c7244a07a6de6c1dd7d2b00002c00',
+        '330d36b761cfdfb1f85185162d4fff7132ed189b283200007300',
+        '96cdc557c40f2c519b91f2b6888f5ab1972deb7b83f20000d600',
+    )
+    for index, encoded in enumerate(method_bases):
+        at = prefix + 0x240 + 26 * index
+        owner_byte = data[at + 0x10]
+        data[at:at + 26] = bytes.fromhex(encoded)
+        data[at + 0x10] = owner_byte
+    parameter = prefix + (0x2c1 if defect == 'nonaligned_end' else 0x2c0)
+    data[parameter:parameter + 8] = bytes.fromhex('f31264764a160ec2')
+    if defect == 'encoded_owner':
+        data[prefix + 0x240 + 26 * 2 + 0x10] ^= 1
+    elif defect in {'nested', 'duplicate_nested', 'missing_nested'}:
+        struct.pack_into('<H', data, prefix + 0x13a, 0xb2c0)
+        data[prefix + 0x143] = 0xfe if defect == 'duplicate_nested' else 0xfd
+        struct.pack_into('<I', data, prefix + 0x152, 472568492)
+        child = 0 if defect == 'missing_nested' else 1
+        struct.pack_into('<II', data, prefix + 0x7e0, child, child)
+    outputs = [('metadata', data)]
+    if defect == 'method_window':
+        native = bytearray(sources['native'].path.read_bytes())
+        struct.pack_into('<I', native, 0x640 + 0x30, 587858498 + 0x2a0)
+        outputs.append(('native', native))
+    for role, raw in outputs:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources
+
+
+@pytest.mark.parametrize('shuffled', [False, True])
+def test_image_method_lookup_reads_original_owner_and_signature_without_native_slots(tmp_path, monkeypatch, shuffled):
+    sources = _image_method_sources(tmp_path, shuffled=shuffled)
+    sha256 = {role: hashlib.sha256(source.path.read_bytes()).hexdigest() for role, source in sources.items()}
+    original = portable._Source.read
+    slot_start = 0x600 + 0x560
+
+    def read(item, at, size, *, component=None):
+        if item.role == 'native' and hasattr(item, 'sha256'):
+            assert at + size <= slot_start or at >= slot_start + 32
+        return original(item, at, size, component=component)
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    owner, indices = (1, (0,)) if shuffled else (0, (2, 3))
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (owner,)))
+    expected = {'owner': owner, 'name': 'Read', 'return_type': 1, 'flags': 0x16, 'generic_container': -1,
+                'parameters': ((2, 'argument_with_an_original_name_longer_than_the_short_encoding_bound'),)}
+    assert result == {
+        'schema': 'proxy-starrail-image-method-declarations-v1',
+        'sha256': sha256,
+        'image': {'index': 0, 'name': 'Example.dll'},
+        'scope': ({'definition': owner, 'name': 'Actor', 'namespace': 'Demo'},),
+        'methods': dict.fromkeys(indices, expected),
+    }
+
+
+def test_image_method_lookup_requires_explicit_authored_nesting(tmp_path):
+    sources = _image_method_sources(tmp_path, defect='nested')
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (0, 1)), method_indices=(1,))
+    assert result['scope'] == ({'definition': 0, 'name': 'Actor', 'namespace': 'Demo'},
+                               {'definition': 1, 'name': 'Other', 'namespace': 'Demo'})
+    assert tuple(result['methods']) == (1,)
+    assert result['methods'][1]['owner'] == 1
+    empty = census.read_image_methods(sources, census.ImageTypeScope(0, (0, 1)), method_indices=())
+    assert empty['methods'] == {}
+    with pytest.raises(MetadataFormatError, match='method scope image root'):
+        census.read_image_methods(sources, census.ImageTypeScope(0, (1,)))
+
+
+@pytest.mark.parametrize(('defect', 'image', 'path', 'selection', 'reason'), [
+    (None, 1, (0,), None, 'method scope image root'),
+    (None, 0, (0,), (0,), 'method declaration ownership'),
+    (None, 0, (0,), (2, 2), 'requested method declarations'),
+    (None, 0, (0, 0), None, 'method declaration scope'),
+    ('encoded_owner', 0, (0,), (2,), 'method declaration encoded owner'),
+    ('method_window', 0, (0,), (2,), 'method declaration window'),
+    ('duplicate_nested', 0, (0, 1), (1,), 'method scope nested ownership'),
+    ('missing_nested', 0, (0, 1), (1,), 'method scope nested ownership'),
+])
+def test_image_method_lookup_rejects_foreign_or_unowned_declarations(tmp_path, defect, image, path, selection, reason):
+    sources = _image_method_sources(tmp_path, defect=defect)
+    with pytest.raises(MetadataFormatError, match=reason):
+        census.read_image_methods(sources, census.ImageTypeScope(image, path), method_indices=selection)
+
+
+@pytest.mark.parametrize(('defect', 'reason'), [
+    ('image_tail', 'type image ownership'), ('nonaligned_end', 'method table endpoint'),
+])
+def test_image_method_lookup_keeps_complete_census_requirements(tmp_path, defect, reason):
+    sources = _image_method_sources(tmp_path, defect=defect)
+    result = census.read_image_methods(sources, census.ImageTypeScope(0, (0,)), method_indices=(2,))
+    assert result['methods'][2]['name'] == 'Read'
+    with pytest.raises(census.CensusUnresolved, match=reason):
+        census.read_census(sources)
+
+
+def test_image_method_lookup_can_select_one_record_above_the_full_owner_budget(tmp_path, monkeypatch):
+    sources = _image_method_sources(tmp_path)
+    scope = census.ImageTypeScope(0, (0,))
+    monkeypatch.setattr(portable, '_MAX_SELECTED', 1)
+    with pytest.raises(census.CensusLimitError) as error:
+        census.read_image_methods(sources, scope)
+    assert (error.value.resource, error.value.count, error.value.limit) == ('selected method declarations', 2, 1)
+    assert tuple(census.read_image_methods(sources, scope, method_indices=(3,))['methods']) == (3,)
+
+
+@pytest.mark.parametrize('change_source', [False, True])
+def test_image_method_lookup_rechecks_selection_before_publication(tmp_path, monkeypatch, change_source):
+    sources = _image_method_sources(tmp_path)
+    scope = census.ImageTypeScope(0, (0,))
+    previous = census.read_image_methods(sources, scope, method_indices=(2,))
+    original = portable._Source.read
+    cancelled = False
+
+    def read(item, at, size, *, component=None):
+        nonlocal cancelled
+        data = original(item, at, size, component=component)
+        if component == 'methods':
+            if change_source:
+                path = sources['metadata'].path
+                info = path.stat()
+                os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 2_000_000_000))
+            else:
+                cancelled = True
+        return data
+
+    monkeypatch.setattr(portable._Source, 'read', read)
+    expected = MetadataFormatError if change_source else MetadataCancelled
+    with pytest.raises(expected):
+        census.read_image_methods(sources, scope, method_indices=(2,), cancelled=lambda: cancelled)
+    assert previous['methods'][2]['name'] == 'Read'

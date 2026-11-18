@@ -1006,6 +1006,16 @@ native slot count or a consumed boundary at the candidate end is still
 required. [Pinned method reader](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Definitions/Il2CppMethodDefinition.cs)
 · [Pinned code registration](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/CodeRegistration.cs)
 
+The standalone image-scoped lookup checks an explicit TypeDef root and any
+authored nested path within its image. It validates the owner's MethodDef
+window and compares the encoded owner in each selected record. The result
+binds the original source hashes to method names, flags and signature indices.
+Authored fixtures cover shuffled identities, nested ownership, cancellation
+and source changes. This lookup can return declarations when the complete
+census is unresolved. Native slot and extent discovery still requires the
+complete census. The image-scoped lookup awaits retained-original verification.
+[Image-scoped lookup](../../backend/starrail_declaration_census.py)
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and

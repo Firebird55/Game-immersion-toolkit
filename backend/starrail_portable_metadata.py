@@ -521,6 +521,20 @@ class _Records:
             types[owner_index] = self.type(owner_index)
         owner = types[owner_index]
         _require(0 <= owner['method_start'] <= index < owner['method_start'] + owner['method_count'], 'method type ownership')
+        declaration = self._decode_method(raw, key, owner_index, remaining_parameters)
+        pointer_at = self.image.offset(self.method_pointers + index * 8, 8, executable=False)
+        pointer = _integer(self.image.source.read(pointer_at, 8), 0, 8)
+        return {**declaration, 'rva': self.method_rva(pointer)}
+
+    def method_declaration(self, index, owner_index, owner, remaining_parameters):
+        first = owner['method_start']
+        _require(0 <= first <= index < first + owner['method_count'], 'method declaration ownership')
+        raw = self.read('methods', index * 26, 26)
+        key = _method_key(index)
+        _require(_method_owner(_integer(raw, 0x10), key) == owner_index, 'method declaration encoded owner')
+        return self._decode_method(raw, key, owner_index, remaining_parameters)
+
+    def _decode_method(self, raw, key, owner_index, remaining_parameters):
         return_type = ((_integer(raw, 0x08) - 1698564893) & _MASK32) ^ key
         _require(return_type < self.type_count, 'method return type')
         start = _integer(raw, 0x04) ^ 0x9889b8 ^ key
@@ -531,14 +545,11 @@ class _Records:
         parameter_rows = tuple(self.parameter(i) for i in range(start, start + count))
         flags = _integer(raw, 0x0c)
         flags = ((flags >> 16) | ((flags << 16) & _MASK32)) ^ ((key & 0xffff) * 0x10001) ^ 0x09f73733
-        pointer_at = self.image.offset(self.method_pointers + index * 8, 8, executable=False)
-        pointer = _integer(self.image.source.read(pointer_at, 8), 0, 8)
-        rva = self.method_rva(pointer)
         name = self.name(_integer(raw, 0) ^ 0x0e714bc1 ^ key)
         _require(name, 'method name')
         return {'owner': owner_index, 'name': name, 'return_type': return_type, 'flags': flags,
                 'generic_container': _signed(((_integer(raw, 0x14, 2) - 30979) ^ key) & 0xffff, 16),
-                'parameters': parameter_rows, 'rva': rva}
+                'parameters': parameter_rows}
 
     def method_rva(self, pointer):
         if not pointer:

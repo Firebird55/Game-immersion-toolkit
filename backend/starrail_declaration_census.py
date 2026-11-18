@@ -9,6 +9,7 @@ from . import starrail_portable_metadata as metadata
 
 
 _SCHEMA = 'proxy-starrail-declaration-census-v1'
+_IMAGE_METHOD_SCHEMA = 'proxy-starrail-image-method-declarations-v1'
 _MAX_DECLARATIONS = 100_000
 _MAX_METHODS = 1_000_000
 _TYPE_RECORD_SIZE = 70
@@ -33,6 +34,14 @@ class CensusUnresolved(ValueError):
     def __init__(self, component):
         super().__init__(f'Original Star Rail census ownership is unresolved ({component}).')
         self.component = component
+
+
+@dataclass(frozen=True, slots=True)
+class ImageTypeScope:
+    """An original image index and a root-first path of TypeDef indices."""
+
+    image_index: int
+    definitions: tuple[int, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,3 +222,69 @@ def read_census(inputs, *, cancelled=None):
         rvas, addresses = _method_slots(records, methods, method_count)
         images = tuple((index, name) for _, _, index, name in records.images)
         return DeclarationCensus(identity, images, declarations, fields, methods, rvas, addresses, endpoint_role)
+
+
+def _image_owner_path(records, scope):
+    root = scope.definitions[0]
+    owners = [records.type(root)]
+    metadata._require(owners[0]['image_index'] == scope.image_index and owners[0]['declaring_type'] == -1,
+                      'method scope image root')
+    for child in scope.definitions[1:]:
+        metadata._check_cancelled(records.cancelled)
+        parent = owners[-1]
+        start, count = parent['nested_start'], parent['nested_count']
+        metadata._require(start >= 0 and count > 0, 'method scope nested ownership')
+        raw = records.read('nested_types', start * 4, count * 4)
+        children = tuple(value for (value,) in _RVA.iter_unpack(raw))
+        metadata._require(child in children and len(set(children)) == count, 'method scope nested ownership')
+        metadata._require(all(records.type_image(index)[0] == scope.image_index for index in children),
+                          'method scope nested image')
+        declaration = records.type(child)
+        metadata._require(declaration['declaring_type'] != -1, 'method scope nested declaration')
+        owners.append(declaration)
+    return owners
+
+
+def read_image_methods(inputs, scope, *, method_indices=None, cancelled=None):
+    """Read declarations owned by the explicit image root and nested path.
+
+    None selects the final owner's full declared range. The result is scoped
+    to metadata identities and contains no method pointer or extent records.
+    """
+    metadata._require(isinstance(scope, ImageTypeScope) and type(scope.image_index) is int and scope.image_index >= 0
+                      and isinstance(scope.definitions, tuple) and scope.definitions, 'method declaration scope')
+    _limit('nested declaration depth', len(scope.definitions) - 1, 16)
+    metadata._require(all(type(index) is int and 0 <= index < metadata._MAX_INDEX for index in scope.definitions)
+                      and len(set(scope.definitions)) == len(scope.definitions), 'method declaration scope')
+    if method_indices is not None:
+        metadata._require(isinstance(method_indices, (list, tuple)), 'requested method declarations')
+        _limit('selected method declarations', len(method_indices), metadata._MAX_SELECTED)
+        method_indices = tuple(method_indices)
+        metadata._require(all(type(index) is int and 0 <= index < metadata._MAX_INDEX for index in method_indices)
+                          and len(set(method_indices)) == len(method_indices), 'requested method declarations')
+    with metadata.open_records(inputs, cancelled=cancelled) as (records, identity):
+        return _select_image_methods(records, identity, scope, method_indices)
+
+
+def _select_image_methods(records, identity, scope, method_indices):
+    owners = _image_owner_path(records, scope)
+    owner = owners[-1]
+    first, count = owner['method_start'], owner['method_count']
+    if count:
+        available = records.windows['methods'][1] // _METHOD_OWNER.size
+        metadata._require(0 <= first <= available - count, 'method declaration window')
+    if method_indices is None:
+        _limit('selected method declarations', count, metadata._MAX_SELECTED)
+        method_indices = range(first, first + count)
+    methods = {}
+    parameters_remaining = metadata._MAX_SELECTED_PARAMETERS
+    for index in method_indices:
+        metadata._check_cancelled(records.cancelled)
+        declaration = records.method_declaration(index, scope.definitions[-1], owner, parameters_remaining)
+        parameters_remaining -= len(declaration['parameters'])
+        methods[index] = declaration
+    return {'schema': _IMAGE_METHOD_SCHEMA, 'sha256': dict(identity),
+            'image': {'index': scope.image_index, 'name': owners[0]['image']},
+            'scope': tuple({'definition': index, 'name': row['name'], 'namespace': row['namespace']}
+                           for index, row in zip(scope.definitions, owners, strict=True)),
+            'methods': methods}
