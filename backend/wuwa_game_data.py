@@ -243,6 +243,11 @@ class WutheringGameDataProvider:
             if previous['stage'] == 'manifest-format':
                 source, _ = _retained(ctx, previous)
                 if request.region == 'global':
+                    try:
+                        self._crypto()
+                    except GameDataError as error:
+                        return GameDataPlan(source['version'], None, None, previous,
+                            stage='manifest-format', message=error.message)
                     return GameDataPlan(source['version'], MAX_METADATA_BYTES, MAX_METADATA_BYTES + 3 * METADATA_MAX, previous,
                         download_is_upper_bound=True, runtime_available=True,
                         stage='manifest-format', message=FORMAT_MESSAGE)
