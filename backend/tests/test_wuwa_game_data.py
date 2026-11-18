@@ -69,14 +69,15 @@ def original(tmp_path, monkeypatch, signing_key):
         def on_read():
             if controls['cancel'] is not None: controls['cancel'].cancel.set()
         return Response(bytes(raw), url, headers=headers, on_read=on_read)
-    monkeypatch.setattr(provider, 'PublisherTransport', lambda ctx, **kwargs:
-        PublisherTransport(ctx, opener=open_, **kwargs))
+    controls['transport_factory'] = lambda ctx, **kwargs: PublisherTransport(ctx, opener=open_, **kwargs)
+    monkeypatch.setattr(provider, 'PublisherTransport', controls['transport_factory'])
     # This lane must not touch legacy seeds, protected ownership, or processes.
     from backend import wuthering_metadata
     monkeypatch.setattr(wuthering_metadata, '_read', lambda *a: pytest.fail('No protected bootstrap input'))
     # Host-only simulation supplies the maintained desktop reference explicitly;
     # actual Android capability/absence is exercised separately.
     from backend.publisher_crypto import DesktopPublisherCrypto
+    controls['maintained_crypto'] = provider.WutheringGameDataProvider._crypto
     monkeypatch.setattr(provider.WutheringGameDataProvider, '_crypto', lambda self: DesktopPublisherCrypto())
     return module, apk, calls, controls
 
@@ -207,3 +208,104 @@ def test_selected_module_limit_is_rejected_before_whole_carrier_acquisition(tmp_
     with pytest.raises(ValueError): provider.create_provider('android').plan(ctx.request, ctx)
     assert all(request.get_header('Range') or request.full_url.startswith(provider._source().CATALOGUE) for request in calls)
     assert not list(ctx.cache_directory.rglob('*.json'))
+
+
+def test_quote_restore_never_claims_that_its_original_module_is_verified(tmp_path, original):
+    _module, _apk, calls, controls = original
+    ctx = Context(tmp_path)
+    adapter = provider.create_provider('android')
+    plan = adapter.plan(ctx.request, ctx)
+    count = len(calls)
+    controls['offline'] = True
+    with pytest.raises(GameDataError) as error:
+        adapter.restore(plan.handle, ctx)
+    assert error.value.code == 'publisher_bootstrap_incomplete'
+    assert 'not been verified' in str(error.value)
+    assert provider.FORMAT_MESSAGE not in str(error.value)
+    assert len(calls) == count
+    assert not list(ctx.cache_directory.rglob('module.so'))
+
+
+
+def test_android_explicit_capability_drives_full_pure_bootstrap_without_desktop_fallback(tmp_path, original, monkeypatch):
+    """Host simulation of Java boundary, not APK/device capability evidence."""
+    import sys
+    from types import SimpleNamespace
+    from backend import publisher_crypto
+    module, apk, _calls, controls = original
+    reference = publisher_crypto.DesktopPublisherCrypto()
+    operations = []
+    class AuthoredNative:
+        def proof(self):
+            return json.dumps({'schema':'toolkit-publisher-crypto-v1','abi':'arm64-v8a',
+                'source_sha256':publisher_crypto.SOURCE_SHA256,'platform_primitives':'JCA',
+                'apk_entry_verified':True,'licenses_verified':True,'system_fallback':False,
+                'original_client_execution':False,'account_keys_reused':False,'pointer_bits':64,
+                'key_bytes':32,'nonce_bytes':12,'max_bytes':publisher_crypto.MAX_BYTES,
+                'library_sha256':'a'*64,'manifest_sha256':'b'*64})
+        def rsaVerifySha256(self, spki, data, signature):
+            operations.append('rsa')
+            return reference.rsa_verify_sha256(spki,data,signature)
+    native = AuthoredNative()
+    monkeypatch.setitem(sys.modules,'java',SimpleNamespace(jclass=lambda name:AuthoredNative))
+    monkeypatch.setattr(provider.WutheringGameDataProvider,'_crypto',controls['maintained_crypto'])
+    monkeypatch.setattr(provider,'PublisherTransport',lambda *a,**k:pytest.fail('Use only the explicitly supplied transport'))
+    adapter = provider.create_provider('android',SimpleNamespace(publisherCrypto=lambda:native),
+        transport_factory=controls['transport_factory'])
+    assert isinstance(adapter._crypto(),publisher_crypto.AndroidPublisherCrypto)
+    ctx = Context(tmp_path)
+    plan = adapter.plan(ctx.request,ctx)
+    assert plan.stage == 'bootstrap' and plan.source_proof is None and plan.download_bytes == len(apk)
+    ctx.phase,ctx.consumed,ctx.budget = 'download',0,plan.download_bytes
+    stage = adapter.download(plan,ctx)
+    assert operations and set(operations) == {'rsa'}
+    assert isinstance(stage,PreparationStage)
+    assert provider._source()._module(ctx.cache_directory,stage.restore_handle['source']).read_bytes() == module
+    controls['offline'] = True
+    ctx.stage_handle = stage.restore_handle
+    assert adapter.plan(ctx.request,ctx).stage == 'manifest-format'
+    with pytest.raises(GameDataError) as error: adapter.restore(stage.restore_handle,ctx)
+    assert error.value.code == 'publisher_format_key_unresolved'
+
+
+def test_cancel_during_local_native_derivation_never_publishes_module_or_stage(tmp_path, original, monkeypatch):
+    _module,_apk,_calls,_controls = original
+    ctx = Context(tmp_path)
+    adapter = provider.create_provider('android')
+    plan = adapter.plan(ctx.request,ctx)
+    ctx.phase,ctx.consumed,ctx.budget = 'download',0,plan.download_bytes
+    derive = provider._source().default_output
+    calls = []
+    def controlled(path, digest, *, check):
+        def cancel_during_parse():
+            calls.append(True)
+            if len(calls) == 4: ctx.cancel.set()
+            check()
+        return derive(path,digest,check=cancel_during_parse)
+    monkeypatch.setattr(provider._source(),'default_output',controlled)
+    with pytest.raises(GameDataError) as failure: adapter.download(plan,ctx)
+    assert failure.value.code == 'preparation_cancelled'
+    assert len(calls) == 4
+    assert not list(ctx.cache_directory.rglob('module.so'))
+    assert not list(ctx.cache_directory.rglob('pending-*'))
+
+
+
+def test_cancelled_offline_retained_bootstrap_preserves_source_and_cancellation_identity(tmp_path, original):
+    _module,_apk,_calls,controls = original
+    ctx = Context(tmp_path)
+    adapter = provider.create_provider('android')
+    plan = adapter.plan(ctx.request,ctx)
+    ctx.phase,ctx.consumed,ctx.budget = 'download',0,plan.download_bytes
+    stage = adapter.download(plan,ctx)
+    path = provider._source()._module(ctx.cache_directory,stage.restore_handle['source'])
+    before = path.read_bytes(); controls['offline'] = True
+    original_check = ctx.check; calls = []
+    def during_local_hash():
+        calls.append(True)
+        if len(calls) == 5: ctx.cancel.set()
+        original_check()
+    ctx.check = during_local_hash
+    with pytest.raises(GameDataError) as failure: adapter.restore(stage.restore_handle,ctx)
+    assert failure.value.code == 'preparation_cancelled'
+    assert len(calls) == 5 and path.read_bytes() == before

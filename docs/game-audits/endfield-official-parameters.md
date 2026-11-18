@@ -679,6 +679,156 @@ locales are exercised synthetically in both modes; the actual new facts-stage
 trial above uses English source with all five script tables. Complete capture
 admission and the existing active prologue audio exception remain unresolved.
 
+### Engine registration data and state retention — November 18
+
+An exact cache-only follow-up confirms that the managed AssetBundle internal
+bindings still leave their native registration producer unresolved. The retained
+GameAssembly PE imports OS libraries and `baselib.dll`, with no direct
+UnityPlayer import or exact UnityPlayer registration symbol. Its managed codegen
+image name does not identify an external native handler.
+
+The already retained complete publisher ZIP directory does identify an original
+`UnityPlayer.dll` member. A separately approved acquisition reads exactly its
+15,555,636-byte local span from the declared part 058, plus 28,906 launcher
+metadata bytes. The first 30 member-header bytes establish an actual strong
+response ETag; the remainder uses that validator without duplicating header
+bytes. Original declaration identity is unchanged before and after. Full Deflate
+EOF, exact 35,273,688-byte output and the original directory's CRC pass. Only
+that module and bounded proof metadata are retained, below the 64-MiB allowance.
+The whole ZIP-part MD5 and decoded GameFiles per-member MD5 remain unverified.
+The PE has an embedded certificate, but publisher-signature trust is not
+asserted; the existing smaller-member verifier has not been relaxed.
+
+Directed PE-data inspection finds the exact short synchronous/asynchronous
+AssetBundle ICall names, the `il2cpp_add_internal_call` API name and
+`GameAssembly.dll`. The AssetBundle group belongs to a contiguous 80-name run
+followed by 80 backed code pointers. These are column-shape candidates, without
+typed delimiters or a demonstrated same-index registration consumer. No
+positional name/function alias is accepted.
+
+A subsequent explicitly approved operand locator examines only the two exact
+candidate column addresses in the original `.text` interval: 27,184,141 bytes,
+124,473 bounded RIP-relative LEA prefixes in 0.5991 seconds. It finds no exact
+target hit and therefore no unique registration consumer. There is no general
+disassembly or expansion to other operands/sections. Original `.pdata` and the
+different actual runtime exception directory agree on the positional candidate's
+1,478-byte function extent and unwind metadata, using only 440 metadata bytes;
+that agreement proves a function boundary, not its AssetBundle identity. No
+consumer/handler body is decoded, no original game code is loaded/executed, and
+no AES/header parameter is accepted. This bounded hypothesis stops unresolved,
+without treating packing, absent references or the negative locator as proof
+that official derivation is impossible.
+
+A separate, approved exact-name investigation uses the same retained module
+without another download. A bounded locator for the two already owned API/module
+literals identifies the named-export initializer; its complete 8,350-byte
+chained owner and 188-byte lookup helper establish an actual `GetProcAddress`
+call for `il2cpp_add_internal_call` and storage of its result. The complete
+514-byte module-handle helper has an original `LoadLibraryW` import on its
+cache-miss path. The caller's actual module-name argument and cached-table
+contents remain unproved; a nearby `GameAssembly.dll` literal alone does not
+establish either identity.
+
+An independently approved locator for that exact result slot finds one
+call/jump/load reference in the same `.text` interval: 53,141 prefix candidates
+in 0.8918 seconds, six initially decoded hit bytes and 456 ownership-metadata
+bytes. Complete decoding from the matching original/runtime chained entry then
+establishes a 110-byte dispatch thunk. It preserves the original name/pointer
+arguments across an optional callback loop and tail-jumps through the exact
+named-export slot. The real tail-jump includes a preceding instruction prefix,
+which the initial hit window alone did not prove. At this checkpoint, the
+AssetBundle registration producer/handler remains unfollowed. The dispatch edge
+alone supplies no positional handler alias, runtime pointer value, key or
+canonical-library admission.
+
+The subsequent complete, single-target caller locator examines 682,876 prefixes
+in 1.2727 seconds and finds 57 callers. The earlier 500,000-prefix attempt remains
+explicitly incomplete, without sampled admission. Original and runtime metadata
+agree on all 57 primary owners. Their complete 4,536 code bytes establish the
+actual argument loops: an original image-base reference plus the same zero-based
+eight-byte index loads both a name and its function pointer before the proven
+dispatch call. Exactly one producer owns the previously observed 80 AssetBundle
+names and 80 pointer arguments. Another 1,379 directly referenced metadata bytes
+validate both arrays and the exact synchronous/asynchronous authored names.
+This supplies the previously missing same-index registration contract; it does
+not retroactively validate the earlier column-shape inference or negative
+RIP-column locator. Only the actual synchronous registration is followed.
+
+Its complete 1,478-byte handler and 203-byte object-loader wrapper preserve the
+original path, 32-bit CRC and 64-bit offset. CRC and offset are not interpreted
+as keys. A further bounded phase closes seven original/runtime-owned functions:
+3,329 code bytes, 5,864 ownership/unwind metadata bytes and 16 directly owned
+vtable-cell bytes. The actual constructor's vtable assignment resolves the
+observed virtual dispatch; no neighboring target is selected by position alone.
+The source descriptor and original offset reach a concrete header-reading call,
+followed by compressed/uncompressed block-index processing and a distinct CRC
+check. No AES/header parameters are derived from those operations.
+
+That exact header-reader entry has an original 1,653-byte function extent but a
+gap between the actual runtime directory's bracketing records. No matching
+runtime owner or complete old-function body is accepted. The final separately
+approved 32-byte entry diagnostic shows a five-byte direct jump to another
+executable address followed by 27 padding/trap bytes. Its destination is not
+followed within that phase. The original parameter
+initialization/header contract remains unproved. This is neither an
+impossibility result nor a package-format-change claim. All analysis is static,
+with zero new downloads during these follow-ups; no original module is loaded,
+executed or emulated. The earlier module-name-input and engine-signature
+qualifications remain open, alongside canonical graph/UI/media and host gates.
+
+A final receipt-only mapping confirms that this jump destination is backed by
+original bytes in the retained member's `.tvm0` section, rather than its virtual
+zero-fill tail. A separately approved 440-byte ownership/unwind probe and exact
+32-byte entry diagnostic then establish a PE-declared runtime owner of 5,507
+bytes; no matching original-directory owner or complete function is accepted.
+The inspected entry saves eight nonvolatile registers and directly calls a
+second address. Existing section declarations place that callee 8,330 bytes
+beyond the section's raw-data end, inside its declared zero-fill tail. No
+original file bytes map to the callee, and bytes from an adjacent raw section
+cannot be substituted. Twelve bytes of the inspected entry window also remain
+undecoded; no complete native-continuation or virtual-machine interpretation is
+accepted.
+
+The precise missing source step is the original initializer or writer that
+supplies this zero-fill call target. No such owner is identified by these
+receipts. The route stops without following another body, scanning for a writer,
+executing code, emulating a VM or unpacking runtime state. This identifies an
+unproved derivation step in this route, not an impossible official derivation or
+a format change. The source remains the same complete Deflate/ZIP-CRC-checked,
+HTTPS/ETag-bound original member and its retained SHA-256; whole-part MD5,
+decoded GameFiles member MD5 and publisher-signature trust remain unverified.
+The new probe does not strengthen that authentication, derive a key or admit a
+canonical snapshot. Runtime-directory references mean the PE's declared
+exception metadata, not observation of a live game process.
+
+The separately frozen shared PE-signature extraction also passes a zero-download
+replay on the retained complete 3,587,464-byte `AkSoundEngine` original: the
+unchanged Endfield wrapper accepts its GRYPH signer, while a wrong publisher and
+a 512-byte limit are rejected. The file remains unchanged. The Endfield policy
+stays 16 MiB and Windows cache-only Authenticode; this supplies neither fresh
+online revocation status, UnityPlayer signature trust nor an Android verifier.
+
+The ordinary authored stage is also reviewed against immutable committed
+current shared-core code, including the later mode-selection fix. An explicit
+synthetic older-ready-source adapter seeds the state-machine fixture; the real
+Endfield staged provider, complete synthetic SparkBuffer/HTTP inputs and generic
+publication logic then run. The older `current.json` remains byte-identical
+through table/authored stages and a forced stage-pointer publication failure;
+the previous unfinished-stage pointer and recording are retained. The synthetic
+old source can still activate with HTTP disabled. This is a service-boundary
+fixture, not real Endfield Ready, gameplay or Android proof. The real all-five
+target data review still accounts for every one of the 97 gender expansions,
+with original member identities preserved and no other identity/text delta.
+No product correction or shared API change is required by these checks.
+
+The finite remaining preparation gates are the original external registration
+consumer/handler and parameter initialization contract; validation of those
+parameters against complete original containers; canonical graph/UI/cinematic
+ownership and capture guards; selected-media materialization; and independent
+host/device closure. The one demonstrated active prologue audio family remains
+a separate original-utterance/context exception. Historical or config-only
+references without current-use proof remain nonblocking research inventory.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-

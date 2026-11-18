@@ -75,28 +75,34 @@ def _handle(value, request):
 
 
 def _retained(ctx, value):
+    ctx.check()
     source_reader = _source()
     source = source_reader.reference(value['source'])
     module = source_reader._module(Path(ctx.cache_directory), source)
     _no_links(module)
     try:
-        valid = module.stat().st_size == source['module']['plain_bytes'] and source_reader._file_hash(module) == source['module']['sha256']
+        valid = module.stat().st_size == source['module']['plain_bytes'] and source_reader._file_hash(module, check=ctx.check) == source['module']['sha256']
     except OSError:
         valid = False
     if not valid:
         raise GameDataError('publisher_bootstrap_cache_invalid', 'The original bootstrap module needs repair.')
     # Derive only in memory; the archive reader has not yet authorized a key.
-    source_reader.default_output(module, source['module']['sha256'])
+    source_reader.default_output(module, source['module']['sha256'], check=ctx.check)
     return source
 
 
 class WutheringGameDataProvider:
     title = 'Wuthering Waves'
 
-    def __init__(self, platform, native=None):
+    def __init__(self, platform, native=None, *, transport_factory=None):
         if platform not in ('windows', 'linux', 'macos', 'android', 'desktop'):
             raise ValueError('Unsupported Wuthering preparation platform')
         self.platform, self.native = platform, native
+        self._transport_factory = transport_factory
+
+    def _transport(self, ctx, **kwargs):
+        factory = self._transport_factory or PublisherTransport
+        return factory(ctx, **kwargs)
 
     def _crypto(self):
         try:
@@ -124,13 +130,13 @@ class WutheringGameDataProvider:
                     stage='manifest-format', message=FORMAT_MESSAGE)
         crypto = self._crypto()
         source_reader = _source()
-        metadata = PublisherTransport(ctx, hosts={urlsplit(source_reader.CATALOGUE).hostname})
+        metadata = self._transport(ctx, hosts={urlsplit(source_reader.CATALOGUE).hostname})
         raw, _receipt = metadata.fetch_bytes(source_reader.CATALOGUE + '?_t=' + str(int(time.time() // 60)), limit=64 * 1024)
         catalogue = json.loads(raw)
         if not isinstance(catalogue, dict) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', catalogue.get('version', '')):
             raise GameDataError('publisher_source_invalid', 'The original Wuthering catalogue changed.')
         url = source_reader._url(catalogue['primary'])
-        transport = PublisherTransport(ctx, hosts={urlsplit(url).hostname})
+        transport = self._transport(ctx, hosts={urlsplit(url).hostname})
         _first, identity = transport.fetch_bytes(url, limit=1, expected_size=1, original_range=(0, 1, None))
         total, etag = identity.original_range[2], identity.response_etag
         if not etag or not 0 < total <= 4 * 1024**3:
@@ -189,7 +195,7 @@ class WutheringGameDataProvider:
             decoded_bytes(artifact['layout']['eocd']), allow_signed_zero_tail=True)
         layout.validate(crypto=crypto)
         witnesses = [(start, decoded_bytes(data)) for start, data in artifact['witnesses']]
-        transport = PublisherTransport(ctx, hosts={urlsplit(url).hostname})
+        transport = self._transport(ctx, hosts={urlsplit(url).hostname})
         root = _file(ctx, 'pending').parent
         root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=root, prefix='pending-') as directory:
@@ -219,24 +225,27 @@ class WutheringGameDataProvider:
                 'signers': verified['certificate_sha256'], 'module': {'name': artifact['name'],
                     'sha256': plain_sha, 'compressed_sha256': packed_sha, 'compressed_bytes': artifact['packed'],
                     'plain_bytes': size, 'crc32': f'{crc:08x}'}})
-            source_reader.default_output(decoded, plain_sha)
+            source_reader.default_output(decoded, plain_sha, check=ctx.check)
             target = source_reader._module(Path(ctx.cache_directory), source)
             _no_links(target)
             ctx.check()
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.exists():
-                source_reader._check(source_reader._file_hash(target) == plain_sha)
+                source_reader._check(source_reader._file_hash(target, check=ctx.check) == plain_sha)
             else:
                 decoded.replace(target)
         return PreparationStage({'policy': POLICY, 'stage': 'manifest-format',
             'request': ctx.request.json(), 'source': source}, FORMAT_MESSAGE)
 
     def restore(self, handle, ctx):
+        ctx.check()
         _handle(handle, ctx.request)
-        if handle['stage'] == 'manifest-format':
-            _retained(ctx, handle)
+        if handle['stage'] == 'bootstrap':
+            raise GameDataError('publisher_bootstrap_incomplete',
+                'The original bootstrap download has not been verified. Complete its download stage before preparing language data; existing data is unchanged.', 409)
+        _retained(ctx, handle)
         raise GameDataError('publisher_format_key_unresolved', FORMAT_MESSAGE, 409)
 
 
-def create_provider(platform, native=None):
-    return WutheringGameDataProvider(platform, native)
+def create_provider(platform, native=None, *, transport_factory=None):
+    return WutheringGameDataProvider(platform, native, transport_factory=transport_factory)

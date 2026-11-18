@@ -131,7 +131,10 @@ def _request(request):
 
 def _handle(handle, request):
     _check(isinstance(handle, dict) and handle.get('policy') == POLICY and handle.get('request') == request.json() and
-           handle.get('stage') in ('native-bootstrap', 'content-reader') and
+           handle.get('stage') in ('native-bootstrap', 'content-reader', 'global-launcher-bootstrap', 'global-sdk-source',
+                                   'global-build-manifests', 'global-build-source',
+                                   'global-configuration-packages', 'global-configuration-source',
+                                   'global-settings-members', 'global-settings-source') and
            set(handle) == {'policy', 'request', 'stage', 'receipt_sha256'})
     _check(isinstance(handle['receipt_sha256'], str) and re.fullmatch('[0-9a-f]{64}', handle['receipt_sha256']))
     return handle
@@ -178,9 +181,13 @@ def _revision(artifact):
 
 
 def _plan(artifact, handle, archive, entry):
+    message = QUOTE
+    if artifact['request']['region'] == 'global':
+        message += (' The following Global metadata step currently requires Windows publisher-signature '
+                    'verification; that continuation is not yet available on Android.')
     return GameDataPlan(_revision(artifact), artifact['total'],
         entry['packed'] + entry['plain'] + len(_json(artifact)) + 64 * 1024,
-        handle, runtime_available=True, stage='native-bootstrap', message=QUOTE)
+        handle, runtime_available=True, stage='native-bootstrap', message=message)
 
 
 def _decode(source, target, entry, check):
@@ -254,10 +261,18 @@ class InfinityNikkiGameDataProvider:
         ctx.check()
         if getattr(ctx, 'stage_handle', None) is not None:
             previous = _handle(ctx.stage_handle, request)
-            if previous['stage'] == 'content-reader':
-                receipt = _retained(previous, ctx)
-                return GameDataPlan(receipt['revision'], 0, 0, previous,
-                    runtime_available=False, stage='content-reader', message=GATE)
+            if previous['stage'] in ('global-settings-members', 'global-settings-source'):
+                from . import infinity_nikki_settings_stage
+                return infinity_nikki_settings_stage.plan(self, previous, ctx)
+            if previous['stage'] in ('global-configuration-packages', 'global-configuration-source'):
+                from . import infinity_nikki_configuration_stage
+                return infinity_nikki_configuration_stage.plan(self, previous, ctx)
+            if previous['stage'] in ('global-build-manifests', 'global-build-source'):
+                from . import infinity_nikki_build_stage
+                return infinity_nikki_build_stage.plan(self, previous, ctx)
+            if previous['stage'] in ('content-reader', 'global-launcher-bootstrap', 'global-sdk-source'):
+                from . import infinity_nikki_sdk_stage
+                return infinity_nikki_sdk_stage.plan(self, previous, ctx)
         crypto = _crypto(self.platform, self.native)
         from .infinity_nikki_release import parse_android_link, MAX_PAGE
         ApkMetadata, _ = _formats()
@@ -295,6 +310,18 @@ class InfinityNikkiGameDataProvider:
     @_guard
     def download(self, plan, ctx):
         handle = _handle(plan.handle, ctx.request)
+        if handle['stage'] in ('global-settings-members', 'global-settings-source'):
+            from . import infinity_nikki_settings_stage
+            return infinity_nikki_settings_stage.download(self, plan, ctx)
+        if handle['stage'] in ('global-configuration-packages', 'global-configuration-source'):
+            from . import infinity_nikki_configuration_stage
+            return infinity_nikki_configuration_stage.download(self, plan, ctx)
+        if handle['stage'] in ('global-build-manifests', 'global-build-source'):
+            from . import infinity_nikki_build_stage
+            return infinity_nikki_build_stage.download(self, plan, ctx)
+        if handle['stage'] in ('global-launcher-bootstrap', 'global-sdk-source'):
+            from . import infinity_nikki_sdk_stage
+            return infinity_nikki_sdk_stage.download(self, plan, ctx)
         _check(handle['stage'] == plan.stage == 'native-bootstrap')
         crypto = _crypto(self.platform, self.native)
         artifact = _read(ctx, handle['receipt_sha256'])
@@ -349,6 +376,18 @@ class InfinityNikkiGameDataProvider:
     @_guard
     def restore(self, handle, ctx):
         _handle(handle, ctx.request)
+        if handle['stage'] in ('global-settings-members', 'global-settings-source'):
+            from . import infinity_nikki_settings_stage
+            return infinity_nikki_settings_stage.restore(self, handle, ctx)
+        if handle['stage'] in ('global-configuration-packages', 'global-configuration-source'):
+            from . import infinity_nikki_configuration_stage
+            return infinity_nikki_configuration_stage.restore(self, handle, ctx)
+        if handle['stage'] in ('global-build-manifests', 'global-build-source'):
+            from . import infinity_nikki_build_stage
+            return infinity_nikki_build_stage.restore(self, handle, ctx)
+        if handle['stage'] in ('global-launcher-bootstrap', 'global-sdk-source'):
+            from . import infinity_nikki_sdk_stage
+            return infinity_nikki_sdk_stage.restore(handle, ctx)
         if handle['stage'] == 'content-reader':
             _retained(handle, ctx)
         raise GameDataError('publisher_content_reader_unresolved', GATE, 409)

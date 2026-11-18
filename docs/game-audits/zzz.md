@@ -1,5 +1,202 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · Ordinary reader 24 preparation and fresh offline restore
+
+A new, closed reader 24 resource inventory was explicitly built from the
+retained, hash-verified software inputs and current toolkit helper source. Its
+44 reader files total **34,676,762 bytes**, accompanied by the same four verified
+Node runtime files. The new build identity differs from reader 23; the earlier
+resource inventory remains unchanged. This was maintainer artifact preparation,
+with no software download or runtime compilation.
+
+Both requests then completed the ordinary per-game service, using independently
+copied mutable source metadata and checksum-verified immutable original inputs.
+No older reader operations, candidates, protected parameters or analyst-derived
+data entered the new producer. The initial private intake omitted the earlier
+accepted source's hashed recording-selection plan and stopped safely before
+network access. Copying exactly that source-bound restore dependency restored
+the old library; the new producer generated a different candidate and plan.
+
+The text-only request published **Text Ready with all 289,967 prior records**,
+without playable audio or cinema-audio context metadata. The audio request ran
+its own five reader stages, received a zero-byte original-asset quote, passed
+the final ordinary publisher check and published **Audio Ready with all 77,895
+prior original-audio base bindings retained**. Its snapshot has **78,972
+authoritative recording keys**, including **1,077 conditional occurrences**.
+These additional keys require the guarded capture context described below;
+they are not independently voiced captions or an active-story census. The base
+inventory still reports 135,211 certified unvoiced, 72,705 unknown and 4,156
+unavailable records.
+
+The ordinary C055 context resolver retrieved both correct complete Japanese
+film sources from this new source, through the owned decoder, with the same
+MP3 hashes as the earlier controls. A separate fresh process restored both
+requests and the earlier accepted audio source with every network connection
+forbidden. Five earlier and two newly saved recordings replayed with identical
+hashes and no provider lookup. The original library's pointers, source files,
+original input hashes and saved recordings remained intact.
+
+Fresh discovery and final checks used exactly **84 official HTTP requests and
+1,954,078 response-body bytes**, including the initial six-request quote.
+There were **zero new original asset, audio or software downloads**. The two
+final download jobs each retained the actual 139,577 metadata bytes in their
+progress counters; cached reader stages correctly reported zero wire bytes.
+The independent file-data census peaked at 1,213,333,417 new bytes, and monitored
+free space stayed above 12,677,619,712 bytes, within the agreed storage limits.
+
+This closes the earlier cached-clone-only qualification for ordinary reader 24
+preparation of current Global Japanese. It does not establish a new game update,
+every story presentation, another complete dub, actual screen OCR, installer
+acceptance or Android preparation. The five C055 captions preceding the unique
+anchor remain unresolved; the two later shared captions retain their conditional
+context path and their ordinary base rows remain unavailable.
+
+## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
+
+The original C055 subtitle tracks provide a safe forward relationship: each
+variant's unique line precedes the same two shared captions. Reader 24 retains
+the authenticated serialized resource hash, TimelineAsset/track/clip pointers,
+subtitle locale, position and authored clocks. An occurrence is eligible only
+when its complete original event/media context is already admitted and locally
+materialized by an unconditional caption. This adds no recording download.
+Text-only preparation does not build this audio context inventory.
+
+Capture requires two consecutive observations of a unique whole-text anchor in
+the actual complete multilingual index. It uses the observed subtitle locale,
+independently of the selected audio dub. The current Japanese and English C055
+anchors pass this full-index check; the identical Simplified Chinese anchors do
+not select a variant. No B/G filename or protagonist preference chooses audio.
+
+Only actual foreground MSS acquisitions carry the timing evidence. A changed
+capture session, source generation, complete request, window/crop, locale,
+sequence or incompatible authored clock resets the context. Background RGB1
+images lack acquisition timestamps and cannot establish this path. The
+immutable conditional recording identity includes generation, request, region,
+dub, serialized resource, timeline, observed locale and exact clip occurrence.
+It passes the existing original-voice provenance checks and retains the complete
+correct film source, explicitly labeled as context audio. The ordinary base
+rows and lookups remain ambiguous.
+
+For C055 this resolves **two shared captions after the unique anchor**, subject
+to those live-capture guards. **The five preceding shared captions remain
+unresolved**; no backfill or generic short-sentence guess is enabled. A restart
+restores the source inventory and saved recordings, never a playing instance.
+
+The zero-network source control reparsed the same 404 authenticated timeline
+containers and used an independent clone of all 289,967 current Global Japanese
+records, retaining all 77,895 admitted original-audio base rows. Exact authored
+Japanese and English observations passed the production context/index/voice
+resolver; Chinese observations did not. Both selected original Japanese film
+contexts decoded through the owned codec closure to the same previously saved
+MP3 hashes, followed by fresh offline retained-recording replay. The original
+source pointers, snapshots and five old/new saved recordings were unchanged.
+That earlier control was cached same-generation source verification, without
+an ordinary reader 24 Ready or screenshot/OCR acceptance claim. The separate
+ordinary-service checkpoint above now establishes preparation and restoration.
+
+Synthetic tests additionally exercise the real capture scan, foreground frame
+adapter, contextual matcher, original resolver and retained recording service
+end to end. They reject background frames, lost foreground ownership, changed
+source/session/crop and Chinese anchors. The ordinary preparation service also
+publishes and restores the immutable conditional binding inventory in synthetic
+original-container tests. Other films, dubs, regions, actual screen OCR and
+Android device/runtime acceptance remain separately qualified.
+
+## November 17, 2026 · Empty voice-language placeholders in retained story timelines
+
+The current C055 EP020 subtitle sequence belongs to the "Traitor" scene in
+Season 1's epilogue. The publisher declares
+[Bury Your Tears With the Past (A) permanently available](https://www.hoyolab.com/article/37545680);
+a [gameplay recording indexes that scene at 41:38](https://www.youtube.com/watch?v=tGuMB8QIevI&t=2498s).
+The current original timeline assets retain nine Japanese caption IDs, including
+two distinct protagonist lines. This is positive released-story evidence,
+separate from the configuration-only 333-path inventory. The other two inspected
+groups, C210 EP000 and C260 EP010, retain unclassified current use; their names
+or missing bindings do not establish retired or cut content.
+
+The original event was already found, but four empty per-language voice tracks
+made the entire C055 timeline incomplete. Original class declarations and 16
+cached track objects establish the filter-array profile, empty clip/child/marker
+arrays, zero player flags and exact object boundaries. Each exclusion set is the
+complement of its own parent group's authored subtitle language.
+
+Reader 23 accepts these bounded, empty voice-language placeholders without
+changing a recording selection. Active filtered tracks, player exclusions,
+unknown or duplicate language codes, malformed bodies, external references and
+ambiguous events remain guarded. There is no scene-ID exception, filename-based
+player inference or adjacent-line recording guess.
+
+A regression over the same 404 authenticated timeline containers preserves every
+caption, locale, authored clock and event set. Among the 986 previously guarded
+Japanese records, **193 now have a unique authored event candidate**, **747 have
+conflicting events**, **42 still lack a supported unique event**, and the same
+**four older CS records** remain outside the explicit tracks. These are source
+states, not 193 independently spoken captions or an active-story denominator.
+
+The two unique C055 lines join their exact original Japanese registry, event
+banks and complete media identities. The November 18 follow-up acquired six
+approved, publisher-authenticated carrier chunks: two for bank metadata and four
+for the complete selected recordings. Their totals are **7,379,744 compressed
+bytes / 7,567,317 expanded bytes**, counting all co-resident data. Ordinary live
+generation checks before and after each phase used **558,308 official metadata
+response bytes** and retained the same published source generation.
+
+The production payload and local-original resolver admit the two unique caption
+IDs against their authored events, without a scene override. Both complete
+Japanese sources decode through the owned codec closure into **72-second film
+contexts**, with nonzero PCM verified independently from each resulting MP3.
+A separate process retains both saved MP3 hashes with no provider or network
+lookup. The seven shared captions remain ambiguous between the two authored
+variants. This targeted nine-record control was followed by the complete normal
+preparation and fresh restart below. It does not establish that every exported
+caption belongs to active released story content.
+
+## November 18, 2026 · Normal reader 23 Audio Ready and retained-source recovery
+
+A separate ordinary `GameDataService` preparation used the maintained,
+compiler-free reader 23 and the authenticated current original cache. Source
+metadata and pointers were copied independently; only checksum-verified,
+immutable original files and already saved MP3s shared storage. The original
+accepted library was retained throughout.
+
+The text-only request completed all five source stages and final ordinary
+publisher revalidation, reached Text Ready, and retained **all 289,967 records**,
+their source texts, translation maps and OCR texts. The subsequent Text + audio
+request completed its five catalogue stages and presented explicit bank and
+recording estimates before either transfer. It acquired exactly **26 missing
+bank-metadata carriers and 31 missing complete-media carriers**: **72,607,565
+compressed bytes / 74,361,888 expanded bytes**. Every entire carrier, including
+co-resident data, is counted and authenticated. This is additional acquisition
+against the existing verified current cache after the targeted C055 check;
+there are no new whole PCK, other-dub or software downloads.
+
+A transient-file error in the private storage monitor cancelled the first
+preparation after its download. Text Ready and every authenticated carrier were
+retained. With that monitor corrected, an ordinary cache-only retry reused all
+31 media carriers, transferred **zero new game bytes**, revalidated the current
+publisher pointer and published **Audio Ready: 289,967 records and 77,895 locally
+admitted original-audio rows**. Every previous **77,702 binding** remains;
+**193 additional original film-context bindings** are now materialized. These
+are complete contextual recordings, not a claim that each caption has a
+separate spoken utterance.
+
+The full sequence used **108 actual official metadata responses / 2,512,386
+bytes**, including the interrupted attempt and retry, with the same publisher
+generation throughout. Every adopted original file, previous source snapshot
+and saved recording was hash-checked afterward. A fresh process restored the
+complete new Audio Ready source with network forbidden and replayed three old
+and two new saved MP3s with their exact hashes and no provider lookup. Both C055
+contexts also decoded through the normal full-source recording service with
+the same hashes as their targeted controls. Exact Japanese text observations
+match their distinct IDs unambiguously in the complete multilingual index;
+this is a text-matcher control, not screenshot or OCR-region acceptance.
+
+The earlier Text Ready snapshot and older managed audio source remain
+restorable. **All seven shared C055 captions remain unavailable because their
+player-specific contexts conflict.** This closes the admitted reader 23 source
+acquisition and restart check for current Global Japanese; other layouts,
+ambiguous player ownership, other full-dub trials and Android remain separate.
+
 ## November 17, 2026 · Canonical Japanese audio materialization and offline acceptance
 
 The per-game PC producer now connects the verified catalogue reader to explicit
@@ -555,9 +752,11 @@ through normal snapshot-scoped voice services with identical PCM per generation.
 One explicit-source adapter batch also extracted the A/B versions of the same
 media ID and the new B original together without confusing generations. This
 does not claim that one UI catalog combines historical snapshots. Runtime source
-hashes stayed fixed throughout; no game installation or updated community data
-was used. This closes this Global Japanese update/recovery trial, while complete
-current subtitle coverage and equivalent trials for other regions/dubs remain open.
+hashes stayed fixed throughout and no game installation was used. The later
+bootstrap audit found that community settings responses were not frozen by this
+trial. It proves the recorded Global Japanese content/recovery behavior, not
+independent bootstrap or key rotation. Current subtitle coverage and equivalent
+regional/dub trials remain separate.
 
 The interrupted-transfer trial also exposed an incorrect generic reader warning.
 Premature remote EOF, an incomplete HTTP read, a connection reset or a read

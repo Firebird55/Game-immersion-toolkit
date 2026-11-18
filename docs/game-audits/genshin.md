@@ -1,5 +1,16 @@
 # Genshin Impact narrative audit
 
+## November 17 update policy
+
+The owner accepted official publisher content/audio with controlled community
+binding, schema and key metadata under the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026). A matching immutable
+community revision may change without a toolkit release. Full reconstruction
+of every native table is no longer a closure requirement. Normal preparation
+still needs original publisher-text integration, verified generation
+compatibility, provenance and failed-update/offline acceptance; original-reader utilities alone do not prove those
+ordinary-provider requirements. Subtitle and original-audio gaps remain in #83.
+
+
 ## Original TextMap utility · November 16, 2026
 
 The experimental [original TextMap reader](../../backend/genshin_original_textmap.py)
@@ -1283,6 +1294,21 @@ not complete bootstrap independence: original RSA and request-template
 ownership, response-signature verification, possible later overrides, another
 actual client generation and the Android BLB closure remain open. The stage
 does not emit a partial dialogue snapshot or activate a descriptor.
+
+The ordinary source preparation also follows the verified typed
+`Miscs.GetConfigChannel` cache and `LoadChannelConfigBlk` consumer into the
+original channel-profile container. Current basename and object-ID arguments
+come from the current original inputs. The stage quotes the complete publisher
+source and derives all codec candidates from the original native file; exactly
+one complete object-map and strict profile parse receives a retained private
+receipt. This profile-only acceptance does not satisfy final Source catalog or
+selected-shard acceptance. The current original profile includes a dispatch
+list endpoint and an `RSAParam.keyId` value, with no RSA key material.
+The compiled URL consumer reads the same original seed field; its `isGlobal`
+argument distinguishes request construction paths and does not establish Global
+versus CN edition equivalence. Cloud-specific headers likewise do not establish
+ordinary game RSA or response-signature ownership. The original source route
+and Android runtime gates remain explicit; no default provider is replaced.
 
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {cinemaSubtitleTimeline, cinemaSubtitleLinks, cinemaTextSourceInventory} from '../scripts/zzz-cinema-timeline.mjs';
 
 test('original blank subtitle segments stay separate from missing keys and existing audio', () => {
@@ -38,21 +39,24 @@ const track=(parent,children,clips,tail=Buffer.alloc(0),{muted=false}={})=>Buffe
   u32(children.length),...children.map(id=>pointer(id)),string('a'.repeat(32)),u32(clips.length),...clips,u32(0),tail]);
 
 function fixture({language=3,clipLanguage=language,wrongParent=false,external=false,muted=false,secondEvent=false,offset=0,cyclic=false,unknownTrack=false,
-  alternate=false,alternateOptions={},alternateFirst=false}={}) {
+  alternate=false,alternateOptions={},alternateFirst=false,voicePlaceholders=[]}={}) {
   const audioClips=[timelineClip(60,40,{offset}),...(secondEvent?[timelineClip(61,40)]:[]),...(alternate?[timelineClip(62,40,alternateOptions)]:[])];
   if(alternateFirst)audioClips.reverse();
   const records=[
     [1,115,script('TimelineAsset',true)],[2,115,script('GroupTrack',true)],
     [3,115,script('SubtitleTrack')],[4,115,script('SubtitleClip')],
-    [5,115,script('WwiseAudioTrack')],[6,115,script('WwiseAudioClip')],
+    [5,115,script('WwiseAudioTrack')],[6,115,script('WwiseAudioClip')],[7,115,script('WwiseAudioTrack',true)],
     [10,114,behaviour(1,'Synthetic_Timeline',Buffer.concat([u32(0),u32(1),pointer(20,external?1:0)]))],
-    [20,114,behaviour(2,'Synthetic',track(10,[30,40,...(cyclic?[20]:[]),...(unknownTrack?[80]:[])],[]))],
+    [20,114,behaviour(2,'Synthetic',track(10,[30,40,...voicePlaceholders.map((_,i)=>1000+i),...(cyclic?[20]:[]),...(unknownTrack?[80]:[])],[]))],
     [30,114,behaviour(3,'NoLocaleInName',track(wrongParent?999:20,[],[timelineClip(50,30)],u32(language),{muted}))],
     [40,114,behaviour(5,'NoVoiceInName',track(20,[],audioClips,Buffer.alloc(12)))],
     [50,114,behaviour(4,'SubtitleClip',Buffer.concat([string('SyntheticCaption'),u32(clipLanguage),u32(0)]))],
     [60,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_vo_Synthetic'),Buffer.alloc(64)]))],
     [61,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_vo_Other'),Buffer.alloc(64)]))],
     [62,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_ActualLayer'),Buffer.alloc(64)]))],
+    ...voicePlaceholders.map(({languages=[],male=0,female=0,active=false,children=[],foreign=false},i)=>
+      [1000+i,114,behaviour(foreign?7:5,'NotALanguageOrPlayerLabel',track(20,children,
+        active?[timelineClip(60,1000+i)]:[],Buffer.concat([u32(languages.length),...languages.map(u32),u32(male),u32(female)])))]),
   ];
   const types=Buffer.concat([u32(2),u32(114),Buffer.alloc(35),u32(115),Buffer.alloc(19)]);
   let pre=Buffer.concat([Buffer.from('2019.4.40f1\0'),u32(19),Buffer.from([0]),types,u32(records.length)]);
@@ -69,6 +73,31 @@ test('separate subtitle tracks retain original language and whole-film context o
     assert.deepEqual(result.unsupported,[]);
     assert.deepEqual(result.subtitles,[{text_id:'SyntheticCaption',locale,start:1,duration:2,
       timeline:'Synthetic_Timeline',event:'Play_vo_Synthetic',audio_scope:'context'}]);
+    assert.deepEqual(result.occurrences,[{text_id:'SyntheticCaption',locale,start:1,duration:2,
+      track:'30',clip:'50',subtitle_position:0,resource:createHash('sha256').update(fixture({language})).digest('hex'),
+      timeline:'10',event:'Play_vo_Synthetic'}]);
+  }
+});
+
+test('empty original voice tracks with bounded locale filters do not hide a separate complete voice event',()=>{
+  const voicePlaceholders=[1,2,3,4].map(locale=>({languages:[1,2,3,4].filter(value=>value!==locale)}));
+  for(const language of [1,2,3,4]) {
+    const before=cinemaSubtitleTimeline(fixture({language}));
+    const after=cinemaSubtitleTimeline(fixture({language,voicePlaceholders}));
+    assert.deepEqual({...after,occurrences:[]},{...before,occurrences:[]});
+    assert.notEqual(after.occurrences[0].resource,before.occurrences[0].resource);
+  }
+});
+
+test('active filtered tracks and empty tracks with player or invalid locale fields remain unresolved',()=>{
+  for(const placeholder of [{languages:[1,2,4],active:true}, {languages:[1],children:[40]},
+    {languages:[0]}, {languages:[5]}, {languages:[1,1]}, {languages:[1,2,3,4,5]},
+    {languages:[1],male:1}, {languages:[1],female:1}, {male:2}, {languages:[1],foreign:true}]) {
+    const result=cinemaSubtitleTimeline(fixture({voicePlaceholders:[placeholder]}));
+    assert.equal(result.subtitles.length,1);
+    assert.equal(result.subtitles[0].event,null);
+    assert.equal(result.unsupported.length,1);
+    assert.equal(cinemaSubtitleLinks(result,'Japanese(JP)')[0].voice_status,'unknown');
   }
 });
 test('external, mismatched, muted and changed locale tracks never supply subtitle or voice pairs',()=>{
@@ -78,6 +107,7 @@ test('external, mismatched, muted and changed locale tracks never supply subtitl
 });
 test('multiple whole-voice events or a source offset cannot be assigned to a caption by order',()=>{
   for(const options of [{secondEvent:true},{offset:1}])assert.equal(cinemaSubtitleTimeline(fixture(options)).subtitles[0].event,null);
+  for(const options of [{secondEvent:true},{offset:1}])assert.deepEqual(cinemaSubtitleTimeline(fixture(options)).occurrences,[]);
 });
 test('publisher voice namespaces select their own subtitle language without certifying absent recordings',()=>{
   for(const [language,namespace,locale] of [[1,'English(EN)','en'],[2,'Chinese(PRC)','zh-Hans'],[3,'Japanese(JP)','ja'],[4,'Korean(KR)','ko']]){

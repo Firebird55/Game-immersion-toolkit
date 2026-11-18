@@ -47,6 +47,7 @@ from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing, ParentControlBinding
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
+from .line_presentation import translation_fields
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
@@ -599,13 +600,9 @@ class Runtime:
             if not self.lexirise.status()['configured']:
                 return line
             target = ''
-        texts = line.texts or {'en': line.english, 'zh-Hans': line.chinese}
-        locale = resolve_locale(target, texts)
         prepared = self.languages.prepared(line.game, line.source_locale)
-        if not line.publisher_generation and prepared and target not in prepared['targets']:
-            locale = None
-        return line.model_copy(update={'translation_locale': locale or target,
-                                      'translation_text': texts.get(locale, '') if locale else ''})
+        return line.model_copy(update=translation_fields(line.texts, line.english, line.chinese, target,
+            prepared_targets=prepared['targets'] if prepared and not line.publisher_generation else None))
 
     def setup_install(self, game: str) -> Path | None:
         install = discover_install(game)
@@ -2014,6 +2011,7 @@ def automatic_export_action(game: str, payload: AutomaticExportOptions, request:
 class MobileExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_audio: bool = True
+    prepared_library: bool = False
     destination_folder: str | None = None
     game: str | None = Field(default=None, min_length=1, max_length=24)
 
@@ -2038,7 +2036,9 @@ def mobile_export(game: str, payload: MobileExportOptions, request: Request,
         raise HTTPException(404, "Unsupported game")
     try:
         with export_scope(request, game):
-            return {"started": runtime.mobile_exports.start(game, payload.include_audio, payload.destination_folder)}
+            args = (game, payload.include_audio, payload.destination_folder)
+            return {"started": runtime.mobile_exports.start(*args, True) if payload.prepared_library
+                    else runtime.mobile_exports.start(*args)}
     except (ValueError, OSError):
         raise HTTPException(400, "Choose a writable private export folder outside game files and source repositories.") from None
 
@@ -2051,7 +2051,9 @@ def mobile_export_preview(game: str, payload: MobileExportOptions, request: Requ
         raise HTTPException(404, "Unsupported game")
     try:
         with export_scope(request, game):
-            return runtime.mobile_exports.preview(game, payload.include_audio, payload.destination_folder)
+            args = (game, payload.include_audio, payload.destination_folder)
+            return (runtime.mobile_exports.preview(*args, True) if payload.prepared_library
+                    else runtime.mobile_exports.preview(*args))
     except (ValueError, OSError):
         raise HTTPException(400, "Choose an absolute folder outside game files and source repositories. Refresh game data if its estimate is unavailable.") from None
 

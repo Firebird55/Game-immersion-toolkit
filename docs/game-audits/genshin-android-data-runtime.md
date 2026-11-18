@@ -218,12 +218,44 @@ binds full input identities, verified runtime and maintained parser code. A
 restart rechecks these inputs and the complete receipt hash from the matching
 regional build/language/content stage handle; handles contain no seed value.
 An invalid or unreceipted cache requires original extraction again, never a
-community key-cache fallback.
+community key-cache fallback. The same original-only extraction now follows the
+typed `Miscs.GetConfigChannel` cache and `LoadChannelConfigBlk` consumer. The
+current `GlobalVars.channelConfigBlkName` field supplies the basename; the
+loader supplies bounded object-ID candidates through its actual paired
+size/read argument flow. Neither the basename nor an object ID is fixed in the
+toolkit.
 
-This establishes an initial static value only. The following plan remains
-unavailable at the original content reader. Original RSA ownership, request
-template, response-signature verification and possible `UseDispatchData`
-overrides remain open. The other original dialogue bindings, Subtitle
+The following `original-channel-profile` stage quotes the whole publisher file
+and all missing complete transport chunks before fetching it. It reuses the
+same context-owned Sophon cache, whole size/MD5 checks and verified installed
+helper. All full codec contracts are derived from the current original native
+input. Every candidate is checked against the complete original named-object
+map, all referenced data-object lengths/padding, the native-owned object IDs and
+strict UTF-8/JSON profile shape. Exactly one complete result is required;
+ambiguity, missing source/method/recipe identity or malformed extra map entries
+fail without replacing the prior stage or library. No saved analyst parameters
+or community numeric descriptions are inputs.
+
+The bounded disk upper estimate includes the materialized source, expanded
+transport cache, sequential decoder scratch and private parameter/receipt data.
+The private receipt binds the source, current original inputs, helper, parser
+code and codec method hashes. Restart checks its full hash from the matching
+accepted stage handle, reauthenticates the source and parses the preserved
+payload again. A failed attempt reuses verified source chunks after a new size
+check. Both text modes remain `PreparationStage`; this stage fetches no audio.
+
+This acceptance is expressly **profile only**. Its receipt marks full catalog,
+selected-shard, response-signature and override acceptance false. Final original
+Source activation must still validate its complete catalog and selected text
+shards. A cached profile never becomes an active descriptor or a partial
+dialogue library.
+
+The following plan remains unavailable at the original content reader. Original
+RSA ownership, complete request-value/response routing, response-signature
+verification and possible IFix or other later overrides remain open. The
+inspected `UseDispatchData` body reads six configuration fields and does not
+write the seed, which does not exclude other replacement paths. The other
+original dialogue bindings, Subtitle
 acquisition, selected-dub materialization and full ordinary update acceptance
 still need their complete source route. Android retains its earlier runtime
 gate; a PC static decoder does not supply its BLB closure. This does not

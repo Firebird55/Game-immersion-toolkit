@@ -1,0 +1,162 @@
+"""Portable libraries must keep production identities and old recordings intact."""
+import copy
+import hashlib
+import json
+from pathlib import Path
+import struct
+import wave
+import zipfile
+
+import pytest
+
+from backend.prepared_library import PreparedLibraryStore, write_prepared_library
+from backend.prepared_session import PreparedCaptureSession
+
+
+def fixture_library(root, *, text='Follow the river beyond the bridge.', identity='owned:line', player=None, game='zzz'):
+    root.mkdir(parents=True, exist_ok=True)
+    clip = root / 'tone.wav'
+    with wave.open(str(clip), 'wb') as stream:
+        stream.setparams((1, 2, 16000, 0, 'NONE', 'NONE'))
+        stream.writeframes(struct.pack('<h', 1000) * 1600)
+    row = dict(text_id=identity, english=text, chinese='沿河走过桥。', source_locale='en',
+        source_text=text, texts={'en': text, 'zh-Hans': '沿河走过桥。'}, audio_locale='en',
+        audio={'source': 'owned-authored-fixture'}, voice_status='voiced',
+        dialogue_kind='conversation', player_voice=player)
+    payload = dict(format=2, game=game, source_locale='en', records=[row])
+    return write_prepared_library(payload, root / 'private.zip', {identity: clip}), payload
+
+
+def test_full_publisher_inventory_and_next_update_reach_the_shared_matcher(tmp_path):
+    # The publisher finite-source inventory already has 409,552 IDs. A normal
+    # update adding one cannot require a new app or silently truncate records.
+    # All dialogue/audio here is authored; no publisher file is redistributed.
+    count = 409553
+    _, payload = fixture_library(tmp_path / 'input', game='genshin')
+    spoken = {**payload['records'][0], 'text_id': f'genshin:{count - 1}'}
+    silent = {**spoken, 'audio': None, 'voice_status': 'unvoiced',
+        'source_text': 'This authored page contains no voice.', 'english': 'This authored page contains no voice.',
+        'chinese': '这是一段无配音文字。',
+        'texts': {'en': 'This authored page contains no voice.', 'zh-Hans': '这是一段无配音文字。'}}
+    payload['records'] = [{**silent, 'text_id': f'genshin:{number}'} for number in range(count - 1)] + [spoken]
+    archive = write_prepared_library(payload, tmp_path / 'full-inventory.zip',
+        {spoken['text_id']: tmp_path / 'input' / 'tone.wav'})
+    del payload
+    store = PreparedLibraryStore(tmp_path / 'library')
+    active = []
+    store.import_archive(archive, activate=lambda _directory, index: active.append(index))
+    assert active[0].entry_count == count
+    matches = active[0].match_line_groups([spoken['source_text']], 88)
+    assert [match.text_id for match in matches] == [spoken['text_id']]
+
+
+def test_shared_confirmation_rejects_late_frames_and_keeps_audio_after_restart_update(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    session = PreparedCaptureSession(tmp_path / 'application')
+    session.import_library(archive)
+    generation = session.start()
+    text = payload['records'][0]['source_text']
+    assert session.observe(generation, 1, [text], now=10) == []
+    assert session.observe(generation, 1, [text], now=10.1) == []  # Replayed frame is not confirmation.
+    emitted = session.observe(generation, 2, [text], now=10.2)
+    assert len(emitted) == 1 and emitted[0]['text_id'] == 'owned:line'
+    assert emitted[0]['audio_source'] == 'original'
+    original = session.audio_path(emitted[0]['id']).read_bytes()
+    session.history.set_favorite(emitted[0]['id'], True)
+    session.stop()
+    assert session.observe(generation, 3, [text], now=10.3) == []
+    other, _ = fixture_library(tmp_path / 'new', text='A different complete sentence.', identity='owned:new')
+    session.import_library(other)
+    restarted = PreparedCaptureSession(tmp_path / 'application')
+    assert not restarted.running and restarted.history.count() == 1
+    assert restarted.history.get(emitted[0]['id']).favorite
+    assert restarted.audio_path(emitted[0]['id']).read_bytes() == original
+
+
+def test_failed_and_cancelled_import_retain_complete_library_and_history(tmp_path):
+    archive, _ = fixture_library(tmp_path / 'input')
+    store = PreparedLibraryStore(tmp_path / 'store')
+    store.import_archive(archive)
+    old = store.pointer.read_bytes()
+    with pytest.raises(InterruptedError):
+        store.import_archive(archive, cancelled=lambda: True)
+    assert store.pointer.read_bytes() == old
+    corrupt = tmp_path / 'corrupt.zip'
+    with zipfile.ZipFile(archive) as source, zipfile.ZipFile(corrupt, 'w') as target:
+        for name in source.namelist():
+            target.writestr(name, b'changed' if name == 'textmap.json' else source.read(name))
+    with pytest.raises(ValueError):
+        store.import_archive(corrupt)
+    assert store.pointer.read_bytes() == old
+    assert store.current().is_dir()
+
+
+def test_original_archive_references_and_path_escapes_are_not_mobile_code_or_audio(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    with zipfile.ZipFile(archive) as source:
+        raw = source.read('textmap.json')
+    assert b'owned-authored-fixture' not in raw and b'prepared_clip' in raw
+    unsafe = tmp_path / 'unsafe.zip'
+    with zipfile.ZipFile(archive) as source, zipfile.ZipFile(unsafe, 'w') as target:
+        for name in source.namelist():
+            target.writestr(name, source.read(name))
+        target.writestr('../outside.py', 'raise RuntimeError()')
+    with pytest.raises(ValueError, match='Unsafe'):
+        PreparedLibraryStore(tmp_path / 'store').import_archive(unsafe)
+    assert not (tmp_path / 'outside.py').exists()
+
+
+def test_explicit_missing_and_unvoiced_capture_keep_their_status_and_settings_scope(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    missing = copy.deepcopy(payload['records'][0])
+    missing.update(text_id='owned:missing', audio=None, voice_status='unavailable', text_capture_verified=True)
+    missing['source_text'] = missing['english'] = missing['texts']['en'] = 'The unavailable sentence remains written.'
+    payload['records'].append(missing)
+    archive = write_prepared_library(payload, tmp_path / 'mixed.zip', {})
+    session = PreparedCaptureSession(tmp_path / 'application');session.import_library(archive)
+    text = missing['source_text'];generation = session.start()
+    assert not session.observe(generation, 1, [text], now=1)
+    assert not session.observe(generation, 2, [text], now=1.1)
+    session.update_settings({'capture_missing_audio': True})
+    assert not session.observe(generation, 3, [text], now=1.2)
+    generation = session.start()
+    assert not session.observe(generation, 1, [text], now=2)
+    emitted = session.observe(generation, 2, [text], now=2.1)
+    assert len(emitted) == 1 and emitted[0]['voice_status'] == 'unavailable' and not emitted[0]['has_audio']
+
+
+def test_wrong_player_branch_and_gaps_do_not_complete_confirmation(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input', player='female', game='genshin')
+    session = PreparedCaptureSession(tmp_path / 'application');session.import_library(archive)
+    session.update_settings({'genshin_player_voice': 'male'})
+    generation = session.start();text = payload['records'][0]['source_text']
+    assert not session.observe(generation, 1, [text], now=1)
+    session.index.player_voice = 'female'
+    assert not session.observe(generation, 2, [text], now=2)
+    assert not session.observe(generation, 3, [text], now=6)
+    assert len(session.observe(generation, 4, [text], now=6.1)) == 1
+
+
+def test_portable_source_identity_is_bounded_and_export_cancel_keeps_completed_destination(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    payload.update(fingerprint='official-' + 'a' * 64, source_region='global', source_mode='publisher', reader_revision=8,
+                   original_urls=['https://private.invalid/package'], account_diagnostics={'token': 'must-not-copy'})
+    output = tmp_path / 'prepared.zip'
+    write_prepared_library(payload, output, {'owned:line': tmp_path / 'input/tone.wav'})
+    with zipfile.ZipFile(output) as source:
+        portable = json.loads(source.read('textmap.json'))
+    assert {key: portable[key] for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision')} == {
+        key: payload[key] for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision')}
+    assert 'original_urls' not in portable and 'account_diagnostics' not in portable
+    original = output.read_bytes();calls = 0
+    def cancelled():
+        nonlocal calls
+        calls += 1
+        return calls >= 3
+    with pytest.raises(InterruptedError):
+        write_prepared_library(payload, output, {'owned:line': tmp_path / 'input/tone.wav'}, cancelled=cancelled)
+    assert output.read_bytes() == original and not output.with_suffix('.zip.pending').exists()
+    payload['fingerprint'] = 'https://private.invalid/package'
+    with pytest.raises(ValueError, match='source identity'):
+        write_prepared_library(payload, output, {})
+    assert output.read_bytes() == original

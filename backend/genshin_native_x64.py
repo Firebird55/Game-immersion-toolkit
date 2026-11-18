@@ -1,7 +1,8 @@
 """Bounded static original-native analysis with an exact software decoder closure.
 
 Game code is input data. The decoder is a pinned toolkit dependency, never an
-original game library. The current implementation supports Windows amd64 hosts.
+original game library. Windows amd64 uses the pinned original wheel. Android
+requires the explicitly installed, APK-verified owned CAPI provider.
 """
 from collections import deque
 import bisect
@@ -22,6 +23,22 @@ DECODER_DLL_SHA256 = '46b7c385efe50db4def8aa99aa351c44ea28b1f3c2ccbc4ca41dbb2a02
 DECODER_NOTICE_SHA256 = '404bd0cb0137ffb797258f844f53e5273f9b6d5781a1a359a2880411f49a4f30'
 MAX_IMAGE = 768 * 1024**2
 MAX_METHOD = 64 * 1024
+_android_decoder = None
+
+
+def install_android_decoder(provider):
+    """Owned host injection only; never an environment path or game plugin."""
+    from .android_x64_decoder import PackagedX64Decoder
+    _check(type(provider) is PackagedX64Decoder and provider.verified)
+    _check(not os.environ.get('LIBCAPSTONE_PATH'), 'An overridden native decoder path is unsupported.')
+    provider.require_android()
+    # The actual packaged CAPI must work before the dependency is advertised.
+    sample = list(provider.disasm(bytes.fromhex('488d05200000004869c007000000c3'), 0x1000))
+    _check(len(sample) == 3 and sample[0].operands[1].mem.disp == 32
+           and sample[1].operands[2].imm == 7 and sample[2].mnemonic == 'ret')
+    global _android_decoder
+    _android_decoder = provider
+    decoder.cache_clear()
 
 
 def _check(condition, reason='Unsupported, ambiguous or incomplete original-native input'):
@@ -32,10 +49,12 @@ def _check(condition, reason='Unsupported, ambiguous or incomplete original-nati
 @lru_cache(maxsize=1)
 def decoder():
     """Validate the exact native dependency before loading its library."""
+    _check(not os.environ.get('LIBCAPSTONE_PATH'), 'An overridden native decoder path is unsupported.')
+    if _android_decoder is not None:
+        return _android_decoder
     _check(sys.platform == 'win32' and platform.machine().lower() in {'amd64', 'x86_64'}
            and struct.calcsize('P') == 8,
            'Original Genshin native preparation currently requires a Windows amd64 host.')
-    _check(not os.environ.get('LIBCAPSTONE_PATH'), 'An overridden native decoder path is unsupported.')
     try:
         distribution = importlib.metadata.distribution('capstone')
         spec = importlib.util.find_spec('capstone')

@@ -1,0 +1,107 @@
+{
+  "cases": [
+    {
+      "frame_hex": "28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "known",
+      "result": {
+        "accepted": true,
+        "bytes": 5888,
+        "sha256": "80fa902af8107668cbd1ae5b402c178e119a405dbc3df5c64431f4ac7d9e93ec"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd0418bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "unknown",
+      "result": {
+        "accepted": true,
+        "bytes": 5888,
+        "sha256": "80fa902af8107668cbd1ae5b402c178e119a405dbc3df5c64431f4ac7d9e93ec"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd0418bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b",
+      "max_output_size": 5887,
+      "max_window_size_bytes": 1048576,
+      "name": "unknown_short_bound",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "truncated",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b78",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "trailing",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "concatenated",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "62726f6b656e",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "bad_magic",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd640016bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6a",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1048576,
+      "name": "checksum",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    },
+    {
+      "frame_hex": "28b52ffd0418bd0100e402417574686f726564207075626c6973686572206d657461646174612e204e6f2067616d6520636f6e74656e742e0a01007eb6d8ab32f7164d6b",
+      "max_output_size": 5888,
+      "max_window_size_bytes": 1024,
+      "name": "small_window",
+      "result": {
+        "accepted": false,
+        "error": "ZstdError"
+      }
+    }
+  ],
+  "max_window_size_unit": "bytes in pinned0.25 C backend",
+  "original_game_input": false,
+  "payload_bytes": 5888,
+  "payload_sha256": "80fa902af8107668cbd1ae5b402c178e119a405dbc3df5c64431f4ac7d9e93ec",
+  "schema": "toolkit-zstandard-authored-vectors-v1",
+  "version": "0.25.0",
+  "zstd": [
+    1,
+    5,
+    7
+  ]
+}

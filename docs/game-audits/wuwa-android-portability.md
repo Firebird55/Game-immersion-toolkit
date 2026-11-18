@@ -58,6 +58,12 @@ the next plan reports the unresolved release-manifest key/IV gate with Download
 and activation unavailable. Delete removes this game's managed cache while
 preserving other games and saved history. The shared service keeps the previous
 working content pointer when a stage is incomplete or verification fails.
+A metadata-only quote handle cannot restore as a verified module: it reports
+`publisher_bootstrap_incomplete`. Only a locally revalidated completed bootstrap
+stage reports the unresolved manifest-format gate. Ordinary compatibility
+preparation likewise distinguishes missing, invalid, wrong-generation and
+source-authentication ENTRY failures while keeping prior text/audio available;
+none of those states automatically means the game package format changed.
 
 Synthetic complete signed-APK tests exercise the actual shared service and
 transport on both logical platforms, text/text-audio selections, cancellation,
@@ -255,3 +261,31 @@ This is original-index/preflight evidence, not Android Oodle/audio playback or
 a complete cold on-device update. Device-native runtime packaging and validation, protected
 storage, full selected-language download/update/cancellation/delete and actual
 device playback remain required before claiming independent Android support.
+
+
+## Bounded Android bootstrap continuation
+
+The canonical provider accepts the maintained Android host's explicit
+`publisherCrypto()` capability and can consume a caller-supplied transport
+factory for an authored, bounded source fixture. The ordinary default remains
+`PublisherTransport`; injection changes neither the APK signature/content
+checks nor selected-member, source-generation and ELF registration checks.
+No crypto registry, desktop fallback or independent ENTRY input is introduced.
+The source fixture path is for host/device validation, not supplier acquisition
+or proof that a generated fixture is an original game package.
+
+The passive ELF reader now validates unconsumed section bounds without copying
+whole mapped sections. Dynamic symbol names are located in the read-only map,
+with the same bounds, terminators and exact target-name admission. Context
+cancellation reaches retained-source hashing, member hashing, symbol/relocation
+and initializer scans. Cancellation closes mappings, cleans provisional output
+and preserves the existing retained module and library. These changes reduce
+avoidable heap allocations; they do not set a whole-device memory guarantee.
+
+Host regressions exercise the explicit Android capability selection, shared
+transport, complete synthetic APK integrity and native registration to the
+`PreparationStage`, then the honest unresolved ENTRY gate. Original cached
+module comparison verifies identical derived output and registration without
+new transport. Actual APK source closure, mmap operation and authored fixture
+execution on Android remain separate app/device acceptance work. The stage
+still supplies no content `SourceProof`, language library or Ready state.

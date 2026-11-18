@@ -4,6 +4,7 @@ export const GAME_NAMES = {
   wuwa: 'Wuthering Waves', witcher3: 'The Witcher 3', nte: 'Neverness to Everness',
   beyond: 'BEYOND: Two Souls', heavyrain: 'HEAVY RAIN', starrail: 'Honkai: Star Rail',
   genshin: 'Genshin Impact', endfield: 'Arknights: Endfield',
+  reverse1999: 'Reverse: 1999', infinitynikki: 'Infinity Nikki',
   riseofthetombraider: 'Rise of the Tomb Raider', shadowofthetombraider: 'Shadow of the Tomb Raider',
   spyro: 'Spyro Reignited Trilogy', mgsvtpp: 'METAL GEAR SOLID V: THE PHANTOM PAIN',
   mgsvgz: 'METAL GEAR SOLID V: GROUND ZEROES', deathstranding: 'DEATH STRANDING',

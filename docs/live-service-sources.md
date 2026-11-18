@@ -30,6 +30,13 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 | `wuwa-global` | The 3.7.1 base leads to the active 3.7.19 story data, four independently versioned dub manifests and 231 movies per quality tier. The command compares 1,549 released file entries and can download an exact external WEM. |
 | `nte-global`, `nte-cn` | Regional branch chain and the publisher-verified decoded resource list, including file ranges inside packages. Global PC_140 1.4.11 lists 552 files and mainland PC_150 1.5.4 lists 366. The command downloads individual files by exact name and MD5. A second command matches the mainland publisher manifest to 121,753 Chinese strings in 195 namespaces. Later metadata and direct publisher probes are recorded below. |
 
+The owner-selected [update policy](live-service-completion.md#per-game-update-policy--november-17-2026)
+targets independent official updates for ZZZ, Endfield and Wuthering Waves.
+Genshin, Star Rail and NTE may use controlled, generation-verified community
+metadata fallbacks. All original audio remains publisher-supplied. Current
+bootstrap/default-parameter and fallback-verification gaps stay explicit in
+issues #83–#88; this policy is not a completion claim.
+
 The three HoYoPlay readers retry the individual immutable manifest or chunk
 after a network interruption and check its published digest before caching it.
 

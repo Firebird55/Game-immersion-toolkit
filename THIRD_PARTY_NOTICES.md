@@ -212,3 +212,18 @@ freely, subject to the following restrictions:
 
 3. This notice may not be removed or altered from any source
    distribution.
+
+# Android Capstone data decoder
+
+The Android candidate includes Capstone 5.0.7, built from its authenticated
+original source archive. Its original package, core and LLVM notices are
+included unchanged in the APK's `assets/native-decoder-licenses/` directory.
+See [the software recipe and runtime boundary](docs/android-data-decoder.md).
+
+# Android Zstandard dependency build
+
+The separate Android Zstandard 0.25.0 dependency build retains the original
+Python wrapper's BSD-3-Clause license, bundled Zstandard license documents,
+pythoncapi-compat 0BSD notice and embedded copyright notices. These originals
+accompany the generated wheels. See [the exact build and acceptance scope](docs/android-zstandard.md).
+This cohort is separate from the earlier installed decoder APK.

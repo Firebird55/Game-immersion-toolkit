@@ -1,0 +1,20 @@
+{
+  "schema": "toolkit-android-build-inputs-v1",
+  "gradle": {
+    "version": "8.11.1",
+    "source": "https://services.gradle.org/distributions/gradle-8.11.1-bin.zip",
+    "sha256": "f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6",
+    "maximum_bytes": 167772160
+  },
+  "android_gradle_plugin": "8.10.1",
+  "chaquopy": "17.2.0",
+  "python": "3.12.15-0",
+  "min_sdk": 24,
+  "compile_sdk": 36,
+  "target_sdk": 36,
+  "build_tools": "36.0.0",
+  "ndk": "27.3.13750724",
+  "abis": ["arm64-v8a", "x86_64"],
+  "signing": "host-local-debug-candidate-only",
+  "release_eligibility": false
+}

@@ -1,5 +1,6 @@
 """Resolve the active regional Wuthering Waves story, movie and dub manifests."""
 import base64
+import binascii
 from functools import lru_cache
 import gzip
 import io
@@ -132,14 +133,45 @@ def launcher(region='global', *, excluded=()):
 @lru_cache(maxsize=1)
 def _format(tools=None):
     from . import wuthering_metadata as metadata
+    from .preparation_errors import PreparationFailure
+    # This is the existing pinned compatibility input, not independent official
+    # derivation. The canonical Settings provider never falls back to it.
     raw = metadata.format_source(tools, FORMAT_SHA) if tools is not None else None
-    if raw is None:
-        raw = download(FORMAT_URL, limit=40 * 1024)
-        pak.check(hashlib.sha256(raw).hexdigest() == FORMAT_SHA)
-        if tools is not None:
-            metadata.remember_format(tools, raw, FORMAT_SHA)
-    return tuple(base64.b64decode(re.search(b'const ENTRY_' + name + b': &str = "([^"]+)";', raw)[1], validate=True)
-                 for name in (b'KEY', b'IV'))
+    downloaded = raw is None
+    if downloaded:
+        try:
+            raw = download(FORMAT_URL, limit=40 * 1024)
+        except OSError as error:
+            raise PreparationFailure('publisher_entry_source_unavailable',
+                'The Wuthering ENTRY key/IV input is unavailable. A verified manifest input is required before updating; existing prepared text and audio are unchanged.',
+                previous_snapshot_retained=True) from error
+        except ValueError as error:
+            raise PreparationFailure('publisher_entry_source_invalid',
+                'The Wuthering ENTRY source response could not be verified within its required bounds. Existing prepared text and audio are unchanged.',
+                previous_snapshot_retained=True) from error
+    if not isinstance(raw, bytes) or len(raw) > 40 * 1024 or hashlib.sha256(raw).hexdigest() != FORMAT_SHA:
+        raise PreparationFailure('publisher_entry_source_auth_failed',
+            'The Wuthering ENTRY input did not match its required source checksum. It was rejected; existing prepared text and audio are unchanged.',
+            previous_snapshot_retained=True)
+    try:
+        values = []
+        for name in (b'KEY', b'IV'):
+            matches = re.findall(b'const ENTRY_' + name + b': &str = "([^"\r\n]+)";', raw)
+            if len(matches) != 1:
+                raise ValueError('Expected one declaration')
+            values.append(base64.b64decode(matches[0], validate=True))
+        if len(values[0]) not in (16, 24, 32) or len(values[1]) != 16:
+            raise ValueError('Unsupported ENTRY input size')
+    except (ValueError, binascii.Error) as error:
+        raise PreparationFailure('publisher_entry_source_invalid',
+            'The verified Wuthering ENTRY source does not provide the required key and IV. Existing prepared text and audio are unchanged.',
+            previous_snapshot_retained=True) from error
+    if downloaded and tools is not None:
+        if not metadata.remember_format(tools, raw, FORMAT_SHA) or metadata.format_source(tools, FORMAT_SHA) != raw:
+            raise PreparationFailure('publisher_entry_cache_failed',
+                'The verified Wuthering ENTRY input could not be retained safely. Check app data storage and retry; existing prepared text and audio are unchanged.',
+                previous_snapshot_retained=True)
+    return tuple(values)
 
 
 def _archive_parameters(tools=None, historical=False):
@@ -226,12 +258,25 @@ def _bootstrap_package(tools, info, region):
 
 
 def _json(raw, tools=None):
-    text = raw.decode('utf-8-sig')
-    if text.lstrip().startswith('{'):
-        return json.loads(text)
+    from .preparation_errors import PreparationFailure
+    try:
+        text = raw.decode('utf-8-sig')
+        if text.lstrip().startswith('{'):
+            return json.loads(text)
+        cipher = base64.b64decode(text.strip(), validate=True)
+        if not cipher or len(cipher) % 16:
+            raise ValueError('Invalid encrypted ENTRY framing')
+    except (UnicodeError, ValueError, binascii.Error) as error:
+        raise PreparationFailure('publisher_metadata_invalid',
+            'The Wuthering release-metadata response is invalid. Existing prepared text and audio are unchanged.',
+            previous_snapshot_retained=True) from error
     key, iv = _format(tools)
-    cipher = base64.b64decode(text.strip(), validate=True)
-    return json.loads(unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher), 16))
+    try:
+        return json.loads(unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher), 16))
+    except (UnicodeError, ValueError) as error:
+        raise PreparationFailure('publisher_format_key_unresolved',
+            'The verified ENTRY input cannot read the current Wuthering release metadata. The current manifest key/IV source must be verified before updating; existing text and audio are unchanged.',
+            previous_snapshot_retained=True) from error
 
 
 def _manifest(url, sha, cache=None):

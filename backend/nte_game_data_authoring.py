@@ -17,6 +17,17 @@ OUTPUTS = ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'm
 MAX_OUTPUT = 128*1024**2
 
 
+def _maximum(name):
+    # Match the existing format consumers. The current graph is already close
+    # to 128 MiB; ordinary story growth must retain the established 256 MiB cap.
+    if name == 'dialogue-graphs.json':
+        from .nte_dialogue_graph import MAX_SOURCE_BYTES
+        return MAX_SOURCE_BYTES
+    if name == 'original-authoring.json': return 64*1024**2
+    if name == 'dialogue.usmap': return 8*1024**2
+    return MAX_OUTPUT
+
+
 def _failure():
     return GameDataError('nte_original_authoring_unavailable',
         'The original NTE dialogue information could not be completed. Your previous library is retained.', 409)
@@ -46,7 +57,7 @@ def _read(packet, ctx):
                 or receipt['files']['dialogue.usmap'] != receipt['type_schema']['sha256']): return None
         for name in OUTPUTS:
             path = root/name; _no_links(path)
-            if not path.is_file() or not 0 < path.stat().st_size <= MAX_OUTPUT: return None
+            if not path.is_file() or not 0 < path.stat().st_size <= _maximum(name): return None
             with path.open('rb') as stream:
                 if hashlib.file_digest(stream, 'sha256').hexdigest() != receipt['files'][name]: return None
         from . import nte_native_metadata as native
@@ -75,8 +86,8 @@ def plan(recipe, retained, ctx, reader, values):
         return required
     completed = _read(packet, ctx)
     if completed is not None:
-        return GameDataPlan('nte-language-records-'+content._identity(packet), None, None, handle=packet,
-            stage='content', message='Original NTE dialogue formats are verified. Complete language and audio preparation still follows.')
+        from . import nte_game_data_text as text
+        return text.plan(packet, completed, ctx, reader)
     # Reserve temporary registry/output copies and immutable publication, not
     # merely the final JSON sizes. No original native file is copied here.
     return GameDataPlan('nte-process-authoring-'+content._identity(packet), 0, 3*1024**3,
@@ -140,7 +151,7 @@ def download(plan, ctx, reader):
         outputs = {}
         for filename in OUTPUTS:
             path = staging/filename; _no_links(path)
-            if not path.is_file() or not 0 < path.stat().st_size <= MAX_OUTPUT: raise _failure()
+            if not path.is_file() or not 0 < path.stat().st_size <= _maximum(filename): raise _failure()
             outputs[filename] = path.read_bytes()
         receipt = {'schema': STAGE, 'recipe': content._identity(packet), 'metadata_receipt': retained['receipt'],
             'reader': reader.identity, 'type_schema': proof, 'validation': validation,

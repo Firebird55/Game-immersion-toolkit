@@ -1,9 +1,36 @@
 # Live-service subtitle completion
 
-Owner acceptance scope, agreed November 16, 2026, for issues #83–#88.
-The endpoint is reliable subtitle support and autonomous normal content updates.
+Owner acceptance scope, agreed November 16 and amended November 17, 2026,
+for issues #83–#88. The endpoint is reliable subtitle support and normal content
+updates under the per-game source policy below.
 It does not require cataloguing every sound without subtitles or cutting every
 film utterance at word boundaries. No release is requested.
+
+## Per-game update policy · November 17, 2026
+
+The owner accepted this split after reviewing the remaining maintenance work.
+This replaces the earlier requirement that all six games be independent of
+new community publications. It does not claim that the target routes are
+already implemented or that current coverage gaps have disappeared.
+
+| Games | Update target | Remaining implementation |
+| --- | --- | --- |
+| ZZZ, Endfield, Wuthering Waves | Independent official-server updates with frozen toolkit, helpers and initial third-party inputs. | ZZZ still needs official bootstrap parameter recovery; Endfield needs changed master-parameter/VFS mapping recovery; Wuthering needs bootstrap/default-key and manifest-parameter recovery. |
+| Genshin, Star Rail, NTE | Official text, translations and audio with a controlled community fallback for bindings, schemas or decryption metadata. New community data is permitted without a toolkit release. | Verify allowlisted source revisions, exact publisher-generation compatibility, immutable local provenance and failed-update retention in the ordinary provider. NTE keeps original native/fixed-seed schema derivation as its primary path. |
+
+Community fallback supplies descriptions and parameters, never an executable
+plugin or an alternative text/audio snapshot. Record its immutable source revision and content hashes alongside the
+regional publisher generation and selected dub. Validate its required tables,
+keys and bindings against that original generation before activation; a recent
+commit or successful decryption alone does not establish compatibility. Do not
+mix incompatible publisher and community generations or borrow another region's
+text. When no compatible input is available, report that preparation is waiting
+for compatible metadata and retain the previous usable library and recordings.
+
+Existing community libraries and fixed seeds may remain for all six games.
+The independent target concerns new runtime data publications, not rewriting
+every third-party library. A required new community publication means a game
+has not met the independent target, even if no toolkit release is needed.
 
 Desktop Capture setup provides separate, default-off controls for confirmed
 unvoiced dialogue and **Include subtitles without available audio**. The latter
@@ -115,27 +142,35 @@ of an omitted subtitled utterance or an incorrect binding. Historical technical
 test cuts alone are not current-game completion requirements; check whether the
 current game actually uses their subtitles before counting them as blockers.
 
-## Autonomous update acceptance
+## Update acceptance
 
-For each game, freeze toolkit code, helper versions and third-party data. Prepare
-one official version without a game installation, then let the same software
+For each game, freeze toolkit code and helper versions. Prepare one official
+version without a game installation, then let the same software
 discover another official version or substantive hotfix. Verify added/changed
 subtitles, translations and audio, retained older recordings, a fresh process,
 and recovery after an interrupted download. A version-number-only change is
 insufficient. Recorded/replayed baseline discovery must be identified explicitly.
 
-Existing third-party software, keys and format descriptions may remain pinned.
-New content must not require a new third-party data publication. Attempt to derive
+For ZZZ, Endfield and Wuthering, also freeze third-party data and block newer
+community inputs. Existing software, keys and format descriptions may remain
+pinned. New content must not require a new third-party data publication. Derive
 changed parameters and table descriptions from official client files before
 classifying a failure as an unsupported format/protocol change. New IDs, moved
 files, additional packages and missing data need representative regression tests.
-Failed preparation must retain the last usable generation.
+
+For Genshin, Star Rail and NTE, exercise the permitted community fallback through
+the ordinary provider. Record every changed immutable metadata revision, prove
+that it matches the selected original generation and reject stale/wrong-region
+inputs. Test an unavailable or invalid fallback, retained playback, retry and a
+fresh offline restart. Label this as hybrid acceptance, not publisher-only
+autonomy. All six retain the last usable generation after failed preparation.
 
 ## Closure
 
 Close an issue only after its current subtitle inventory is accounted for, all
 available active subtitle audio has correct bindings, the required regional/
-language/player variants are covered, the frozen update/recovery trial succeeds,
+language/player variants are covered, the applicable independent or hybrid
+update/recovery trial succeeds,
 and representative real playback plus inventory-wide checks pass. Keep docs and
 support summaries current and run the required publication/check gates.
 

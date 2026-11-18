@@ -1,0 +1,34 @@
+{
+  "schema": "toolkit-android-publisher-crypto-recipe-v1",
+  "contract": "toolkit-publisher-crypto-v1",
+  "library": "libtoolkit_publisher_crypto.so",
+  "source": {
+    "source": "https://files.pythonhosted.org/packages/a9/75/b8a9ba9a15b1b190d1fb21e75e921934c9bcd7e63e137f96b56ed274328c/pycryptodome-3.24.1.tar.gz",
+    "bytes": 4932558,
+    "sha256": "3f9e74444c0ecbec7af232a95d282c74b114d53212ce075ed17b7fd7dca32bb3",
+    "root": "pycryptodome-3.24.1",
+    "version": "3.24.1",
+    "members": {
+      "src/chacha20.c": "bc9ace8571f44a04a71b96c8d9bfd005a9844d19daa7e2e392e4fd87a9dd0af8",
+      "src/common.h": "193906918ffeb042be577ba61c96f55d08136cbae1a2b90a05195f1dd7e31ee4",
+      "src/endianess.h": "9b44dfb394e8ffe223efe5763f190b1343a480b3d9386180161e64f2f51a5d9e",
+      "src/errors.h": "5037ed290443ca14d738c3141a9ab4c76c384c308ba425845139ad389da67cee",
+      "LICENSE.rst": "4e04660d77c1c64e89d79537919fb8240fa21484a7e3db29f358b2c7f84ea073"
+    },
+    "definitions": ["HAVE_STDINT_H", "HAVE_POSIX_MEMALIGN", "NO_CPYTHON_MODULE", "PYCRYPTO_LITTLE_ENDIAN"],
+    "license": "LICENSE.rst",
+    "notice_sources": ["src/chacha20.c", "src/common.h", "src/endianess.h"]
+  },
+  "abis": {"arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android"},
+  "api": 24,
+  "ndk": "27.3.13750724",
+  "load_alignment": 16384,
+  "max_bytes": 67108864,
+  "chacha_key_bytes": 32,
+  "chacha_nonce_bytes": 12,
+  "original_client_execution": false,
+  "cpython": false,
+  "gmp": false,
+  "cffi": false,
+  "account_keys_reused": false
+}

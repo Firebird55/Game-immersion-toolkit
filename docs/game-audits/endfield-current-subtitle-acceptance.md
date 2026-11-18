@@ -59,8 +59,10 @@ still have incomplete genuine OCR and remain negative acceptance evidence.
 Worker, fixture and update results do not establish native gameplay,
 all-device or physical regional acceptance.
 
-The recommendation is to keep **#86 open only for the demonstrated active
-prologue audio exception** above. Further broad source, gameplay, native or
+The demonstrated active coverage exception keeps **#86 open**. The separate
+[independent-update requirement](../live-service-completion.md#per-game-update-policy--november-17-2026)
+also remains open for changed master-parameter and VFS mapping recovery; the
+content trial does not prove that recovery. Further broad source, gameplay, native or
 generic-reaction searches are not a closing requirement. Resume that one
 mechanism when a new authoritative, cue-specific voice or event-context
 reference can establish its complete publisher-source binding.
@@ -1056,3 +1058,18 @@ with all original identities retained as members and no other identity delta.
 See the [ordinary continuation evidence](endfield-official-parameters.md#ordinary-authored-validation-continuation--november-17)
 for exact wire/disk quotes, actual transfer/recovery proof and the distinct
 source-fixture, original-client-provenance and native-admission qualifications.
+
+The November 18 [engine/state-retention review](endfield-official-parameters.md#engine-registration-data-and-state-retention--november-18)
+finds the original engine's exact AssetBundle registration-name data but does
+not prove the native AssetBundle producer/handler or accept a key. The bounded
+two-column locator is negative. A separate exact-name/result-slot investigation
+establishes the original named-export lookup and argument-preserving dispatch.
+The complete 57-caller proof then establishes the actual same-index AssetBundle
+registration and synchronous path/CRC/offset transfer. The bounded loader route
+reaches a file-backed redirected entry whose next call targets declared
+zero-fill space. The original initializer/writer supplying that target remains
+unidentified; the route stops there. No header key, canonical admission or library activation follows;
+actual module-name input and engine trust remain unproved. A separate
+current-core synthetic service fixture verifies older-current/stage-pointer and
+recording retention on publication failure plus offline old activation; this
+does not establish actual Endfield Ready or resolve the remaining capture gates.

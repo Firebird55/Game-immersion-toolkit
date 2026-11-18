@@ -34,9 +34,11 @@ from .zzz_dialogue_context import ZzzDialogueContext
 from .nte_dialogue_context import NteDialogueContext
 from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
+from .zzz_cinema_context import CinemaFrame
 
 
-from .capture_confirmation import StableMatchTracker, capture_match_eligible
+from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
+from .floating_caption_policy import floating_caption_policy, observe_floating_contexts, positioned_training_matches
 
 
 @dataclass(slots=True)
@@ -179,12 +181,8 @@ class CaptureService:
         """
         if area != "16:9":
             return window
-        x, y, width, height = window.bounds
-        picture_width = min(width, round(height * 16 / 9))
-        picture_height = min(height, round(width * 9 / 16))
-        return replace(window, bounds=(x + (width-picture_width)//2,
-                                      y + (height-picture_height)//2,
-                                      picture_width, picture_height))
+        from .capture_geometry import picture_bounds
+        return replace(window, bounds=picture_bounds(window.bounds, area))
 
     def start(self) -> bool:
         if self._task and not self._task.done():
@@ -535,7 +533,8 @@ class CaptureService:
         # The menu's lower navigation may be more legible than its header.
         self._excluded_screen = self._classify_screen_header([*header_lines, *lines])
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd", "menu"}
-        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
+        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, cinematic_bounds, self.session_id,
                           getattr(self.textmaps, '_signature', None),
                           getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
                           getattr(self, 'context_scope', lambda: None)())
@@ -547,7 +546,6 @@ class CaptureService:
             self._tip_tracker.observe(None)
             self._visible_text_by_channel.clear()
             self._visible_match_started.clear()
-        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
         cinematic_match_score: float | None = None
@@ -555,6 +553,7 @@ class CaptureService:
         # Once the filmstrip layout is visible, inspect it on every pass; retain
         # the cheaper alternating cadence for ordinary gameplay/cutscenes.
         scan_cinematic = (self._visual_novel_layout or self._zzz_cutscene_context.scene is not None
+                          or self._zzz_cutscene_context.authored.active
                           or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
         cinematic_lines = []
@@ -562,6 +561,7 @@ class CaptureService:
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
             cinematic_image = self._capture(cinematic_bounds)
+            cinema_frame = getattr(self._window_frame, 'cinema_frame', None)
             cinematic_image = self._ocr_image(cinematic_image, window)
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
@@ -585,7 +585,7 @@ class CaptureService:
             movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
             movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
                 cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
-                configured=self.textmaps.player_voice)
+                configured=self.textmaps.player_voice, frame=cinema_frame)
             cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
 
         # The broad gameplay scan still rejects short HUD labels such as INFO.
@@ -842,25 +842,18 @@ class CaptureService:
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
         missing_lines = getattr(index, 'match_missing_audio_lines', None)
-        spec = STEAM_GAMES.get(game)
-        has_film_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_film_cues', 0)
-        has_top_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_top_dialogue_cues', 0)
-        has_song_cues = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get('publisher_song_cues', 0)
-        has_song_voices = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get(
-            'publisher_song_voices', has_song_cues)
-        has_world_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_world_dialogue_ui')
+        policy = floating_caption_policy(game, index, capture_unvoiced=settings.capture_unvoiced,
+            capture_missing_audio=getattr(settings, 'capture_missing_audio', False))
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None)
+        voice_enabled = policy.voice_enabled
         has_sns_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_sns_dialogue_ui')
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_world_cues or has_song_voices or (spec and spec.floating_dialogue) else None
-        voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
                  getattr(index, 'source_locale', None), getattr(index, '_signature', None),
                  getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced,
                  getattr(settings, 'capture_missing_audio', False), voice_enabled)
-        silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
-                              and index.status().get('unvoiced_count', 0))
-        missing_enabled = bool(getattr(settings, 'capture_missing_audio', False) and missing_lines
-                               and index.ready and index.status().get('missing_audio_count', 0))
+        silent_enabled = policy.silent_enabled
+        missing_enabled = policy.missing_enabled
         enabled = ((silent_enabled or missing_enabled or voice_enabled) and epoch == self._scan_epoch
                    and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
@@ -882,7 +875,7 @@ class CaptureService:
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
             return outcome
-        if has_song_cues and response.get('dialogue_menu'):
+        if policy.menu_blocks_frame(response.get('dialogue_menu')):
             self._wuwa_music.reset()
             self._unvoiced_scope = None
             return outcome
@@ -901,53 +894,18 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
-        training = {'body_groups': [], 'owners': ()}
-        if game == 'endfield':
-            observe_training = getattr(index, 'match_endfield_training_dialogue', None)
-            training = (observe_training(response.get('lines', []), image.size, direct=tuple(matches.values()),
-                        dialogue_menu=bool(response.get('dialogue_menu'))) if observe_training and silent_enabled else training)
-            matches = {identity: hit for identity, hit in matches.items() if hit.dialogue_kind != 'tutorial_step'}
-            matches.update((hit.text_id, hit) for hit in training.get('hits', ()))
-        if (voice_enabled and game == 'endfield') or (has_song_cues and (voice_enabled or missing_enabled)):
-            context = self._endfield_film if game == 'endfield' else self._wuwa_music
-            if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                context.reset()
-            else:
-                hit = context.observe(index, groups, matches.values(), channel='cinematic',
-                    kind='music_subtitle' if has_song_cues else 'cinematic',
-                    prefer_authored_occurrence=bool(has_song_cues),
-                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
-                    now=seen_at, stable_frames=settings.stable_frames)
-                if hit and self._capturable_match(hit):
-                    if has_song_cues:
-                        matches = {identity: old for identity, old in matches.items()
-                                   if old.source_ocr != hit.source_ocr
-                                   or not index.equivalent_caption_occurrence(old, hit)}
-                    matches[hit.text_id] = hit
-        if game == 'endfield':
-            contexts = []
-            if has_top_cues and voice_enabled:
-                contexts.append((self._endfield_top_dialogue, 'conversation', 'cinematic'))
-            if silent_enabled:
-                contexts.append((self._endfield_tutorial, 'tutorial_step', 'tip'))
-            for context, kind, channel in contexts:
-                if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                    context.reset()
-                    continue
-                context_groups = training['body_groups'] if kind == 'tutorial_step' else groups
-                context_owner = training['owners'] if kind == 'tutorial_step' else None
-                hit = context.observe(index, context_groups, matches.values(), channel=channel, kind=kind,
-                    scope=(scope, self.session_id, index.player_voice, index.target_locale, context_owner),
-                    now=seen_at, stable_frames=settings.stable_frames, prefer_authored_occurrence=True)
-                if hit and self._capturable_match(hit):
-                    for identity, other in list(matches.items()):
-                        if (identity != hit.text_id and other.source_ocr == hit.source_ocr
-                                and index.equivalent_caption_occurrence(other, hit)):
-                            del matches[identity]
-                    matches[hit.text_id] = hit
-        if has_world_cues and voice_enabled:
-            # This direct complete-caption route never feeds predecessor
-            # contexts. NPC choices elsewhere in the frame remain separate.
+        matches, training = positioned_training_matches(index, matches, response.get('lines', []), image.size,
+            enabled=silent_enabled, dialogue_menu=bool(response.get('dialogue_menu')))
+        contexts = ({'film': self._endfield_film, 'top': self._endfield_top_dialogue,
+                     'tutorial': self._endfield_tutorial} if game == 'endfield' else
+                    {'music': self._wuwa_music} if game == 'wuwa' else {})
+        matches = observe_floating_contexts(index, groups, matches, contexts, policy, game=game,
+            scope=(scope, self.session_id, getattr(index, 'player_voice', None), getattr(index, 'target_locale', None)),
+            now=seen_at, stable_frames=settings.stable_frames, capturable=self._capturable_match,
+            dialogue_menu=response.get('dialogue_menu', False), excluded=getattr(self, '_excluded_screen', None),
+            training=training)
+        if policy.world_cues and policy.voice_enabled:
+            # Complete visible world captions do not feed temporal predecessors.
             hit = index.match_endfield_world_caption(response.get('lines', []), image.size)
             if hit and self._capturable_match(hit):
                 matches[hit.text_id] = hit
@@ -970,7 +928,7 @@ class CaptureService:
             active_keys.add(key)
             previous = self._unvoiced_trackers.get(key)
             tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
-            tracker.configure(max(2, settings.stable_frames) if hit.voice_status == 'voiced' else settings.stable_frames)
+            tracker.configure(capture_confirmation_frames(hit, settings.stable_frames, full_frame=True))
             if self._is_fresh_match(key, key, seen_at) and tracker.observe(key) and self._can_emit(key, seen_at):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel=channel)
                 if line is not None:
@@ -1264,60 +1222,9 @@ class CaptureService:
         return match
 
     @staticmethod
-    def _local_subtitle_rows(response: dict, size: tuple[int, int],
-                             region: CaptureRegion, game: str) -> dict:
-        """Exclude response choices and corner HUD from the lower subtitle lane.
-
-        Coordinates refer to the OCR image, which may have been rescaled. Keep
-        the user's crop independent of screen resolution and Windows DPI.
-        """
-        if game in STEAM_GAMES:
-            # These readers use their independent, user-calibrated caption crop.
-            # Source captions can be left aligned and Persona's text is beside a
-            # portrait: older centered-caption/HUD rules would silently erase it.
-            # Matching still requires the authored catalog and an eligible voice
-            # or explicitly enabled text-only record. Off-lane silent content is
-            # handled by the separate stable, exact full-frame pass.
-            return response
-        rows = []
-        dialogue_menu = False
-        for row in response.get("lines", []):
-            # Interaction labels must not be treated as spoken subtitles.
-            known_ui_label = normalize_subtitle(str(row.get("text", ""))) in {
-                "talk", "open", "close", "back", "continue", "apply", "cancel",
-                "sprint", "jump", "roach", "horse", "interact", "next", "skip",
-                "select", "exit", "map", "inventory", "attack", "yourturn", "gatheringredients",
-                "交谈", "对话", "互动", "继续", "取消", "确定", "退出", "跳跃",
-                "冲刺", "攻击", "选择", "返回", "跳过", "打开", "关闭", "地图", "背包",
-            }
-            rectangle = row.get("bounding_rect") or {}
-            try:
-                left = region.left + min(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
-                right = region.left + max(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
-                top = region.top + min(float(rectangle[f"y{i}"]) for i in range(1, 5)) / size[1] * region.height
-            except (KeyError, ValueError, TypeError):
-                rows.append(row)
-                continue
-            text = str(row.get("text", ""))
-            short_label = (len(re.findall(r"[a-zA-Z]+", text)) == 1 and len(normalize_subtitle(text)) < 12)
-            short_label |= bool(re.search(r"[\u3400-\u9fff]", text) and len(normalize_subtitle(text)) < 4)
-            caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.72, .96) if game == "honkai3" else (.79, .96)
-            # HEAVY RAIN's documents and thought options can repeat the spoken
-            # paragraph above its centered subtitle lane.
-            if game == 'heavyrain' and not caption_band[0] <= top <= caption_band[1]:
-                continue
-            # Moving harvest names can match a unique voiced word exactly. Keep
-            # single short words only in the observed centered caption band.
-            if (short_label or known_ui_label) and not caption_band[0] <= top <= caption_band[1]:
-                continue
-            # Response menus sit to the right, above the centered caption.
-            if left > (.52 if game == "cyberpunk" else .60) and top < (.84 if game == "cyberpunk" else .80):
-                dialogue_menu = True
-                continue
-            if not .22 <= (left + right) / 2 <= .78:
-                continue
-            rows.append(row)
-        return {**response, "lines": rows, "dialogue_menu": dialogue_menu}
+    def _local_subtitle_rows(response: dict, size: tuple[int, int], region: CaptureRegion, game: str) -> dict:
+        from .caption_layout import local_subtitle_rows
+        return local_subtitle_rows(response, size, region, game)
 
     def _scan_local_chatter(self, window: WindowInfo, engine: OcrEngine, epoch: int,
                             now: datetime, game: str, main_match: TextMatch | None,
@@ -1956,30 +1863,51 @@ class CaptureService:
 
     @staticmethod
     def _region_bounds(window: WindowInfo, region: object) -> tuple[int, int, int, int]:
-        window_x, window_y, window_width, window_height = window.bounds
-        left = window_x + min(window_width - 1, round(window_width * region.left))
-        top = window_y + min(window_height - 1, round(window_height * region.top))
-        width = max(1, min(window_x + window_width - left, max(50, round(window_width * region.width))))
-        height = max(1, min(window_y + window_height - top, max(50, round(window_height * region.height))))
-        return left, top, width, height
+        from .capture_geometry import region_bounds
+        return region_bounds(window.bounds, region)
 
     def _prepare_window_capture(self, window: WindowInfo) -> None:
         # Each worker/preview request owns its frame; a timed-out OCR worker
         # must not overwrite a replacement worker's capture or calibration.
         self._window_frame.image = None
+        self._window_frame.handle = getattr(window, 'handle', None)
+        self._window_frame.cinema_frame = None
         self._window_frame.bounds = window.bounds
         self._window_frame.image = self._background_capture.frame(window)
 
     def _capture(self, bounds: tuple[int, int, int, int]) -> Image.Image:
         left, top, width, height = bounds
         frame = getattr(getattr(self, '_window_frame', None), 'image', None)
+        self._window_frame.cinema_frame = None
         if frame is not None:
             origin_x, origin_y, _, _ = self._window_frame.bounds
             return frame.crop((left - origin_x, top - origin_y,
                                left - origin_x + width, top - origin_y + height))
+        handle = getattr(self._window_frame, 'handle', None)
+        before = self._foreground_capture_handle()
+        started = time.monotonic()
         with mss.mss() as capture:
             shot = capture.grab({"left": left, "top": top, "width": width, "height": height})
+        finished = time.monotonic()
+        if handle and before == handle == self._foreground_capture_handle():
+            self._window_frame.cinema_frame = CinemaFrame(self._scan_index, started, finished, True)
         return Image.frombytes("RGB", shot.size, shot.rgb)
+
+    @staticmethod
+    def _foreground_capture_handle():
+        # Only this actual foreground MSS path proves acquisition freshness.
+        # RGB1 background images carry no timestamp and never enter this guard.
+        import ctypes
+        import sys
+        if sys.platform != 'win32':
+            return None
+        try:
+            user = ctypes.WinDLL('user32', use_last_error=True)
+            user.GetForegroundWindow.argtypes = []
+            user.GetForegroundWindow.restype = ctypes.c_void_p
+            return user.GetForegroundWindow()
+        except (OSError, AttributeError):
+            return None
 
     def _set_preview(self, image: Image.Image) -> None:
         encoded = self._encode_preview(image)

@@ -46,17 +46,22 @@ class Context:
         return self.budget - self.consumed
 
 
-def fixture(tmp_path, monkeypatch, *, region='global', mode='text', wrong_whole=False):
+def fixture(tmp_path, monkeypatch, *, region='global', mode='text', wrong_whole=False, profile_wrong_whole=False):
     request = GameDataRequest(region, 'ja', ('en',), mode)
     ctx = Context(tmp_path, request)
     base = 'https://' + sophon.CHANNELS['genshin-' + region][3] + '/authored'
     encode = zstandard.ZstdCompressor().compress
     md5 = lambda b: hashlib.md5(b).hexdigest()
     objects, original, body = {}, {}, b''
-    for number, name in enumerate(provider._names(region)):
-        chunks = [b'S' * 512, bytes([65 + number]) * 512]
-        data = b''.join(chunks); original[name] = data
-        row = field(1, name.encode()) + field(4, len(data)) + field(5, ('0' * 32 if wrong_whole and number == 0 else md5(data)).encode())
+    profile_name = ('GenshinImpact' if region == 'global' else 'YuanShen') + '_Data/StreamingAssets/authored_profile.blk'
+    authored_files = [(name, [b'S' * 512, bytes([65 + number]) * 512]) for number, name in enumerate(provider._names(region))]
+    authored_files.append((profile_name, [b'authored original profile container']))
+    for number, (name, chunks) in enumerate(authored_files):
+        data = b''.join(chunks)
+        if name in provider._names(region):
+            original[name] = data
+        bad_whole = wrong_whole and number == 0 or profile_wrong_whole and name == profile_name
+        row = field(1, name.encode()) + field(4, len(data)) + field(5, ('0' * 32 if bad_whole else md5(data)).encode())
         for offset, chunk in enumerate(chunks):
             identity = '0' * 16 + '_' + md5(chunk)
             objects[base + '/' + identity] = archive = encode(chunk)
@@ -128,8 +133,8 @@ def test_original_stage_counts_shared_chunks_and_never_becomes_a_snapshot(tmp_pa
     assert len(calls) == before + 1  # Current launcher discovery only, no payload.
 
 
-def seed_fixture(tmp_path, monkeypatch):
-    source, ctx, calls, objects, originals, build = fixture(tmp_path, monkeypatch)
+def seed_fixture(tmp_path, monkeypatch, **options):
+    source, ctx, calls, objects, originals, build = fixture(tmp_path, monkeypatch, **options)
     plan = source.plan(ctx.request, ctx)
     ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
     source.download(plan, ctx)
@@ -138,17 +143,129 @@ def seed_fixture(tmp_path, monkeypatch):
     reads = []
     def initial_seed(executable, metadata, *, expected_owner):
         from backend.genshin_native_dispatch import InitialSeed, SCHEMA
-        assert executable == originals[provider._names('global')[0]]
-        assert metadata == originals[provider._names('global')[1]]
+        assert executable == originals[provider._names(ctx.request.region)[0]]
+        assert metadata == originals[provider._names(ctx.request.region)[1]]
         assert expected_owner == {'executable_sha256': hashlib.sha256(executable).hexdigest(),
                                   'metadata_sha256': hashlib.sha256(metadata).hexdigest()}
         reads.append(expected_owner)
         value = '123456789abcdef0'
+        contract = {'schema': 'genshin-original-channel-loader-v1', 'source_basename': 'authored_profile.blk',
+            'source_field': {**expected_owner, 'field': {'name': 'channelConfigBlkName'}},
+            'config_fields': ['ChannelName', 'DispatchConfigs'], 'dispatch_fields': ['DispatchName', 'DispatchUrls'],
+            'object_candidates': [{'id': 0x10203040}], 'profile_only': True,
+            'complete_dispatch_bootstrap': False, 'later_override_excluded': False,
+            'methods': [{'name': 'GetConfigChannel', 'sha256': 'a' * 64, 'rva': 100},
+                        {'name': 'LoadChannelConfigBlk', 'sha256': 'b' * 64, 'rva': 200}]}
         return InitialSeed(value, {'schema': SCHEMA, **expected_owner,
             'value_sha256': hashlib.sha256(value.encode()).hexdigest(),
-            'later_override_excluded': False, 'complete_dispatch_bootstrap': False})
+            'later_override_excluded': False, 'complete_dispatch_bootstrap': False, 'channel_loader': contract})
     monkeypatch.setattr(source.runtime, 'initial_seed', initial_seed)
     return source, ctx, calls, plan, reads
+
+
+def profile_fixture(tmp_path, monkeypatch, **options):
+    source, ctx, calls, plan, reads = seed_fixture(tmp_path, monkeypatch, **options)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', 0, 0
+    seed = source.download(plan, ctx)
+    ctx.stage_handle = seed.restore_handle
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    plan = source.plan(ctx.request, ctx)
+    assert plan.stage == 'original-channel-profile'
+    decodes = []
+    def channel_profile(executable, path, original, contract, *, directory, check_cancel):
+        from backend.genshin_original_bootstrap import PreparedProfile, SCHEMA
+        assert hashlib.sha256(executable).hexdigest() == contract['source_field']['executable_sha256']
+        assert path.read_bytes() == b'authored original profile container' and directory == ctx.directory
+        assert original['name'].endswith('/authored_profile.blk') and original['md5'] == hashlib.md5(path.read_bytes()).hexdigest()
+        check_cancel(); decodes.append(original)
+        payload = json.dumps({'ChannelName': 'AUTHORED', 'DispatchConfigs': [{'DispatchName': 'A',
+            'DispatchUrls': ['https://authored.yuanshen.com/query_region_list']}], 'RSAParam': {'keyId': 7}}).encode()
+        parameters = b'authored parameters'
+        return PreparedProfile(payload, parameters, {'schema': SCHEMA, 'source': original,
+            'native_executable_sha256': contract['source_field']['executable_sha256'],
+            'loader_contract_sha256': hashlib.sha256(provider._canonical(contract)).hexdigest(),
+            'codec_parameters_sha256': hashlib.sha256(parameters).hexdigest(), 'codec_method_sha256s': ['c' * 64],
+            'helper_identity': source.runtime.validate().identity, 'profile_only': True, 'complete_dispatch_bootstrap': False,
+            'full_catalog_validated': False, 'selected_shards_validated': False, 'later_override_excluded': False,
+            'response_signature_verified': False, 'community_numeric_data_used': False, 'complete_named_object_map': True,
+            'strict_payload_eof': True, 'payload_bytes': len(payload), 'payload_sha256': hashlib.sha256(payload).hexdigest(),
+            'object_id': contract['object_candidates'][0]['id'], 'original_codec_candidates_tested': 3,
+            'body_bytes': 512, 'body_sha256': hashlib.sha256(b'authored complete body').hexdigest()})
+    monkeypatch.setattr(source.runtime, 'channel_profile', channel_profile)
+    return source, ctx, calls, plan, decodes
+
+
+@pytest.mark.parametrize('region', ['global', 'cn'])
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_ordinary_profile_stage_is_quoted_accounted_private_retained_and_never_ready(tmp_path, monkeypatch, region, mode):
+    source, ctx, calls, plan, decodes = profile_fixture(tmp_path, monkeypatch, region=region, mode=mode)
+    library = tmp_path / 'complete-library'; library.write_bytes(b'accepted complete library')
+    assert plan.runtime_available and plan.download_bytes > 0 and plan.required_disk_bytes > 4 * 1024**2
+    assert len(plan.handle['profile_ledger']['files']) == 1 and len(plan.handle['profile_ledger']['chunks']) == 1
+    assert all(kind != 'audio' for _, kind in calls)
+    before = len(calls)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
+    result = source.download(plan, ctx)
+    assert isinstance(result, PreparationStage) and result.restore_handle['phase'] == 'original-channel-profile'
+    assert len(calls) == before + 1 and ctx.consumed == plan.download_bytes and len(decodes) == 1
+    assert library.read_bytes() == b'accepted complete library'
+    assert all(value not in json.dumps(result.restore_handle) for value in ('123456789abcdef0', 'https://authored.', 'authored parameters'))
+    artifacts = list((ctx.cache_directory / ('genshin-original/' + region + '/channel-profiles')).glob('*.json'))
+    assert len(artifacts) == 1
+    cached = json.loads(artifacts[0].read_bytes())
+    assert cached['proof']['profile_only'] is True and cached['proof']['full_catalog_validated'] is False
+    assert cached['proof']['selected_shards_validated'] is False and cached['proof']['response_signature_verified'] is False
+    monkeypatch.setattr(source.runtime, 'channel_profile', lambda *a, **k: pytest.fail('Trusted restart decoded again'))
+    ctx.stage_handle = result.restore_handle
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    next_plan = source.plan(ctx.request, ctx)
+    assert next_plan.stage == 'original-content-reader' and not next_plan.runtime_available
+    assert next_plan.download_bytes is next_plan.required_disk_bytes is None
+    with pytest.raises(GameDataError, match='not a prepared dialogue library'):
+        source.restore(result.restore_handle, ctx)
+    cached['payload'] = cached['payload'].replace('AUTHORED', 'ALTERED')
+    cached['proof']['payload_bytes'] = len(cached['payload'].encode())
+    cached['proof']['payload_sha256'] = hashlib.sha256(cached['payload'].encode()).hexdigest()
+    artifacts[0].write_text(json.dumps(cached))
+    retry = source.plan(ctx.request, ctx)
+    assert retry.stage == 'original-channel-profile' and retry.download_bytes == 0
+
+
+@pytest.mark.parametrize('failure', ['decoder', 'cancel', 'method-receipt', 'size', 'ledger', 'native-source', 'whole-profile'])
+def test_profile_stage_failure_preserves_prior_stage_and_library_and_requotes_cached_retry(tmp_path, monkeypatch, failure):
+    source, ctx, calls, plan, _ = profile_fixture(tmp_path, monkeypatch, profile_wrong_whole=failure == 'whole-profile')
+    previous = ctx.directory / 'original-native-inputs.json'; saved = previous.read_bytes()
+    library = tmp_path / 'complete-library'; library.write_bytes(b'accepted complete library')
+    decode = source.runtime.channel_profile
+    def failing(*args, **kwargs):
+        if failure == 'decoder':raise ValueError('Authored unsupported codec')
+        result = decode(*args, **kwargs)
+        if failure == 'cancel':ctx.stopped = True
+        elif failure == 'method-receipt':result.proof['codec_method_sha256s'] = []
+        return result
+    monkeypatch.setattr(source.runtime, 'channel_profile', failing)
+    if failure == 'size':plan = replace(plan, download_bytes=plan.download_bytes + 1)
+    elif failure == 'ledger':plan.handle['profile_ledger']['files'][0]['bytes'] += 1
+    elif failure == 'native-source':
+        row = plan.handle['seed_owner']['sources'][0]
+        (ctx.cache_directory / 'genshin-original/global/sources' / row['md5']).write_bytes(b'new changed original')
+    before = len(calls)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
+    with pytest.raises(GameDataError):source.download(plan, ctx)
+    assert previous.read_bytes() == saved and library.read_bytes() == b'accepted complete library'
+    assert not list((ctx.cache_directory / 'genshin-original/global/channel-profiles').glob('*.json'))
+    assert not list((ctx.cache_directory / 'genshin-original/global').rglob('*.pending'))
+    if failure in {'size', 'ledger', 'native-source'}:assert len(calls) == before
+    if failure in {'decoder', 'cancel', 'method-receipt'}:
+        ctx.stopped = False
+        monkeypatch.setattr(source.runtime, 'channel_profile', decode)
+        ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+        retry = source.plan(ctx.request, ctx)
+        assert retry.stage == 'original-channel-profile' and retry.download_bytes == 0
+        before = len(calls)
+        ctx.phase, ctx.budget, ctx.consumed = 'download', 0, 0
+        assert source.download(retry, ctx).restore_handle['phase'] == 'original-channel-profile'
+        assert len(calls) == before
 
 
 def test_original_seed_stage_has_no_transfer_and_reopens_source_owned_private_receipt(tmp_path, monkeypatch):
@@ -167,9 +284,8 @@ def test_original_seed_stage_has_no_transfer_and_reopens_source_owned_private_re
     ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
     ctx.stage_handle = result.restore_handle
     next_plan = source.plan(ctx.request, ctx)
-    assert next_plan.stage == 'original-content-reader' and not next_plan.runtime_available
-    assert next_plan.download_bytes is next_plan.required_disk_bytes is None
-    assert all(word in next_plan.message for word in ('RSA', 'signature', 'overrides'))
+    assert next_plan.stage == 'original-channel-profile' and next_plan.runtime_available
+    assert next_plan.download_bytes > 0 and next_plan.required_disk_bytes > next_plan.download_bytes
     assert len(calls) == before + 1  # Current publisher identity, never seed/content/audio transfer.
     receipt = json.loads(receipts[0].read_bytes()); receipt['value'] = '0' * 16
     receipt['proof']['value_sha256'] = hashlib.sha256(receipt['value'].encode()).hexdigest()

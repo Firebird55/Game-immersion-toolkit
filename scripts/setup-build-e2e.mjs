@@ -75,23 +75,34 @@ try{
   page.on('response',response=>{if(response.url().startsWith(base)&&response.status()===404)missing.push(new URL(response.url()).pathname);});
   page.on('pageerror',error=>errors.push(error.message));
   page.on('console',message=>{if(message.type()==='error'&&!message.text().includes('net::ERR'))errors.push(message.text());});
+  const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'*'};
+  const gameData={id:'zzz',title:'Zenless Zone Zero',state:'not_downloaded',revision:null,installed_revision:null,can_activate:false,
+   region:'global',content_mode:'text',source_locale:'ja',target_locales:['en'],installed_bytes:0,deletable_bytes:0,retained_bytes:0,
+   download_bytes:null,download_is_upper_bound:false,required_disk_bytes:null,plan_id:null,job:null,
+   can_plan:true,can_download:false,can_delete:false,message:'Check size first.'};
   await context.route('http://127.0.0.1:8766/**',route=>{
    const path=new URL(route.request().url()).pathname;
-   if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup','/api/setup/games/zzz/languages'].includes(path)){
+   if(path==='/api/game-data'&&route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
+   if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup','/api/setup/games/zzz/languages','/api/game-data'].includes(path)){
     unexpected.push(route.request().method()+' '+path);
     return route.fulfill({status:500,json:{detail:'Unexpected packaged browser API request'}});
    }
+   if(path==='/api/game-data')return route.fulfill({json:{schema:'game-data-v1',games:[gameData]},headers:cors});
    if(path==='/api/setup')return route.fulfill({json:{completed:true,version:'fixture',games:[],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:false,mobile_export:{state:'idle'},free_gb:10}});
    if(path==='/api/setup/games/zzz/languages')return route.fulfill({json:{context:{runtime_id:'build-fixture',state_version:0,account_generation:0},selected:null,locales:[{locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:null}],enabled_languages:null,targets:{},translation_locales:['en']}});
    const region={left:.1,top:.6,width:.8,height:.25};
-   const status={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Fixture'},audio:{ready:false},settings:{auto_start:false,preferred_game:'auto',region,tip_region:region,cinematic_region:region},session:{id:'fixture',line_count:0,total_line_count:0}};
+   const status={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Fixture'},audio:{ready:false},settings:{auto_start:false,preferred_game:'zzz',region,tip_region:region,cinematic_region:region},session:{id:'fixture',line_count:0,total_line_count:0}};
    const value=path==='/api/snapshot'?{context:{runtime_id:'build-fixture',state_version:0,account_generation:0},status,lines:[],lexirise:{configured:false,sent:{}}}:path==='/api/status'?status:path==='/api/lexirise'?{configured:false,sent:{}}:[];
    return route.fulfill({json:value,headers:{'Access-Control-Allow-Origin':'*'}});
   });
   await context.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
-  await page.getByRole('button',{name:'Prepare language',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Game data',exact:true}).click();
+  await page.getByRole('button',{name:'Check download size',exact:true}).waitFor();
+  assert.equal(await page.getByRole('combobox',{name:'Game data content',exact:true}).inputValue(),'text');
+  assert(await page.getByRole('button',{name:'Download',exact:true}).isDisabled(),'Unknown size cannot authorize a download');
+  await page.keyboard.press('Escape');
   // font-display:swap can mount the desktop before its fonts finish. Complete
   // and verify both faces before navigation can abort the previous document.
   await page.waitForFunction(async()=>{

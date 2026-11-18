@@ -575,8 +575,8 @@ builder and remote-JSON consumer. That builder consumes
 `UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
 explicitly overrides the baseline SDK configuration from these native fields;
 launcher values and baseline SDK values therefore cannot be substituted without
-proving ownership. The actual regional settings producer, exact signature
-dataflow and dynamic-chain deserializer remain open. No request using guessed
+proving ownership. Effective regional selection, final protocol validation and
+the dynamic-chain deserializer remain open. No request using guessed
 client material, community key, Lua VM or original game execution is made.
 
 ## Passive Android relocation metadata
@@ -607,6 +607,273 @@ original registration metadata. No native method body or original code is read
 or executed by that format proof. The source is the previously authenticated CN
 module; this does not establish Global settings, settings values or a complete
 fresh native preparation. Further owner-specific semantic work remains separate.
+
+## Original settings owner and regional-selection gate
+
+Separately approved, bounded static inspection follows that exact reflected
+registration through the native result store, class factory and default-object
+getter. The factory identifies `/Script/X6Game`, `X6PackageSettings` and the
+`X6PackageSettings` configuration category. Argument roles are checked against
+Epic's [class-factory declaration](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/CoreUObject/UObject/GetPrivateStaticClassBody?application_version=5.5):
+the fourth argument registers native methods; the constructor is a later stack
+argument. An earlier registration-callback/constructor interpretation is explicitly
+corrected in the private proof. The actual constructor initializes storage and
+calls a base helper; the inspected instructions do not provide regional CMS
+values. This remains a CN/common native owner, not proof of a Global default.
+
+The matching Global publisher inventory independently identifies the original
+`Default_Ini_2872_P.pak` configuration family. One approved 958,806-byte BuildPatch
+carrier supplies five complete selected files totaling 510,135 bytes, including
+the 508,202-byte PAK. Strict generation checks, complete chunk integrity and all
+five manifest-declared file SHA-1 checks pass. The companion signature's eight
+CRC blocks also agree with the complete PAK; that CRC check is not a new RSA
+signature verification. Native-derived default material verifies both complete
+plaintext indices and all 232 compact-entry references.
+
+Exactly nine source-owned settings INIs are then decoded from that verified
+whole PAK with zero new network bytes. Their combined 16,726 decoded bytes pass
+member-header, bounds, decoding and member-SHA-1 checks. Ordered sections,
+assignments and operators are preserved privately; application credentials and
+their values are not published. The relevant section is
+`/Script/X6Game.X6PackageSettings`. Each file explicitly assigns `CMSApiUrl`,
+`ClientID` and `ClientKey` once. The nine files form two different equivalence
+groups, so they cannot be treated as universally interchangeable:
+
+| Explicit source fields | Checked settings variants | CMS host and equality |
+| --- | --- | --- |
+| `GameArea=Cn`, `RegionId=1` | Default and `Area_CN`, `Area_CNB`, `Area_CNS` | `api-infinity.papegames.com`; the three CMS fields agree within this group. |
+| `GameArea=Oversea`, `RegionId=4` | `Area_ASG`, `Area_ENG`, `Area_OS`, `Area_OSE`, `Area_OSS` | `api.infoldgames.com`; the three CMS fields agree across all five variants. |
+
+These are literal source fields and directory names, not inferred meanings for
+the area abbreviations. Channel values differ; `OverseaRegion` is explicit in
+only two of the five latter variants. The retained successful anonymous Global
+launcher response reports `(region, channel, role)=(4, 3, 0)`, which matches one
+of these profiles by values. Original Global `FirstLoginViewModel` metadata
+maps `RegionId`, `ChannelId` and `Role` to those three patch-list request fields.
+The exact retained function's platform guard now resolves to lowercase `ios`
+or `mac`; `windows` returns before settings or URL construction. These aliases
+therefore do not bind a Windows profile. Other updater methods read
+`CMSConfig.Region/Channel` from
+`UPaperHotUpdateRuntimeSettings`; the build-version field named `Region` is not
+silently equated with `X6PackageSettings.RegionId`.
+
+Epic's [configuration hierarchy](https://dev.epicgames.com/documentation/en-us/unreal-engine/configuration-files-in-unreal-engine?application_version=5.5)
+defines later-layer overrides, and its [target reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-build-tool-target-reference)
+identifies `CustomConfig` as an additional build-selected configuration folder.
+Those generic rules do not identify Nikki's actual selected Global build or
+prove every game-specific merge/override. The current source-owned selection
+and effective-setting chain must still be bound before making a CMS request.
+Agreement within the RegionId-4 group narrows that question; it does not justify
+using default/CN values or launcher credentials. No CMS request, original-code
+execution, nonzero-GUID default-key attempt, caption/voice binding or Ready
+snapshot is claimed by this checkpoint.
+
+A separately bounded read of two already parsed Global Lua prototypes totals
+95 instructions / 380 bytes and 1,588 metadata bytes, with no original reread or
+VM execution. `PaperSDKMgr` lines 1787-1809 maps an ISO/area code using the
+already loaded native `GameArea`, an ISO map and an unread `GetPackageArea`
+fallback. It does not establish the original CustomConfig selector or effective
+CMS candidate set. `FirstLoginViewModel` lines 667-690 supplies the audit/platform
+guard correction above. No additional callee, constructor or configuration
+merge order is inferred. The five equal Oversea CMS triplets remain insufficient
+until original dataflow proves that complete effective candidate set.
+
+The retained signed Global launcher configuration supplies `appConfig.area` and
+executable-path fields in `gameConfig`, but no startup-argument, `CustomConfig`
+or `GameArea` field. Neither existing BuildVersion descriptor supplies those
+selectors. Both name `X6Game-Win64-Shipping`, while the already parsed 507-file
+base manifest and the rechecked 188-file FastPatch manifest contain no matching
+executable or `.exe`/`.dll` file record. The manifests do expose
+`LaunchExeString` and `LaunchCommand`; both are empty in FastPatch and in the
+approved 4,096-byte base prefix. This check rereads only the 476,738-byte cached
+FastPatch metadata with full SHA-256 and that base prefix, acquiring zero network
+or native bytes. It identifies no actual Global startup/config-load producer,
+retained Global game-native owner or complete executable carrier/disk quote.
+Those sizes remain unknown, not zero. The Global launcher and CN/common native
+are separate sources; equality with a Global game-native module is not assumed.
+These empty fields do not justify a new executable-preparation implementation.
+
+The retained Global request builder now supplies its exact static signature
+dataflow: the settings object's `ClientKey` followed by the formatted timestamp
+feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
+`timestamp` and `sig`; string parameter values use the original percent-escape
+rule. The single-chain parameter is `<platform>_PACDKCINFO_<version>`; a group
+uses `<platform>_<group-id>_<version>`. These orders come from instruction
+operands, rather than concatenating a guessed URL from constant names.
+
+The same authenticated native source's reflected string-parameter/result edge
+reaches a concrete hash and conversion owner. Bounded passive inspection proves
+ASCII byte preservation in scalar, 32-byte SIMD, 8-byte SIMD and remainder paths
+for the nine checked settings' ASCII signature inputs. The output formats 16
+digest bytes with `%02x`. The algorithm profile independently matches the
+[MD5 reference](https://www.rfc-editor.org/rfc/rfc1321.html): four initial state
+words, all 64 round constants, all 64 rotations in their canonical order,
+padding/length framing and little-endian digest serialization. This is stronger
+than a function name or IV alone; it is not a complete proof of every transform
+Boolean expression/message-word selection or execution of the original code.
+
+The final completion phase stops at its eight approved windows and 3,324 new
+instruction bytes, below the 4,096-byte cap, with zero network bytes. Its private
+ledger explicitly invalidates one 64-byte off-owner data read caused by a manual
+padding-pointer transcription. The corrected comparison derives the pointer
+from original instructions; no value from the mistaken range is published or
+used. The CMS response envelope exposes `gameConfigParameter.key/value`, not an
+independent current-edition assertion. Exact requested-key equality, native
+keychain/group framing and compatibility with the current Global package GUID
+and full plaintext index hash remain required before acceptance. No CMS request
+or new preparation capability is delivered by this static protocol checkpoint.
+
+The shared `publisher_pe_signature.py` now isolates the existing Windows offline
+Authenticode verifier behind explicit publisher identities and a selected-file
+size bound. It preserves locked-handle, reparse, offline trust, signer and
+post-verification hash checks. Endfield's wrapper retains its existing publisher,
+16 MiB limit, API, receipt and unavailable-host failure. This adds no Android PE
+chain capability; the shared APK/JCA RSA primitive is not a substitute.
+
+The ordinary Nikki provider now continues from the verified native stage to a
+context-owned Global launcher-source quote. It discovers the current official
+website/NSIS metadata, pins actual source size and strong ETag and quotes the
+complete selected member plus its final generation check before transfer. Disk
+requirements bound the temporary decode; an upper-bound label remains explicit.
+The consented download checks framing/Deflate EOF and complete PE publisher
+trust, retains the verified original source and a hashed receipt, and returns
+only `global-sdk-source`. Requote rediscovers changed validators; cancellation,
+source/signature failure and damaged receipts preserve prior data. Restore is
+local and reports the next SDK reader gate. Android's missing PE verification
+capability is disclosed before the native bootstrap download and cannot fall
+back to a verifier running on the development PC.
+
+Launcher config/SDK ciphers now accept the explicit shared cryptography object;
+their default desktop implementation is lazy. Pure anonymous SDK request and
+response functions are also used by the retained legacy discovery entry point;
+the next ordinary continuation still has to wire these through context-owned
+transport. `infinity_nikki_build_stage.py` now supplies that ordinary continuation:
+it reconstructs the anonymous request from the verified PE, uses only
+context-owned POST/GET operations and follows the returned Global build pointer.
+The current original BuildVersion response is plain UTF-8 JSON; bounded unique
+fields, finite values and the source-owned version/path schema are checked.
+An actual wrapped response instead needs material freshly derived from the
+retained, verified native source. A directory name does not imply a wrapper.
+It quotes both actual manifest sizes/strong ETags before
+whole transfer. Complete local SHA-256, authored JSON/chunk/file ownership and
+final generation-prefix checks bind the retained base/FastPatch manifests.
+These local manifest hashes are not separately published publisher signatures.
+Requote reads fresh SDK/build identities; modified consent, damaged sources or
+interrupted updates retain old data. Local restore reports the explicit
+configuration-reader gate. SDK region/channel values and `build.Region` stay
+separate; patch precedence is not inferred from role labels or `CustomFields`.
+
+The next ordinary stage now selects the manifest-owned current
+`Default_Ini_<DefaultVersion>_P` package and all five companions as a single
+verified source group. Missing companions or multiple base/FastPatch owners
+stop before acquisition; overlay precedence is not guessed. The quote includes
+complete shared carriers, unused mixed content, temporary storage and generation
+checks. Complete chunk SHA-1 and all five file SHA-1 checks are required before
+retention; a companion file's checksum is not independent signature acceptance.
+Requote, interruption cleanup, modified consent and offline retained-file
+checks use the ordinary preparation contexts. The next ordinary plan now derives
+the zero-GUID material afresh from the retained authenticated native consumer,
+checks this complete Global PAK's main/directory plaintext hashes, and sizes
+only index-owned settings-category members. Nonzero GUIDs stop before trying
+the default producer. CustomConfig variants are discovered from the directory,
+without a regional-label allowlist or profile selection. The required decoded
+disk size and compression names are shown before member preparation. Android
+retains the explicit owned-codec gate. The Windows continuation now accepts only
+the existing closed bundled software inventory and fixed app-local Node runtime:
+the maintained [ooz-wasm preferred source](https://github.com/SnosMe/ooz-wasm/tree/ebed82851988add824e092dc4db320c8fa39aaca)
+is GPL-3.0-or-later, with complete source archives, terms, Emscripten notices and
+the toolkit's source-build recipe retained. A separate read-only verification
+checks all 12 source-build companions and their independent policy hashes;
+this is a source-built embedded WASM decoder, not an original game DLL.
+
+The capability reuses the existing production software-container validator and
+checks the fixed Node/wrapper/generated-module hashes before and after bounded
+batch execution. It preserves the wrapper's copied output, removes developer
+loader/npm environment and has no PATH, source-node_modules, network, game-library
+or Android fallback. A missing capability keeps the inactive size plan. With
+the capability available, normal zero-download member preparation checks every
+original member SHA-1, preserves ordered sections, repeated assignments and
+operators, and retains raw INIs with hash-bound receipts. Requote, interruption,
+decoder failure and offline retained-data checks use the normal contexts. It
+returns only the next settings-profile stage; no CMS request or regional merge
+is performed. The nine private research INIs cannot supply this preparation.
+CMS construction must consume the normal source receipt and keep the
+response/keychain gate explicit.
+The PAK reader now accepts the same explicit platform cryptography object;
+desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
+from stored-size width. This removes that import barrier without proving an
+Android device runtime or admitting a nonzero-GUID archive.
+Separately bounded native registration work identifies two original
+consumers: creation receives `(chainName, Base64value)` and group serialization
+receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
+native call edges are identified; their bodies and serialized schema remain
+unread. Neither a cache-getter's direction nor a UClass owner is inferred from
+adjacency alone. No extra remote source bytes or CMS requests are acquired.
+
+A frozen ordinary launcher-stage replay uses the actual previously retained
+official NSIS/PE bytes, the normal provider and preparation contexts, the actual
+Windows PE trust verifier, and local restore. Its quote is 6,849,423 bytes,
+including the final four-byte generation check, with a 74,217,459-byte disk
+upper bound. Peak additional files are 229,713,140 bytes, below the approved
+230 MiB replay cap; exact temporary native/PE copies are then removed. Original
+source and complete earlier APK-v2 receipt hashes remain unchanged. The native
+input is explicitly adapted from that historical complete receipt and passes
+the native consumer/retained-source checks again. The missing old launcher ETag
+is replaced only by an explicitly authored offline HTTP validator. This proves
+the frozen source-stage boundary, not a fresh server generation, real original
+ETag exchange, repeated cold APK stream, current SDK server reply or game data
+readiness. It fetches zero new source bytes and uses no research INI shortcut.
+
+A subsequent frozen metadata probe obtains one real anonymous SDK response,
+the source-returned plain BuildVersion JSON and two 32-byte manifest prefixes:
+11,522 new response bytes in total, with no software, PAK or voice acquisition.
+The current manifest pins match both earlier completely verified source files.
+Those whole manifests are replayed through ordinary contexts from retained
+bytes, checking 507 base and 188 FastPatch file owners. The manifest quote is
+42,448,925 bytes, including generation checks, with 42,597,252 bytes of additional
+disk. The final generation checks in this replay reuse the captured fresh
+prefixes; this is not a fresh whole-manifest download or an independent
+post-download server check. The prior native receipt and authored old launcher
+validator retain their qualifications. Peak additional files are 272,206,692
+bytes, below the approved 300 MiB cap; exact temporary copies are removed and
+original hashes stay unchanged. The initial wrapper-only assumption safely
+stopped on the original plain document and was corrected before replay; the
+actual SDK response and request timestamp were retained without a second POST.
+No snapshot, selected profile, dynamic keychain or language readiness is proved.
+
+The frozen configuration-carrier continuation also passes from the normal
+retained parent receipts with zero new response bytes and no research INI input.
+It reconstructs all five complete source files and verifies the same manifest
+SHA-1 values. Its quote is 958,838 bytes / 2,649,484 additional disk bytes; peak
+temporary files are 272,730,445 bytes, below 300 MiB. Only exact temporary copies
+are removed. This replay uses the carrier's historical original ETag and does
+not establish a fresh configuration-server generation or companion RSA trust.
+
+The separately frozen ordinary index continuation also passes from those normal
+source receipts: freshly derived RAM-only native material verifies this Global
+configuration PAK's full indices and discovers nine settings members, 16,726
+decoded bytes, all Oodle. The inactive next plan shows zero additional download
+bytes and 16,726 bytes of member storage. No member is decoded and no profile is
+selected. This phase acquires zero new response bytes, retains the same historical
+source qualifications, stays below 300 MiB of temporary files and removes only
+its exact temporary copies. An accepted owned Oodle capability remains the next
+concrete runtime requirement.
+
+A subsequent frozen normal member-stage replay uses the actual maintained
+source-built decoder and app-local Node, not a codec stand-in. Its independent
+source/license/recipe audit passes all 12 companions, 33,144,879 bytes. Through
+the normal provider, quotes and retained parent sources, all nine original
+members decode to 16,726 bytes and pass complete original member SHA-1, ordered
+section/assignment parsing, retained receipt and offline restore checks. It
+downloads zero new game or software bytes and executes no original client code.
+The zero-download member quote requires 149,582 bytes of additional storage,
+including receipts. Peak additional files are 272,769,195 bytes, below 300 MiB;
+all 17 distinct temporary source/member copies are removed and originals remain
+unchanged. This is a verified component-layout replay of the existing software
+inventory, not a new complete packaged-app delivery, application-source equality
+or Android acceptance claim. Historical parent-source qualifications remain.
+The next explicit stage is effective settings/profile and CMS/keychain
+verification; no profile is merged and no CMS request, snapshot or Ready is made.
 
 ## Presentation inventory and finite completion boundary
 

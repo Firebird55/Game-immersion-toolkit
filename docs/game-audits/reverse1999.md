@@ -1,6 +1,6 @@
 # Reverse: 1999 source and coverage audit
 
-Status checked **2026-11-17**. Tracked in
+Status checked **2026-11-18**. Tracked in
 [#144](https://github.com/Firebird55/Game-immersion-toolkit/issues/144).
 This is provider research and tested public launcher discovery, **not a playable
 toolkit adapter**. The game must remain unavailable for preparation until its
@@ -490,8 +490,382 @@ No candidate method metadata or body is read in that phase, and no network or
 additional retained file is needed. Formal metadata alone does not establish
 the ARouter registration map. The next source-owned method candidate is this
 implementation's `createTapAppDownloadServiceProxy()`; its declared code location
-and actual return producer still require a separately bounded pass. A unique
-interface implementer is not treated as an anonymous game-download request.
+and actual return producer are checked in the separately bounded pass below.
+A unique interface implementer is not treated as an anonymous game-download
+request.
+
+### Bounded concrete factory and conditional metadata-request chain
+
+The exact candidate factory is subsequently read from the same signed cache:
+method 52,177, code item 4,984,264. Its six code units / twelve bytes allocate
+`com.taptap.game.downloader.impl.download.notification.j`, call that object's
+constructor, and return the same object. The constructor body is not read.
+Formal metadata confirms that `j` implements the service proxy interface and
+`PreDownloadService$b`.
+
+A separately bounded follow-up inspects eight source-owned methods, totaling
+1,766 instruction bytes within an eight-method / 4,096-byte ceiling. The exact
+`j.onStartCommand` body alone is 928 bytes, with its separately approved 16-byte
+try table and eleven-byte handler list. The batch checks each full signed DEX
+hash and register/invoke, instruction, branch and exception-handler bounds;
+its total exception metadata is 32 try-table and 35 handler bytes. No constructor
+body, original execution, generic URL/key scan or new request is involved.
+
+The source-owned chain reaches `notification.a.a(AppInfo, Function0)`, concrete
+coroutine bridges and finally `com.taptap.game.common.net.f.e`. Its caller passes
+the exact path operand `/app/v1/mini-multi-get`, a map key `ids`, and response
+class `com.taptap.common.ext.support.bean.app.f`. **The pass stops at that network
+owner and the eight-method limit.** Its request builder is not read; no base
+host, HTTP method, headers, accountless availability or actual response is proved.
+
+This is a conditional **level-info-update** branch, gated by the original
+`AppInfo.isLevel` and related-game state. Reverse:1999's actual branch value is
+unresolved, so the path is not claimed as its ordinary APK delivery route.
+The proxy also receives existing `download_id` and `app_info` values from an
+Android intent. Its separately instantiated callback `j$b` is examined in the
+finite follow-up below. The exact `ids` value comes through another source-owned
+`AppInfo` helper whose body remains unread. These concrete boundaries do not
+establish a game-package URL, official GameConfig initializer or usable catalog;
+both content modes remain unavailable for preparation.
+
+The level-info branch stops without reading its HTTP builder or making a
+request. A separately approved normal-callback batch instead checks four exact
+methods, totaling 182 instruction bytes within its four-method / 2,048-byte cap:
+`j$b.invoke():Object`, `j$b.invoke():void`, `notification.b.l(downloadId, info)`
+and `notification.b.c(downloadId, AppInfo)`. Every step revalidates the signed
+member hash and register/invoke/instruction/branch bounds; no constructor or
+network operation is performed.
+
+The observed chain performs auxiliary notification bookkeeping with an already
+supplied ID: notification records, timestamps, `AppInfo` maps and a widget
+callback. It then calls `notification.b.p(downloadId)`, which remains unread.
+No APK/source request, URL construction or creation of a new download ID is
+observed in these four methods. This finite branch stops without a claim about
+the unread callee or the whole application.
+
+The notification callback does not construct its incoming task ID. The separate
+source-owned locator below establishes the service Intent's writer, while the
+actual task/descriptor origin remains unresolved. Neither auxiliary branch
+establishes impossible official derivation or activates a community-key fallback.
+
+### Exact service-Intent producer and download-center caller
+
+A metadata-only inventory of the exact `TapAppDownloadService` type finds only
+two carriers among all seven authenticated DEX members: `classes4.dex` and
+`classes6.dex`. One formal `const-class` operand lookup is restricted to those
+carriers. Their 111,648 code items and original method declarations pass numeric
+instruction, payload, branch and handler bounds; 5,999,758 instruction bytes are
+width-walked in 3.907 seconds. This is an exact type-operand index, without generic
+strings, endpoints, keys or semantic constructor/callee inspection. Gross existing
+source I/O is 83,551,012 bytes, including a recorded stopped reader preflight and
+repeated source-hash validation, within the separately approved 128 MiB ceiling.
+No server bytes are transferred.
+
+The lookup identifies three `notification.i` methods in `classes4.dex` and one
+separate store self-upgrade method in `classes6.dex`. Only the exact normal
+candidate `notification.i.d(Context, String, AppInfo)` is then inspected:
+280 instruction bytes, 24 try-table bytes and nine handler bytes. Its signed
+source and typed bounds pass. The other three candidate bodies remain unread.
+
+| Original service Intent field | Authored source |
+| --- | --- |
+| Target component | `TapAppDownloadService` |
+| `app_info` | The incoming `AppInfo` object as a Parcelable |
+| `download_id` | The incoming String argument, unchanged when nonempty |
+| `app_id` / `app_title` | Optional `AppInfo.mAppId` / `mTitle` compatibility fields |
+| `fg_service` | SDK/lifecycle-dependent service-start state |
+
+The method invokes the source-owned `notification.g.a(Context, Intent)` helper
+or Android `Context.startService`, including a direct start-service fallback.
+It creates the service Intent, **not a download URL or a new task ID**; no helper
+body is inspected.
+
+A second exact owner/signature inventory and formal invoke-operand lookup finds
+the service writer's single direct caller in the indexed DEX space:
+`com.taptap.game.downloader.impl.download.DownloadCenterImpl.x(String, AppInfo)`,
+method 52,041 in `classes4.dex`. Its header declares eight code units / sixteen
+instruction bytes; its semantic body remains unread at this checkpoint. This
+bounded pass revalidates 65,469,780 existing bytes, width-walks 3,114,348 instruction
+bytes and completes in 2.047 seconds, without network requests or other semantic
+body inspection.
+
+The genuine remaining upstream target is now that download-center caller's
+source for the supplied `AppInfo` and download ID. Starting the service with
+forwarded values does not prove their APK metadata origin. No official game APK,
+GameConfig initializer, English base/hotfix catalog or content preparation is
+accepted from these partial source proofs.
+
+### Download-center task/configuration boundary
+
+A separately bounded upstream phase checks eight exact bodies / 1,112 instruction
+bytes, below its eight-method / 8,192-byte ceiling. Their total exception metadata
+is eight try-table and six handler bytes. Signed source hashes and typed register,
+invoke, instruction, branch and handler bounds pass for every step. No constructor,
+notification-service branch, network request or original execution is involved.
+
+The sixteen-byte `DownloadCenterImpl.x` forwards its two incoming values. Its
+only own-class caller is an eight-byte synthetic accessor `g`. Formal
+`EnclosingMethod` / `EnclosingClass` annotations establish the exact compiler
+members of this class without relying on a namespace guess. Restricted accessor
+lookups across those proven members identify `DownloadCenterImpl$b$a.run` as
+the caller. The two formal passes cover 80 code items / 6,966 instruction bytes
+in 0.171 seconds, within the 1,024-item / 1 MiB / two-minute limit.
+
+That runnable and its exact task-builder accessor establish these source paths:
+
+| Value or operation | Authored source / remaining boundary |
+| --- | --- |
+| Download ID passed to service startup | `extensions.c.f(AppDownloadService$a)` uses a non-null supplied option ID; otherwise it calls still-unread `c` / `a` fallback helpers |
+| `AppInfo` passed to service startup | The runnable reads `DownloadCenterImpl$b.a`; that field's initialization remains unread |
+| Existing task configuration | `b.h` calls `GameDownloaderService.getApkInfo(id)` and reuses the returned task |
+| New task configuration | `b.h` calls `GameDownloaderService.createApkInfo(AppInfo, type)` |
+
+The exact service facade and companion resolve
+`ARouter.navigation(GameDownloaderService.class)`. Formal interface/inheritance
+metadata over the seven signed DEX members finds two concrete candidates in
+`classes4.dex`: `GameDownloaderServiceImpl` and `GameDownloaderServiceLoaderProxy`.
+The registration binding is not yet proved, so neither candidate's method body
+is chosen or read. The phase stops at its eight-method limit.
+
+This is genuine task/configuration ownership, rather than another notification
+consumer. The next original source boundary is the router's concrete provider
+binding for `createApkInfo`, followed by that evidenced descriptor producer.
+The option-ID fallbacks and captured `AppInfo` initialization remain separate,
+explicit provenance gaps. No actual APK URL, request contract, game key or
+preparable catalog follows from the unresolved interface; both content modes
+remain unavailable.
+
+### Original routed delegate and title/icon refresh
+
+The bounded annotation pass reads only the two exact candidates' original
+class annotations: 603 metadata bytes, apart from necessary signed-source hash
+validation. `LoaderProxy` alone has the original runtime-visible
+`@Route(path="/game_downloader/service")`; `Impl` has only
+`SourceDebugExtension`. The authored proxy reads its typed
+`$$delegate_0: GameDownloaderServiceImpl` and directly calls that final
+implementation. Generated provider-index activation and runtime router
+execution remain unverified.
+
+The implementation's task factory calls `requestApkInfo`, which launches the
+owned coroutine. Its relative path is `/app/v1/mini-multi-get`, with `ids` and
+response model `com.taptap.common.ext.support.bean.app.f`. A later complete
+response-consumer pass **corrects the earlier interpretation of this helper**:
+it copies only the returned app's title and icon into the task. It does not
+supply an APK transfer URL or replace the task's file descriptor. This branch
+is stopped; its name is not APK-delivery evidence.
+
+The exact ID helper selects the literal `default` button flag and reads
+`appLaunch.appId`, returning null when absent. There is no fallback to
+`AppInfo.mAppId`. The retained Reverse:1999 SSR has no such launch value; no
+website ID is substituted. That absence does not imply the page lacks a file
+descriptor.
+
+For completeness, this stopped branch's static request-contract pass proves a
+POST request-model enum and conditional plugin identity in the input map. It
+does not establish absolute host, transmitted headers, authentication,
+accountless availability or a working game request. Its eight selected bodies
+total 580 instruction bytes. No endpoint is called or client code executed.
+
+### Native APK descriptor and actual file-source boundary
+
+The exact original `AppInfo$URL` class is uniquely defined in the signed
+`classes3.dex`. Its field annotations bind `mId` to JSON **`md5`** and `mSize`
+to **`size`**. `mId` must therefore not be interpreted as a literal URL or the
+page's numeric APK identifier. The already retained publisher-linked
+[TapTap page](https://www.taptap.cn/app/221062) contains those exact descriptor
+fields for its primary, default mainland APK, with the previously inventoried
+MD5 and **1,990,140,900-byte** size. Its separate nonprimary cloud-game variant
+is excluded. This is a native-schema match for existing distribution metadata,
+not a computed game-APK checksum or a transfer URL.
+
+The selected task factory copies this size and passes the MD5 to its original
+source object's setter. That setter only stores the value. The original enum
+switch, numeric selector getter and initializer establish the concrete regular
+`LOCAL_TOTAL` route: type 1 selects `bd/e`; the different `SANDBOX` type 3
+selects `bd/g`. This follows the authored branch rather than choosing an
+implementation by name. The ordinary source `bd/e` inherits `getUrl`, which
+only returns a stored field. Its own `y()` returns local storage search paths,
+not network descriptors; that local-search branch is stopped. No source URL is
+constructed by the inspected methods.
+
+This real-source phase stops at its eight-body limit: 736 instruction bytes,
+32 try-table bytes and 19 handler bytes. Each selected body is checked against
+its complete signed DEX hash and typed instruction, register, branch and
+handler bounds. All DEX input is existing signed cache, and the SSR is the
+existing publisher-linked response; new origin bytes and client execution
+remain zero. The remaining concrete boundary is the source's
+`FileDownloaderType` and the consumer that populates or resolves its
+stored URL from the MD5/size descriptor. No anonymous delivery route, original
+game module, key, text/audio catalog or Ready state is established.
+
+A research-reader correction is retained explicitly. An earlier locator
+incorrectly assumed DEX `class_defs` were ordered by type index and reported
+the shared base source absent. A dependent metadata fallback then exceeded the
+64 KiB metadata allocation before finding that exact class; this is not a
+successful within-budget phase or a game-format failure. No unrelated method
+body or network data was read. The reader now requires a verified numeric
+class-definition index and stops on locator failure. A separately approved
+262,020-byte index pass covers all 65,491 original class definitions in the
+seven signed DEX members without reading names or bodies. Rechecking the five
+relevant earlier locator results changes only that base-class false negative;
+the other definitions remain unchanged. The overrun and failed preflight
+checks remain recorded. The independently verified signed model annotations
+and retained SSR descriptor are not reclassified as a transfer proof.
+
+### Concrete download-engine and descriptor-fetch consumer
+
+The next exact source getter returns `FileDownloaderType.APK`. A formal
+operand-only inventory for the three approved `tc.d` method signatures finds
+only `classes4.dex` as a carrier and six call sites for its type getter.
+`getUrl` and its setter are not declared under that interface owner; the actual
+engine uses the inherited `tc.b.getUrl` operand. This is an owner distinction,
+not a failed source format. The complete signed source and formal instruction,
+payload, branch and handler checks pass for the positive carrier. The bounded
+locator consumes a conservative 78,617,063 existing bytes in 2.078 seconds;
+there is no generic string, URL or key search.
+
+One concrete consumer, `downloadv3.e.r`, directly calls `downloadv3.f.m`.
+That engine reads the stored URL, creates `tapfiledownload.core.b` and calls
+`start()`. Its preparatory `f.d` only handles local reset state and is stopped.
+Before engine construction, `e.r` also delegates through `impl.a.h` and `g`
+to `downinfo.a.c`, which calls the actual file-info fetcher `downinfo.fetch.c.i`.
+These are original typed edges, not a claim that every runtime setting selects
+this engine.
+
+The actual fetcher builds a file-info parameter map plus a separately
+delegated context map, allocates the exact `fetch.c$a` coroutine and uses
+`runBlocking`. This is a different producer from the stopped title/icon helper.
+The next bounded pass below establishes its native ID input, relative request
+paths and concrete source-URL assignment. It does not establish current live
+parameter values, absolute host, transmitted identity or accountless behavior.
+
+This consumer phase stops at eight bodies / 3,174 instruction bytes, 72
+try-table bytes and 26 handler bytes, with the original signed-source and typed
+bounds checks. New origin bytes and code execution remain zero. The next source
+step is the exact allocated fetch coroutine and its concrete request/response
+owners, not another broad store-client or Windows packed-code search.
+
+### Original APK-detail paths and response-to-source assignment
+
+The exact allocated fetch coroutine dispatches between `/apk/v1/detail` and
+`/apk/v1/detail-with-user` after examining account login state. The ordinary
+path calls the same source-owned `common.net.f.e` and POST-model transport
+already examined independently. The context-map helper has also been read;
+no concrete device/account values are collected or copied. These static edges
+do not prove that a live accountless request succeeds, or that account
+credentials are needed for the ordinary path.
+
+Only necessary original initialization is read. The task factory takes
+`Download.getMApkId()` when present, otherwise `AppInfo.apkId`; its value flows
+through the task field, the exact downinfo constructor and the exact fetch
+constructor into the request's `id`. The earlier URL-model `md5` is a different
+value and is not substituted. The exact `AppInfo.apkId` annotation is only
+`Deprecated`, with no demonstrated JSON-name annotation. That fallback does
+not establish the page-to-native ID binding. The next original-model pass below
+instead closes the primary download getter's own schema; absence of a fallback
+annotation is not evidence of an impossible official route.
+
+The complete response collector stores the typed file-info response. Its
+consumer `downinfo.a.m` delegates the ordinary source assignment to
+`downinfo.c.e`, which passes `fetch.b.a()` directly to `tc.b.setUrl`. The
+separate patch path has its own typed getter. This establishes an actual
+response-to-source assignment, rather than a title/icon update. The next
+original-model pass below identifies the exact nested JSON URL member before
+any live response is consumed.
+
+That eight-body phase reaches the exact `compat.net.c.v` default wrapper and
+its `c.u(FlowCollector, e7.d, int, Continuation)` delegate. The next bounded pass
+below covers that implementation and its external configuration boundary. No
+detail endpoint is called and no header, ID or hash URL is guessed.
+
+This phase stops at eight bodies / 2,302 instruction bytes, eight try-table
+bytes and six handler bytes. Explicit fail-fast metadata accounting records
+40,792 bytes including exact owner locators, declarations, necessary
+initializers, typed references and the negative annotation result, below the
+64 KiB allocation. Each original DEX hash and method bounds is verified. The
+earlier reader overrun remains recorded separately; this later metered pass
+does not erase it. New origin bytes and original-code execution remain zero.
+Preparation, all regional text/audio coverage and normal-update acceptance
+remain open, with no Ready state or community fallback.
+
+### Native primary ID, nested URL schema and injected transport
+
+The original primary `Download.getMApkId()` getter returns its own field with
+`@SerializedName("apk_id")`. That exact key is already present in the retained
+primary default `download` record: **1073124**, tied to the same package, MD5
+and size. This now establishes the native request-ID binding for that cached
+record through the previously proven constructors and input map. It does not
+use the deprecated fallback, website app ID, MD5 or absent native launch flag.
+This remains one retained generation, not a fresh live-detail response.
+
+The exact URL getter returns its original `@SerializedName("download")` field.
+The response-envelope getter returns the `@SerializedName("apk")` member, whose
+original subtype formally inherits that URL model. The ordinary assignment is
+therefore **`apk.download` within the typed file-info payload to the source's
+URL setter**, closed through original getters, annotations and inheritance.
+The outer wire-response conversion, whole game-APK verification and live
+consistency with the declared MD5/size remain pending.
+
+The exact `compat.net.c.u` implementation creates a Retrofit service from its
+stored Retrofit instance and calls its typed request interface. Registered
+interceptors receive the request maps before dispatch. This method does not
+construct the base host or establish the actual transmitted headers. A separate
+operand-only check of the exact owner's 30 methods finds the three writers of
+the two relevant private configuration fields: one constructor and two public
+configuration methods. Only those positive writers are then inspected. The
+constructor creates an empty interceptor list; `c.n(Retrofit, Retrofit)` and
+`c.A(Retrofit)` only store externally supplied instances. They do not supply a
+base URL. The next original-source pass below traces their concrete callers
+and first actual builder. No anonymous request succeeds merely because a
+non-user relative path exists.
+
+The separately approved writer locator validates exactly 4,942 instruction
+bytes and 344 try-table bytes in those 30 owned methods, with full formal
+instruction/payload/handler checks: 11,096,520 existing bytes including
+compressed input and full signed-source verification, 0.062 seconds. It reads
+no unrelated class bodies, generic strings, URLs or keys. The direct semantic
+phase stops at this configuration boundary after seven bodies / 2,288
+instruction bytes, 192 try-table bytes, 40 handler bytes and 37,087 metered
+metadata bytes. Previous failed or superseded interpretations remain recorded;
+no earlier overrun is recast as a pass. No origin request, game/client execution,
+Ready state or fallback activation occurs.
+
+### Original initialization callers and first Retrofit builder
+
+The exact configuration-method caller pass finds `common.net.g.c`, which
+forwards the two supplied Retrofit instances and registers a concretely named
+`common.net.b` interceptor. Its only ordinary caller is the original `g.b`
+wrapper. The latter has three original call owners: `other.basic.impl.c$a.a`,
+`InitHelper.doLiteTask` and `TapOtherExportBisServiceImpl.initTapApi`. These
+remain separate initialization paths; no lite or exported-service path is
+promoted to the active normal path on the strength of its name.
+
+All three exact caller bodies obtain **both** Retrofit arguments from the same
+`other.basic.impl.application.c.e()` method. That actual maker constructs a
+`Retrofit.Builder`, supplies `baseUrl` from the original common-library domain
+provider, adds a Gson converter, supplies an OkHttp client from its own `c()`
+helper and calls `build`. This closes the chain from the detail request to a
+real original builder, rather than stopping at parameter-forwarding wrappers.
+The OkHttp/helper and interceptor header production remain separately unread.
+
+The exact base-URL getter reads its own static string. Its necessary original
+static initializer fills that string through
+`BaseAppContext -> IAppConfiguration.getUriConfig() ->
+IUriConfig.getDomain("DOMAIN_MAIN")`. It supplies no demonstrated literal
+hostname or verified default. The precise remaining host source is the actual
+registered `IUriConfig` implementation and its authored domain configuration.
+A broad search for URLs or the selector string is not substituted for that
+ownership chain. No accountless detail request is attempted.
+
+The cumulative semantic phase closes at eight bodies / 1,392 instruction
+bytes, 56 try-table bytes, eleven handler bytes and 27,452 metered metadata
+bytes. Its two verification allocations remain separate and explicit: the
+first finishes at 128,450,214 bytes within 128 MiB; the later approved
+second-carrier pass reads 12,061,025 bytes within 16 MiB, reusing the already
+verified immutable `classes3.dex` in memory. The latter formal pass closes both
+positive carriers in 4.063 seconds. All later method reads reuse verified RAM
+and numeric owner/invoke indices; the counters are not reset to conceal prior
+reads. No new origin bytes, game/client execution, fallback or Ready state.
 
 ### Community key candidate: research only
 

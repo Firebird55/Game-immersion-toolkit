@@ -85,7 +85,7 @@ try{
      value={started:true};
     }
     else if(path==='/api/setup/mobile-export/browse/cancel'){setup.mobile_export.browseActive=false;setup.mobile_export.browsePhase=null;setup.mobile_export.browseMessage='Folder browser closed. You can paste a destination or try Browse again.';value={cancelled:true};}
-    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bundle:'F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
+    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bundle:'F:/Exports/synthetic/Synthetic Game - Android Library.zip',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
     else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
     else if(path.startsWith('/api/setup/native/'))value={started:true};
@@ -133,13 +133,13 @@ try{
    setupOffline=false;
    await dialog.getByRole('button',{name:'Browse',exact:true}).click();
    await page.waitForFunction(()=>document.querySelector('#mobile-export-folder').value==='E:/Mobile libraries');
-   await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export in progress',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'Export Android library',exact:true}).click();await dialog.getByText('Synthetic export in progress',{exact:true}).waitFor();
    assert.equal(await dialog.getByRole('progressbar',{name:'Mobile export progress'}).getAttribute('value'),'42');
-   assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries'});
+   assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries',prepared_library:true});
    await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
    await dialog.getByLabel('Original game voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Resume export',exact:true}).click();await dialog.getByText('Ready to transfer',{exact:true}).waitFor();
    await dialog.getByText('Copy this library file to your phone',{exact:false}).waitFor();
-   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',{exact:true}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries',prepared_library:true});await dialog.getByText('F:/Exports/synthetic/Synthetic Game - Android Library.zip',{exact:true}).waitFor();
    if(width===1280){
     const exportsBefore=writes.filter(w=>w.path.endsWith('/mobile-export')).length;
     await dialog.getByLabel('Save libraries to',{exact:true}).fill('F:/Unsaved old-language choice');
@@ -178,9 +178,8 @@ try{
     else assert((await dialog.getByText(/Coverage limited to verified catalog 4.7 dialogue/).innerText()).includes('Coverage limited'));
     await dialog.getByText(games.find(g=>g.id===game).catalog_message,{exact:true}).waitFor();
    }
-   await dialog.getByLabel('Game to configure',{exact:true}).selectOption('cyberpunk');
-   await dialog.getByText(catalog.platformScope.windowsOnly,{exact:true}).waitFor();
-   await dialog.getByText(games.find(g=>g.id==='cyberpunk').expansion_message,{exact:true}).waitFor();
+   const offeredGames=await dialog.getByLabel('Game to configure',{exact:true}).locator('option').evaluateAll(options=>options.map(option=>option.value));
+   assert.deepEqual(offeredGames.sort(),['zzz','genshin','starrail','endfield','wuwa','nte'].sort(),'Retired local games must not return through PC Settings');
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
    assert(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Setup has horizontal overflow');
@@ -190,7 +189,8 @@ try{
    await dialog.getByText('OCR and display test passed.',{exact:true}).waitFor();
    await dialog.getByLabel('Start capture automatically when I open the toolkit').check();
    await dialog.getByRole('button',{name:'Next',exact:true}).click();
-   await dialog.getByLabel('Reading mode',{exact:true}).selectOption('lexirise');
+   assert.equal(await dialog.getByLabel('Reading mode',{exact:true}).count(),0);
+   await dialog.getByRole('button',{name:'Connect Lexirise',exact:true}).waitFor();
    await dialog.getByRole('button',{name:'Next',exact:true}).click();
    await dialog.getByRole('button',{name:'Set up local API key',exact:true}).click();
    assert.equal(await dialog.locator('input[type=password]').count(),0);
@@ -199,7 +199,7 @@ try{
    const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Download setup report',exact:true}).click();
    const report=JSON.parse(readFileSync(await (await downloaded).path(),'utf8'));assert(!JSON.stringify(report).includes('F:/Games'));assert.equal(report.version,'fixture');
    await dialog.getByRole('button',{name:'Finish setup',exact:true}).click();await dialog.waitFor({state:'hidden'});
-   assert.equal(setup.auto_start,true);assert.equal(await page.evaluate(()=>localStorage.getItem('proxy-transcript-reading-mode')),'lexirise');
+   assert.equal(setup.auto_start,true);assert.equal(await page.evaluate(()=>localStorage.getItem('proxy-transcript-reading-mode')),null);
    assert(writes.every(write=>write.path.startsWith('/api/setup/')),'Setup performed an account write');
    assert.deepEqual(writes.find(write=>write.path==='/api/setup/native/lexirise').body,{});
    await page.reload();await page.getByRole('button',{name:'Settings',exact:true}).waitFor();

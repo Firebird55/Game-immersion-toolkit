@@ -237,7 +237,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.",
-      "coverage": "Windows publisher preparation reads current original dialogue graphs, native-type-discovered authoring tables and selected voice banks without a game installation, including Ride-Along voices. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete. Explicit text-only preparation keeps publisher captions and translations without reading voice-bank or WEM payloads; omitted audio stays separate from original unknown or unvoiced status.",
+      "coverage": "Windows publisher preparation reads current original dialogue graphs, native-type-discovered authoring tables and selected voice banks without a game installation, including Ride-Along voices. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete. Explicit text-only preparation keeps publisher captions and translations without reading voice-bank or WEM payloads; omitted audio stays separate from original unknown or unvoiced status. The shared game-data Download route completes Global Windows Text-only preparation with explicit source quotes and offline restoration; its Text + audio acquisition and Android reader remain separate gates.",
       "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates derive required types from original clients with a fixed retained seed and discover supported authoring tables by native type and exact export; no newer community mapping is required. Unresolved bindings remain explicit and failed preparation retains the previous completed library.",
       "expectedTargets": [
         "fr",
@@ -245,7 +245,7 @@
         "es-ES",
         "ru"
       ],
-      "reviewedAt": "2026-11-17"
+      "reviewedAt": "2026-11-18"
     },
     {
       "id": "pragmata",

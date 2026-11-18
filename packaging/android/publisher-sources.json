@@ -1,0 +1,178 @@
+{
+  "context_modules": {
+    "publisher_apk": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "purpose": "Bounded original APK-v2 and ZIP metadata integrity; explicit maintained crypto, no package installation or game-code execution."
+    },
+    "publisher_apk_zip": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "purpose": "Bounded original APK-v2 and ZIP metadata integrity; explicit maintained crypto, no package installation or game-code execution."
+    },
+    "sophon_assets": {
+      "dependencies": [
+        "python-stdlib",
+        "zstandard==0.25.0"
+      ],
+      "purpose": "Bounded checksummed original launcher manifests; no game-content runtime or provider registration."
+    }
+  },
+  "excluded": {
+    "endfield": "The reviewed factory requires the separate Windows decoder/hash runtime before any transfer.",
+    "genshin": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "infinitynikki": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "starrail": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "zzz": "The current bootstrap imports unverified Android crypto and compression dependencies."
+  },
+  "files": {
+    "backend/nte_game_data.py": {
+      "source_commit": "ce060d13306a0d39d72616d1b52364563877629f",
+      "sha256_lf": "36874d473adae2a2610cd04d23526d974a86020540900560aca74c4c2ad2f3bb"
+    },
+    "backend/nte_original_updater.py": {
+      "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_baseline.py": {
+      "sha256_lf": "4f1f20193d9a9120e34588387262f08c773e8ffa56079303764166389d170c9e",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_native.py": {
+      "sha256_lf": "5d0d05af357ea3ad3414c6cc8d15d8fc30d7320fd5c3a60b4c9f8fc2211f2b78",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_source.py": {
+      "sha256_lf": "f131125e80192913c51f282cc05a7c2721f4577b23ec02dfd2de550ab8a2cd47",
+      "source_commit": "0624af5548f16488cc1a5f1543cda0ef1043432d"
+    },
+    "backend/preparation_errors.py": {
+      "sha256_lf": "ec7734a89a70a52ac3abea952b72a668d62f068c3a971dfa1a1e8ff137c8490b",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/publisher_apk.py": {
+      "sha256_lf": "10dbf27a50c4efe59520807afa9b59ff08eb1b0a4e2af6275d3e9dee2b4c9b9e",
+      "source_commit": "91a7fa8c91bd18f34a7f7e0a35192f6188c2a096"
+    },
+    "backend/publisher_apk_zip.py": {
+      "sha256_lf": "1475113232243876b850cddf2d7cf2b2e1caa77f33509b85b639f856391c8b2c",
+      "source_commit": "91a7fa8c91bd18f34a7f7e0a35192f6188c2a096"
+    },
+    "backend/reverse1999_game_data.py": {
+      "sha256_lf": "47268867be6c082cb9b903611125fb797f7b325e53df609f559f55caf493fabc",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/reverse1999_provider.py": {
+      "sha256_lf": "a98a21d63ad4bff51292274f5cd796b815bc2587c894cce7b1b6a92afbe7ee4b",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/reverse1999_release.py": {
+      "sha256_lf": "0d824483917f55b2778621651da5bc8a4fe18a5577d721569a7b56b4729297e9",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/sophon_assets.py": {
+      "sha256_lf": "64befcb85bd84c351b11ec28b52af4095a99c83caee66c1e1729a8426b069f5d",
+      "source_commit": "8be26e32d3a8992147d140d1ade3d45b2f7dbcd6"
+    },
+    "backend/wuthering_bootstrap_source.py": {
+      "sha256_lf": "affc7dd2527bb06a8ad088c5932da465d578fdd5dd216f715c2fc746780f4ce7",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuthering_elf_bootstrap.py": {
+      "sha256_lf": "7c0807fb6b14d3c70c70b137301dcd716f91f6140099aa2df18c10f84607249a",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuthering_locales.py": {
+      "sha256_lf": "b197198bfbdb3e6bd2ad0f4c32b49d0d196b5d980d1807df0569e0215ce994ca",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuwa_game_data.py": {
+      "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/nte_game_data_snapshot.py": {
+      "source_commit": "b9acf7491e2d3d1214c56bfd4186590d3b499360",
+      "sha256_lf": "020c92b5ccf3320a9bed9a36dd5b61c9d56debab3795a5a9f1793e9df45f40dc"
+    }
+  },
+  "forbidden_stage_imports": [
+    "backend.game_tools",
+    "backend.runtime_paths",
+    "backend.runtime_bundle",
+    "backend.publisher_http",
+    "backend.nte_release",
+    "backend.production_zzz_reader",
+    "Crypto",
+    "brotli",
+    "zstandard",
+    "numpy",
+    "clr",
+    "pythonnet",
+    "backend.prepared_library",
+    "backend.nte_game_data_runtime",
+    "backend.nte_game_data_content",
+    "backend.nte_game_data_ranges"
+  ],
+  "providers": {
+    "nte": {
+      "dependencies": [
+        "python-stdlib"
+      ],
+      "download_runtime": true,
+      "factory": "backend.nte_game_data:create_provider",
+      "modules": [
+        "nte_game_data",
+        "nte_updater_source",
+        "nte_updater_baseline",
+        "nte_updater_native",
+        "nte_original_updater",
+        "preparation_errors",
+        "nte_game_data_snapshot"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "compatibility"
+      ]
+    },
+    "reverse1999": {
+      "dependencies": [
+        "python-stdlib"
+      ],
+      "download_runtime": false,
+      "factory": "backend.reverse1999_game_data:create_provider",
+      "modules": [
+        "reverse1999_game_data",
+        "reverse1999_provider",
+        "reverse1999_release"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "discovery"
+      ]
+    },
+    "wuwa": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "download_runtime": true,
+      "factory": "backend.wuwa_game_data:create_provider",
+      "modules": [
+        "wuwa_game_data",
+        "wuthering_bootstrap_source",
+        "wuthering_elf_bootstrap",
+        "wuthering_locales"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "bootstrap"
+      ]
+    }
+  },
+  "schema": "toolkit-android-publisher-sources-v1",
+  "source_normalization": "utf8-lf"
+}

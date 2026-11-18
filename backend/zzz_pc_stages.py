@@ -182,7 +182,9 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
                       perform_presentations=scene['performPresentations'], presentation_owners=owners['coverage'])
         result['presentation_owners']['extra_config_references'] = operations['presentation-config-plan']['output']['extraConfigs']
         if ctx.request.content_mode == 'text-audio':
+            occurrences = result.pop('cinema_occurrences', [])
             return {'links': links, 'tables': tables, 'coverage': result,
+                'cinema_occurrences': occurrences,
                 'voice_directory': json.loads((work / 'voice-directory.json').read_bytes()),
                 'registry': base64.b64encode((work / 'audio-resource.flex').read_bytes()).decode('ascii')}
         expanded, channels, evidence, kinds = zzz_assets._group_links(links)

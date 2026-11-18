@@ -10,12 +10,21 @@ screen-relay transport. Game libraries never belong in GitHub or toolkit release
 Browser IndexedDB/OPFS data is private to its browser origin. A native Android
 app cannot silently access it. Do not clear old browser storage or uninstall an
 old installed browser app before preserving data you need. Re-importing the
-original ZIP is the supported library handoff; it does not automatically migrate
-browser history, favorites, credentials or remembered stream links.
+prepared Android ZIP is the supported library handoff. Older browser ZIPs require
+a new desktop export; neither route automatically migrates browser history,
+favorites, credentials or remembered stream links.
 
 See [migration scope and retained data](android-migration.md). The following
 legacy browser instructions are retained as historical data-format and recovery
 references, not current hosted-app onboarding.
+
+The desktop's **Keep mobile library updated** queue now writes the full native
+prepared format, like **Export Android library**. Existing rules, destinations,
+languages and pause state are retained. A format change queues a new export even
+when the game data are unchanged. New files end in **Android Library.zip**;
+previous **Mobile Library.zip** files and old working revisions are preserved.
+Import each updated Android ZIP in the app. Failed or interrupted publication
+keeps the last completed Android ZIP and its recovery copy.
 
 <details>
 <summary>Legacy export/import and browser-storage reference</summary>

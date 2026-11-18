@@ -127,8 +127,11 @@ def _members(request, archives):
         raise GameDataError('missing_text_pack', 'This NTE edition does not provide the selected study text.', 409)
     selected = {prefix+TEXT_LOCALES[locale]+'/Game.locres'
                 for locale in (request['source_locale'], *request['target_locales'])}
-    selected.update(row[2] for row in locations.values()
-        if row[2].startswith('HT/Content/SrtFile/FFMpeg/Story/') and row[2].endswith('.srt') and live(row[2]))
+    if request['content_mode'] != 'text':
+        selected.update(row[2] for row in locations.values()
+            if row[2].startswith('HT/Content/SrtFile/FFMpeg/Story/') and row[2].endswith('.srt') and live(row[2]))
+    # Text preparation first validates original authoring. Only its declared
+    # subtitle members are quoted afterward; no wildcard body acquisition.
     try:
         _, registry = registry_location(SimpleNamespace(locations=locations, location=live))
     except ValueError as error:

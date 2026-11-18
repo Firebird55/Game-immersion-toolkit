@@ -2,7 +2,10 @@
 from dataclasses import replace
 import hashlib
 import struct
+import subprocess
+import sys
 import unittest
+from unittest.mock import patch
 import zlib
 
 from Crypto.Cipher import AES
@@ -37,12 +40,13 @@ def encrypt(raw):
 
 
 def fixture(*, encrypted=True, index_encrypted=True, wide=False, long_fields=False,
-            failure=None, revision=0, compressed=True):
+            failure=None, revision=0, compressed=True, specs=None,mount='../../../X6Game/Content/Script/'):
     payload, encoded = bytearray(), bytearray()
-    specs = [('plain.lua', b'authored plain source' + bytes([revision]), False),
-             ('empty.lua', b'', False)]
-    if compressed:
-        specs += [('packed.lua', (b'authored block data' * 300) + bytes([revision]), True)]
+    if specs is None:
+        specs = [('plain.lua', b'authored plain source' + bytes([revision]), False),
+                 ('empty.lua', b'', False)]
+        if compressed:
+            specs += [('packed.lua', (b'authored block data' * 300) + bytes([revision]), True)]
     rows = []
     for name, plain, packed in specs:
         offset, position = len(payload), len(encoded)
@@ -83,7 +87,7 @@ def fixture(*, encrypted=True, index_encrypted=True, wide=False, long_fields=Fal
     directory = align(directory) if index_encrypted else directory
     index_offset = len(payload)
     declared = len(rows) + int(failure == 'declared-count')
-    prefix = string('../../../X6Game/Content/Script/', wide) + number(declared) + number(27, 'Q')
+    prefix = string(mount, wide) + number(declared) + number(27, 'Q')
     prefix += number(1) + bytes(36) + number(1)
     suffix = number(len(encoded)) + encoded + number(int(failure == 'nonencoded'))
     main_size = len(prefix) + 36 + len(suffix)
@@ -139,6 +143,35 @@ def codec(blocks):
 
 
 class OriginalPakTests(unittest.TestCase):
+    def test_injected_platform_crypto_owns_all_index_and_member_decryption(self):
+        raw, rows = fixture()
+        calls = []
+        class Crypto:
+            def block_cipher(self, algorithm, mode, key, data):
+                calls.append((algorithm, mode, len(data)))
+                return AES.new(key, AES.MODE_ECB).decrypt(data)
+        with patch('backend.publisher_crypto.DesktopPublisherCrypto', side_effect=AssertionError('Desktop fallback used')):
+            pak = Archive(lambda at, size: raw[at:at + size], len(raw), MATERIAL, crypto=Crypto())
+            self.assertEqual(pak.read('X6Game/Content/Script/packed.lua', decompress=codec), rows[-1][1])
+        self.assertGreaterEqual(len(calls), 3)
+        self.assertTrue(all(algorithm == 'AES' and mode == 'ECB' and size % 16 == 0 for algorithm, mode, size in calls))
+        class BadCrypto:
+            def block_cipher(self, *args): return bytearray(len(args[-1]))
+        with self.assertRaises(ValueError):
+            Archive(lambda at, size: raw[at:at + size], len(raw), MATERIAL, crypto=BadCrypto())
+
+    def test_data_reader_import_has_no_desktop_crypto_dependency(self):
+        script = '''import sys
+class RejectCrypto:
+ def find_spec(self,name,path=None,target=None):
+  if name == 'Crypto' or name.startswith('Crypto.'):
+   raise AssertionError('Desktop-only crypto imported eagerly')
+sys.meta_path.insert(0,RejectCrypto())
+from backend.infinity_nikki_pak import Archive
+'''
+        result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_original_two_hash_headers_encoded_directory_and_batched_reads(self):
         for encrypted, index_encrypted, wide, long_fields in [(True, True, False, False),
                 (False, False, True, True), (True, False, True, False), (False, True, False, True)]:

@@ -1,0 +1,24 @@
+.android-device-setup {
+  margin: 0 1rem 1rem;
+  min-width: 0;
+}
+.android-device-setup > summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  cursor: pointer;
+  padding: .7rem 0;
+}
+.android-library-card {
+  margin: 0;
+  min-width: 0;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.android-library-card > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.android-library-card > p {
+  flex-basis: 100%;
+}

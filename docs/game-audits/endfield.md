@@ -1,5 +1,16 @@
 # Arknights: Endfield presentation audit
 
+## November 17 update policy
+
+The owner retained the independent-update target in the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026).
+Supported content updates already read official entries, per-file parameters and
+embedded schemas. Automatic replacement of changed master parameters and VFS
+directory mappings is still missing. The frozen 1.5.3/current content trial does
+not establish master-parameter rotation. This keeps #86 open alongside the one
+demonstrated active prologue audio exception; no further broad radio/film hunt
+is required for references without demonstrated current use.
+
+
 ## Current-content closing basis · November 17, 2026
 
 The finite current-use conclusion leaves **one demonstrated active audio

@@ -122,6 +122,8 @@ class LocalVoiceAssetService(VoiceDecoder):
                 payload = json.loads(path.read_text(encoding="utf-8"))
             locale = payload.get('source_locale', 'zh-Hans')
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
+            variants = {(r['text_id'], r.get('player_voice')): r['audio']
+                        for r in payload['records'] if r.get('audio')}
             paragraphs = {r['text_id'] for r in payload['records'] if r.get('audio') and (
                 r.get('audio_scope') == 'paragraph' or self.game == 'beyond' and r['text_id'].endswith(':complete'))}
             online = self.game in PUBLISHER_GAMES and payload['install'] is None
@@ -140,6 +142,7 @@ class LocalVoiceAssetService(VoiceDecoder):
             with self._lock:
                 self.locale = locale
                 self._entries, self._install, self._fingerprint = entries, install, stamp
+                self._prepared_variants = variants
                 self._paragraph_ids = paragraphs
                 self.ready = ready
                 self._loaded_signature = signature
@@ -185,6 +188,22 @@ class LocalVoiceAssetService(VoiceDecoder):
         with self._lock:
             audio, install, stamp = dict(self._entries[text_id]), self._install, self._fingerprint
             whole_paragraph = text_id in self._paragraph_ids
+        return self._extract_binding(text_id, line_id, audio, install, stamp, whole_paragraph)
+
+    def extract_prepared(self, row: dict, line_id: int) -> str:
+        """Decode this exact authored player binding, without the default-ID view."""
+        with self._lock:
+            audio = self._prepared_variants.get((row['text_id'], row.get('player_voice')))
+            if not audio or audio != row.get('audio'):
+                raise ValueError('Prepared voice binding changed; refresh the selected language table')
+            audio, install, stamp = dict(audio), self._install, self._fingerprint
+        # Including the source binding prevents variant reuse under the same ID.
+        identity = row['text_id'] + '\0' + json.dumps(audio, sort_keys=True, separators=(',', ':'))
+        return self._extract_binding(identity, line_id, audio, install, stamp,
+                                     row.get('audio_scope') == 'paragraph' or
+                                     self.game == 'beyond' and row['text_id'].endswith(':complete'))
+
+    def _extract_binding(self, text_id, line_id, audio, install, stamp, whole_paragraph):
         extract_voice = self._adapter.extract_voice
         self._validate_sources(install, stamp, [audio])
         self.output_dir.mkdir(parents=True, exist_ok=True)

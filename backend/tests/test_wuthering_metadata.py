@@ -185,7 +185,9 @@ def test_pinned_format_survives_a_fresh_reader_and_rejects_changed_source(tmp_pa
         release._format.cache_clear()
         monkeypatch.setattr(release, 'download', lambda *a, **k: pytest.fail('Retained pinned source needs no network'))
         assert release._format(tmp_path) == (b'a' * 16, b'b' * 16)
-        assert metadata.format_source(tmp_path, '0' * 64) is None
+        with pytest.raises(PreparationFailure) as failure:
+            metadata.format_source(tmp_path, '0' * 64)
+        assert failure.value.code == 'publisher_entry_cache_generation_mismatch'
         assert not metadata.remember_format(tmp_path, raw + b'changed', digest)
         assert metadata.format_source(tmp_path, digest) == raw
     finally:

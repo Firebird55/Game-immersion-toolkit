@@ -31,7 +31,7 @@ def account_settings(service: LexiriseService, payload: dict | None = None) -> d
     if payload is not None:
         validate_patch(payload)
     with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {service._key()}"},
-                      timeout=25, follow_redirects=False, transport=service.transport) as client:
+                      timeout=25, follow_redirects=False, transport=service.transport, trust_env=getattr(service, 'trust_env', True)) as client:
         kwargs = {} if payload is None else {"json": payload}
         result = service._request(client, "GET" if payload is None else "PATCH", "/v1/settings", **kwargs)
     if not isinstance(result.get("languages"), list) or not isinstance(result.get("global"), dict) or not isinstance(result.get("languageSettings"), dict):
