@@ -339,3 +339,51 @@ def test_read_budget_and_midstream_failure_remove_only_new_partial_output(tmp_pa
     with pytest.raises(ValueError): portable.decode_file(source, params, output)
     assert reads == [28, 192, 128, 64 * 1024, 64 * 1024]
     assert not output.exists() and source.stat().st_size == len(raw)
+
+
+def test_helper_file_contract_identity_and_changed_private_parameters(tmp_path):
+    helper = portable.PortableHelper()
+    identity = helper.identity
+    assert len(identity) == 64 and int(identity, 16) >= 0
+    for variant in (0, 1):
+        raw, expected, p, _ = representation(variant)
+        source, params, output = (tmp_path / (n + str(variant)) for n in ('source', 'parameters', 'output'))
+        source.write_bytes(raw); params.write_bytes(parameter_json(p))
+        helper.decode(source, params, output, work=tmp_path)
+        assert output.read_bytes() == expected and helper.identity == identity
+
+
+@pytest.mark.parametrize('change', ['missing-code', 'malformed-code', 'stale-function', 'changed-bounds'])
+def test_helper_software_changes_cannot_bless_old_receipts_or_decode_output(tmp_path, monkeypatch, change):
+    helper = portable.PortableHelper()
+    source, params, output = (tmp_path / n for n in ('source', 'parameters', 'output'))
+    raw, _, p, _ = representation()
+    source.write_bytes(raw); params.write_bytes(parameter_json(p))
+    if change == 'changed-bounds':
+        monkeypatch.setattr(portable, 'MAX_PACKAGE', portable.MAX_PACKAGE - 1)
+    else:
+        original = portable.importlib.util.find_spec(portable.__name__).loader.get_code(portable.__name__)
+        if change == 'stale-function':
+            replacement = compile('def decode_file(*a, **k): return None', '<authored>', 'exec').co_consts[0]
+            original = original.replace(co_consts=tuple(replacement if getattr(c, 'co_name', None) == 'decode_file' else c
+                                                       for c in original.co_consts))
+        def get_code(name):
+            if change == 'malformed-code':
+                raise SyntaxError('Authored unavailable installed software')
+            return None if change == 'missing-code' else original
+        monkeypatch.setattr(portable.importlib.util, 'find_spec', lambda name:
+            SimpleNamespace(loader=SimpleNamespace(get_code=get_code)))
+    with pytest.raises(ValueError):
+        helper.decode(source, params, output, work=tmp_path)
+    assert not output.exists() and source.read_bytes() == raw
+
+
+def test_helper_identity_is_independent_of_the_installation_directory(monkeypatch):
+    original = portable.importlib.util.find_spec(portable.__name__).loader.get_code(portable.__name__)
+    identity = portable.PortableHelper().identity
+    def relocated(code):
+        return code.replace(co_filename='authored/other-installation/module.py', co_consts=tuple(
+            relocated(c) if isinstance(c, portable.CodeType) else c for c in code.co_consts))
+    monkeypatch.setattr(portable.importlib.util, 'find_spec', lambda name:
+        SimpleNamespace(loader=SimpleNamespace(get_code=lambda name: relocated(original))))
+    assert portable.PortableHelper().identity == identity

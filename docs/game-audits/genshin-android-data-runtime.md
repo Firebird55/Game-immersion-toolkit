@@ -70,7 +70,7 @@ the portable prepared-library path imports no publisher or native reader.
 | Part | Reusable contract | Android work still needed |
 | --- | --- | --- |
 | Official discovery and transport | One regional publisher descriptor; whole-file/chunk sizes and MD5 identities; immutable community-helper provenance kept separately | Local HTTPS/cache worker, cancellation and retry; Android-compatible Brotli, Zstandard and RSA/AES primitives. Current Python native-extension distributions are not an Android delivery proof. |
-| BLB container | Frozen MIT algorithm, five tables derived from actual original native consumers and four generic mathematical tables, complete official input digest, bounded block/node output | Android needs bounded x64 disassembly over the original executable as data, plus an owned native/WASM BLB codec. The desktop Capstone DLL and .NET apphost are not Android dependencies. Do not embed the original `CryptoHelper` or depend on a host SDK. Keep full source/license/runtime provenance. |
+| BLB container | Frozen MIT algorithm and owned stdlib Python port; five tables derived from actual original native consumers and four generic mathematical tables; complete official input digest and bounded block/node output | Android needs bounded x64 disassembly over the original executable as data and packaged/device acceptance of the portable codec. The desktop Capstone DLL and .NET apphost are not Android dependencies. Do not embed the original `CryptoHelper` or depend on a host SDK. Keep full source/license/runtime provenance. |
 | Serialized objects/catalog | Bounded versions 17/21/22 metadata, complete full-ID catalog, named class-1208/1210 payloads | The owned readers use Python/stdlib data operations. Provide Android file/range access and a bounded seekable decoded body; no Unity runtime, textures or game installation is needed. |
 | TextMap parameters | One unique complete arithmetic contract; all matching method hashes; original executable treated as authenticated data | The current template matcher and PE reader do not require Capstone execution. Whole-image/list memory use needs a bounded Android worker or streaming native equivalent. Unknown compiled shapes require official recovery first; a changed shape is not silently a format waiver. |
 | TextMap rows | All current catalog-owned shards, strict UTF-8/EOF, low-bit ownership, aliases and complete-generation activation | Use local streaming/SQLite batches to avoid retaining every decoded body, two complete locale dictionaries and the entire dialogue corpus simultaneously. Preserve alias/cycle and identity checks. |
@@ -189,9 +189,9 @@ objects, preserving study history, account state and calibration.
 
 The canonical [Genshin factory](../../backend/genshin_game_data.py) implements the
 shared provider contract with explicit context-owned Sophon transport. Its
-Windows `GenshinRuntime(layout)` validates an already installed BLB helper's
-complete resource inventory and the pinned static instruction decoder. It never
-builds or downloads a helper. The normal Windows factory resolves that installed
+Windows `GenshinRuntime(layout)` validates the owned portable BLB software and
+the pinned static instruction decoder. It never builds, downloads or executes a
+managed BLB helper. The normal Windows factory resolves that installed
 bundle lazily when the host supplies no explicit runtime. Source-checkout and
 incomplete bundle layouts remain unavailable; there is no SDK or PATH fallback.
 Android and missing runtimes return an unavailable
@@ -228,7 +228,7 @@ toolkit.
 The following `original-channel-profile` stage quotes the whole publisher file
 and all missing complete transport chunks before fetching it. It reuses the
 same context-owned Sophon cache, whole size/MD5 checks and verified installed
-helper. All full codec contracts are derived from the current original native
+software. All full codec contracts are derived from the current original native
 input. Every candidate is checked against the complete original named-object
 map, all referenced data-object lengths/padding, the native-owned object IDs and
 strict UTF-8/JSON profile shape. Exactly one complete result is required;
@@ -243,6 +243,23 @@ code and codec method hashes. Restart checks its full hash from the matching
 accepted stage handle, reauthenticates the source and parses the preserved
 payload again. A failed attempt reuses verified source chunks after a new size
 check. Both text modes remain `PreparationStage`; this stage fetches no audio.
+
+The ordinary Windows profile route now uses the owned standard-library Python
+BLB3 transformation. It does not resolve, build or execute a managed helper or
+consult a .NET SDK. The prior C# helper remains a differential oracle for this
+route. Two authored parameter profiles match its complete output byte for byte;
+one retained publisher-authenticated profile also matches the prior decoded
+container, decompressed body, full named-object map and strict typed profile.
+That retained-input comparison does not prove fresh parameter acquisition.
+
+The portable helper's identity binds its complete loader-provided code object,
+concordance with the functions actually loaded, and its format/bounds contract.
+It excludes installation paths and private parameter values. Missing, corrupt
+or stale software evidence fails without a managed fallback. Software changes
+invalidate affected stage receipts; earlier source files and the accepted
+dialogue library remain retained. The installed-bundle and verified native x64
+decoder gate still precedes large publisher downloads. This Windows integration
+does not enable the Android factory or establish APK runtime delivery.
 
 This acceptance is expressly **profile only**. Its receipt marks full catalog,
 selected-shard, response-signature and override acceptance false. Final original

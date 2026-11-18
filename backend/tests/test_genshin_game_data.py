@@ -94,9 +94,8 @@ def fixture(tmp_path, monkeypatch, *, region='global', mode='text', wrong_whole=
     monkeypatch.setattr(sophon, 'download', lambda *a, **k: pytest.fail('Unaccounted global transport'))
     from backend import prebuilt_readers, genshin_native_x64, genshin_blb
     layout = SimpleNamespace(mode='bundle')
-    monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda kind, **kw:
-        SimpleNamespace(source_identity='authored-source', manifest={'build_id': 'authored-build'}, executable=Path('frozen-reader'))
-        if kind == 'genshin' and kw == {'layout': layout} else pytest.fail('Unexpected runtime resolver'))
+    monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda *a, **k:
+        pytest.fail('Ordinary Genshin preparation resolved the managed oracle'))
     monkeypatch.setattr(genshin_native_x64, 'decoder', lambda: object())
     monkeypatch.setattr(genshin_blb, 'helper', lambda *a, **k: pytest.fail('Hidden helper build'))
     runtime = provider.GenshinRuntime(layout)
@@ -464,18 +463,70 @@ def test_normal_windows_factory_lazily_resolves_the_installed_verified_closure(t
 @pytest.mark.parametrize('missing', ['source-layout', 'broken-layout', 'invalid-helper'])
 def test_default_windows_resolver_never_falls_back_to_a_source_build_or_network(tmp_path, monkeypatch, missing):
     explicit, ctx, calls, _, _, _ = fixture(tmp_path, monkeypatch)
-    from backend import runtime_bundle, prebuilt_readers
+    from backend import runtime_bundle, genshin_blb_portable
     def discover():
         if missing == 'broken-layout':
             raise runtime_bundle.RuntimeBundleError('authored incomplete bundle')
         return SimpleNamespace(mode='source') if missing == 'source-layout' else explicit.runtime.layout
     monkeypatch.setattr(runtime_bundle, 'discover_layout', discover)
     if missing != 'broken-layout':
-        monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda *a, **k:
+        monkeypatch.setattr(genshin_blb_portable, 'PortableHelper', lambda *a, **k:
             (_ for _ in ()).throw(ValueError('authored incomplete helper')) if missing == 'invalid-helper'
-            else pytest.fail('Source layout reached an installed-helper resolver'))
+            else pytest.fail('Source layout reached the portable reader resolver'))
     ordinary = provider.create_provider(platform='windows')
     ordinary.transport_factory = explicit.transport_factory
     result = ordinary.plan(ctx.request, ctx)
     assert result.stage == 'original-runtime' and not result.runtime_available
     assert result.download_bytes is None and not calls and ctx.consumed == 0
+
+
+def test_native_decoder_failure_still_gates_before_any_publisher_transfer(tmp_path, monkeypatch):
+    source, ctx, calls, _, _, _ = fixture(tmp_path, monkeypatch)
+    from backend import genshin_native_x64
+    def unavailable():
+        raise ValueError('Authored missing verified native decoder')
+    monkeypatch.setattr(genshin_native_x64, 'decoder', unavailable)
+    result = source.plan(ctx.request, ctx)
+    assert result.stage == 'original-runtime' and not result.runtime_available
+    assert result.download_bytes is None and not calls and ctx.consumed == 0
+
+
+def test_runtime_prepares_whole_typed_profile_with_portable_software_and_no_managed_execution(tmp_path, monkeypatch):
+    import struct
+    from collections import Counter
+    from backend import genshin_native_x64, genshin_blb_native, genshin_blb, prebuilt_readers
+    from backend.tests.test_genshin_original_bootstrap import contract, profile, encoded_body, bundle
+    from backend.tests.test_genshin_blb_portable import parameters, parameter_json, encode_prefix
+    monkeypatch.setattr(genshin_native_x64, 'decoder', lambda: object())
+    monkeypatch.setattr(genshin_native_x64, 'Image', lambda data: SimpleNamespace(data=data))
+    monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda *a, **k: pytest.fail('Managed resolver'))
+    monkeypatch.setattr(genshin_blb, '_run', lambda *a, **k: pytest.fail('Managed execution/build'))
+    raw_body = bundle(payload=json.dumps(profile()).encode())
+    decoded = bytearray(encoded_body(raw_body))
+    struct.pack_into('<i', decoded, 28, len(decoded))
+    key = bytes(range(16)); decoded[12:28] = key
+    p = parameters()
+    encrypted = bytes(decoded[:28]) + encode_prefix(bytes(decoded[28:100]), p, key, Counter())
+    encrypted += encode_prefix(bytes(decoded[100:228]), p, key, Counter()) + decoded[228:]
+    original = tmp_path / 'original'; original.write_bytes(encrypted)
+    original_receipt = {'name': 'Assets/authored.blk', 'bytes': len(encrypted),
+        'md5': hashlib.md5(encrypted).hexdigest(), 'sha256': hashlib.sha256(encrypted).hexdigest()}
+    candidates = [genshin_blb_native.Candidate(parameter_json(parameters(1)), ('a' * 64,)),
+                  genshin_blb_native.Candidate(parameter_json(p), ('b' * 64,))]
+    monkeypatch.setattr(genshin_blb_native, 'discover_candidates', lambda image: candidates)
+    runtime = provider.GenshinRuntime(SimpleNamespace(mode='bundle'))
+    prior = tmp_path / 'accepted-library'; prior.write_bytes(b'previous complete library')
+    prepared = runtime.channel_profile(b'authored executable', original, original_receipt, contract(),
+        directory=tmp_path, check_cancel=lambda: None)
+    assert json.loads(prepared.payload) == profile()
+    assert prepared.proof['helper_identity'] == runtime.validate().identity
+    assert prepared.proof['original_codec_candidates_tested'] == 2
+    assert prepared.proof['complete_named_object_map'] and prepared.proof['strict_payload_eof']
+    assert prepared.proof['profile_only'] and not prepared.proof['complete_dispatch_bootstrap']
+    assert not prepared.proof['full_catalog_validated'] and not prepared.proof['selected_shards_validated']
+    assert not prepared.proof['response_signature_verified'] and not prepared.proof['later_override_excluded']
+    original.write_bytes(encrypted[:-1] + bytes([encrypted[-1] ^ 1]))
+    with pytest.raises(ValueError):
+        runtime.channel_profile(b'authored executable', original, original_receipt, contract(),
+            directory=tmp_path, check_cancel=lambda: None)
+    assert prior.read_bytes() == b'previous complete library'

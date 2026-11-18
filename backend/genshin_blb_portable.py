@@ -13,9 +13,14 @@ map/typed readers, source receipt and generation acceptance. No runtime/factory
 is enabled by this module. Only the standard library is imported.
 """
 import base64
+import hashlib
+import importlib.util
 import json
+import marshal
 from pathlib import Path
 import struct
+import sys
+from types import CodeType, FunctionType
 
 
 PARAMETERS = {'GF256Exp': 256, 'GF256Log': 256, 'Blb3AESSBox': 256,
@@ -27,6 +32,7 @@ MAX_BLOCKS = 8192
 MAX_TRANSFORMS = MAX_BLOCKS + 1
 _SHIFT = (0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11)
 _RCON = (1, 2, 4, 8, 16, 32, 64, 128, 27, 54)
+SOFTWARE = 'toolkit-portable-blb3-v1'
 
 
 def _check(value):
@@ -233,3 +239,67 @@ def decode_file(source, parameters, destination, *, transform_budget=MAX_TRANSFO
             if created:
                 destination.unlink(missing_ok=True)
             raise
+
+
+def _normalise(code):
+    # Installed Python loaders need not expose editable .py files. Bind their
+    # complete code object without binding the caller's installation directory.
+    return code.replace(co_filename='toolkit/genshin_blb_portable.py', co_consts=tuple(
+        _normalise(value) if isinstance(value, CodeType) else value for value in code.co_consts))
+
+
+def _software_identity():
+    try:
+        spec = importlib.util.find_spec(__name__)
+        _check(spec is not None and hasattr(spec.loader, 'get_code'))
+        code = spec.loader.get_code(__name__)
+    except (ImportError, OSError, SyntaxError, TypeError) as error:
+        raise ValueError('The owned portable BLB3 software is unavailable.') from error
+    _check(isinstance(code, CodeType))
+    declared = {}
+    def visit(current):
+        declared[current.co_qualname] = _normalise(current)
+        for value in current.co_consts:
+            if isinstance(value, CodeType):
+                visit(value)
+    visit(code)
+    # Detect a stale on-disk/module-loader body beside already imported code;
+    # recording the replacement's digest must not bless the old implementation.
+    actual = []
+    for value in vars(sys.modules[__name__]).values():
+        if isinstance(value, FunctionType) and value.__module__ == __name__:
+            actual.append(value.__code__)
+        elif isinstance(value, type) and value.__module__ == __name__:
+            for item in vars(value).values():
+                if isinstance(item, FunctionType):
+                    actual.append(item.__code__)
+                elif isinstance(item, property) and item.fget is not None:
+                    actual.append(item.fget.__code__)
+    _check(actual and all(declared.get(item.co_qualname) == _normalise(item) for item in actual))
+    contract = json.dumps({'software': SOFTWARE, 'parameters': PARAMETERS,
+        'max_package': MAX_PACKAGE, 'max_header': MAX_HEADER, 'max_blocks': MAX_BLOCKS,
+        'max_transforms': MAX_TRANSFORMS, 'shift': _SHIFT, 'rcon': _RCON}, sort_keys=True).encode()
+    encoded = marshal.dumps(_normalise(code))
+    _check(0 < len(encoded) <= 1024**2)
+    return hashlib.sha256(contract + encoded).hexdigest()
+
+
+class PortableHelper:
+    """Owned software identity and the existing Helper.decode file contract.
+
+    Code/contract changes invalidate previous receipts; parameters never enter
+    software identity. Corrupt or unavailable loader evidence fails closed.
+    This interface grants no Android capability or publisher-generation trust.
+    """
+    def __init__(self):
+        self._identity = _software_identity()
+
+    @property
+    def identity(self):
+        current = _software_identity()
+        _check(current == self._identity)
+        return current
+
+    def decode(self, source, parameters, destination, *, work):
+        _check(self.identity and Path(work).is_dir())
+        decode_file(source, parameters, destination)
