@@ -5,10 +5,11 @@ The owner retired the independent hosted gaming application on November 16,
 continues. No Android release is currently delivered. A WebView loading the old
 hosted page does not satisfy the replacement.
 
-The Android app must embed the shared toolkit core, use the maintained desktop
-reader and components, import a private prepared library, recognize dialogue and
-play available original audio locally. Development prototypes, browser fixtures
-and emulator results are distinct from physical Android acceptance.
+The Android app must embed the shared toolkit core and use the maintained
+desktop reader components. Fresh setup uses per-game downloads to prepare and
+update official text and original audio on the device. Existing history and
+recordings have a separate recovery flow. Development and emulator checks
+provide separate evidence from acceptance on a physical Android device.
 
 ## Supported roles during the transition
 
@@ -27,12 +28,10 @@ not evidence that such a relay works offline.
 
 ## Preserve private data
 
-1. Keep each original Mobile Library ZIP in your private files for recovery.
-   Older browser archives lack the full native matcher contract. Create a new
-   **Android Library ZIP** using the desktop manual export or automatic queue,
-   then import that ZIP in Android. Check its game, study language, translation
-   and player voice when importing. Existing automatic rules are retained; a
-   format change queues a native export even if the game data are unchanged.
+1. Keep any previously exported Mobile Library ZIP in your private files for
+   recovery. For a manual recovery that uses a prepared Android Library ZIP,
+   check its game, study language, translation and player voice before
+   importing. Older browser archives can have different matching data.
 2. Keep old browser-origin storage. Use the explicit
    [history and favorites migration](browser-history-migration.md) when available
    in the Android candidate. Re-importing a library does not
