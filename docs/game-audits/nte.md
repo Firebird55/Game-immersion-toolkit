@@ -245,6 +245,40 @@ source's required native closure, selected localized text, voice inventory, comp
 audio readiness and changed-content recovery still require their own ordinary
 stages; the initial acquisition does not establish those results.
 
+Three subsequent ordinary stages on the same frozen `a915da48` producer acquired
+the new footer, main-index and directory-index ranges. Their respective transfer
+quotes, including source guards, were 686,465, 2,806,394 and 5,231,226 bytes.
+All 20 current archives now have complete main and directory plaintext SHA1
+verification after actual decryption: 40 full-index proofs, rather than header
+checks. The existing catalogue key still opens these indices; this is not a
+key-rotation trial. Each stage revalidated the current original pointer and
+retained the previous source and saved recording without helper/client execution.
+
+A fresh ordinary quote then selected 47 text-metadata members: the registry,
+Japanese and Chinese localization, and 44 authored SRT resources. An existing
+65,536-byte carrier passed its original signature-bound CRC before receiving
+cache credit. The remaining quote is 41,079,418 bytes, comprising 40,763,392 new
+carrier bytes and 316,026 source-guard bytes. This dated quote does not establish
+that their contents were parsed. The subsequent ordinary acquisition transferred
+exactly those carriers and passed every original signature-bound CRC and final
+source guard. The source-owned global import metadata then passed its complete
+publisher MD5 after a separately quoted 6,967,258-byte transfer, including guards.
+A private harness initially confused the container-relative and manifest path
+names and stopped before that transfer; the failed observation is retained, and
+the producer itself needed no namespace or format change. Old source/recording
+fences remained intact throughout.
+
+The following ordinary metadata-processing quote has zero transfer bytes and
+reserves 1,140,850,688 local bytes for the original registry and selected locales.
+It does not authorize native closure, dialogue packages or audio activation.
+The frozen managed inventory operation currently checks its 16 MiB output limit
+only after writing. The finite real-source trial therefore uses complete owned
+output monitoring and termination headroom, not a claimed hard pre-write child
+quota. Moving that check before the write is separate helper hardening and must
+not be silently mixed into frozen-tool evidence. Native closure, changed
+text/audio comparison, complete Audio Ready and old-recording update recovery
+remain open; the complete new voice-transfer budget is not yet known.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before

@@ -29,7 +29,7 @@ async function preferences(account: string, signal: AbortSignal, languages?: str
   return {languages: value.languages as string[]};
 }
 
-export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, configured = false, accountGeneration?: number | null) {
+export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, configured = false, accountGeneration?: number | null, accountStatePending = false) {
   const [loaded, setLoaded] = useState<{account: string; languages: string[]} | null>(null);
   const [selection, setSelection] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -39,7 +39,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, 
   const addingRequest = useRef<AbortController | null>(null);
   const lexirise = mode === 'lexirise';
   const scope = lexirise ? `lexirise:${account ?? ''}` : 'plain';
-  const languages = lexirise ? configured && loaded && loaded.account === account ? loaded.languages : [] : voicedLanguages;
+  const languages = accountStatePending ? [] : lexirise ? configured && loaded && loaded.account === account ? loaded.languages : [] : voicedLanguages;
   const target = languages.includes(selection[scope]) ? selection[scope] : languages.includes('zh') ? 'zh' : languages[0] ?? '';
   const select = (code: string) => setSelection(previous => ({...previous, [scope]: code}));
 
@@ -61,13 +61,13 @@ export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, 
     // Clear the old request's UI immediately when its account or generation changes.
     // oxlint-disable-next-line react/react-compiler
     setLoaded(null); setError(''); setBusy(false);
-    if (lexirise && account && configured) {
+    if (lexirise && account && configured && !accountStatePending) {
       void preferences(account, controller.signal, undefined, accountGeneration).then(value => {
         if (!controller.signal.aborted) setLoaded({account, languages: value.languages});
       }).catch(error => {if (!controller.signal.aborted) setError(error.message);});
     }
     return () => controller.abort();
-  }, [lexirise, account, configured, revision, accountGeneration]);
+  }, [lexirise, account, configured, revision, accountGeneration, accountStatePending]);
 
   async function addLanguage(code: string) {
     const controller = owner.current;
@@ -87,8 +87,8 @@ export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, 
     } finally {if (addingRequest.current === controller) addingRequest.current = null; if (!controller.signal.aborted) setBusy(false);}
   }
   return {target, select, languages, games: gamesForLanguage(target), error, busy, addLanguage,
-    ready: configured && !!loaded && loaded.account === account,
-    loading: lexirise && configured && !!account && loaded?.account !== account && !error,
+    ready: !accountStatePending && configured && !!loaded && loaded.account === account,
+    loading: lexirise && (accountStatePending || configured && !!account && loaded?.account !== account && !error),
     reload: () => setRevision(value => value + 1)};
 }
 

@@ -1197,6 +1197,124 @@ interceptors remain separate original-source gates. There is still no live
 endpoint request, completed anonymous wire contract, game-key derivation or
 preparation-ready claim.
 
+### Managed request serialization and response dispatch
+
+The next pass recovers the two cached DEX members after the earlier worker's
+input session becomes inaccessible. The read uses 5,606,093 stored bytes and
+verifies 17,551,452 inflated bytes. The exact cached ZIP positions, retained
+central directory metadata, local headers, Deflate termination, CRCs and
+previously authenticated manifest member digests all agree. The scope remains
+individual signed members of the distributor APK. No origin transfer or
+new raw copy is needed.
+
+The eight quoted bodies use 808 instruction bytes, 5,142 bytes of related
+metadata and no exception tables. The signing serializer copies the input
+map, supplies an entry from the SDK's XUA producer, renders key/value pairs,
+sorts them through a concrete comparator and joins them before character
+encoding. The selected comparator, SDK entry producer and charset field
+remain separate source dependencies. The nonce owner uses Java's random
+generator with an original fixed alphabet and a caller-supplied length. The
+ordinary SDK branch supplies that length. The time owner divides a delegated
+value by 1,000 and formats the result with a fixed US locale. The original
+clock provider remains unread, so the timestamp's origin is still open.
+
+The URL callback delegates to `v2.f.d` with its stored string, incoming path
+and parameter map. The parameter transformation has one authored prefix
+exclusion. The known relative detail path does not match the prefix. The
+normalizer's output still needs proof because the callback passes that
+output to the feature. The ordinary transform calls `features.a.x` and
+conditionally `features.a.v`, then conditionally adds values from account,
+login information and SDK identity producers. This exposes nullable and
+empty-value handling without resolving those producers. A separate transform
+adds its mock value only under the explicit `isRND` configuration gate.
+
+The exact `compat.net.b.c` interface annotation pass uses 808 metadata
+bytes. It proves a Retrofit `POST` with dynamic URL, header map and raw
+`RequestBody` arguments, and a raw `ResponseBody` inside the Retrofit response.
+The existing transport selects this interface when the request model supplies
+body bytes and a second map-based interface when it supplies none. The
+ordinary detail route still needs the exact body getter to close that choice.
+The map-based interface's annotations also remain unread. The response
+callback delegates non-Protobuf handling to `common.net.b.h`. It is the original
+owner to inspect for the outer wire envelope before the already established
+typed `apk.download` field can be joined to it.
+
+The remaining transport interceptors, absent-account producer behavior,
+outgoing request contract and game-key producer stay open. The pass executes
+no client code and makes no request or signature. Neither preparation mode
+changes availability.
+
+The subsequent pass resolves eight direct bodies, totaling 2,474 instruction
+bytes and 58 exception-table and handler bytes. It uses 9,522 DEX metadata
+bytes and 554 bytes for the map-interface annotations. The same two signed
+DEX members are reverified from the cache. No original APK is executed.
+
+The comparator delegates to `v2.f.a`, and the SDK value comes from the
+`XUA` singleton's `toString`. The clock adds a delegated offset to the Java
+wall clock before the previous phase's formatting. Comparator behavior,
+the SDK value's producers, charset binding and the clock offset remain open.
+
+The normalizer makes a relative path absolute with the callback's stored
+domain, copies the query map, adds the SDK value and encodes the query values.
+The already inspected configuration map populates the Retrofit base URL and
+the callback domain from the same environment getter via separate fields.
+The signed-resource domain joined to the ordinary detail path falls outside
+the feature's prefix exclusion. This subjects that authored path to the
+ordinary parameter transforms, whose delegated producers still need proof.
+
+The request model's body getter reads its byte-array field. The inspected
+constructor leaves that field at its null default and assigns `Default` to
+the field read by the content-type getter. The separate map interface is a
+form-encoded Retrofit `POST` with dynamic URL, header map and field map.
+Its response remains a raw `ResponseBody`. The actual map branch also
+depends on whether callbacks change the created model before dispatch.
+
+The non-Protobuf response handler converts a successful raw body to a JSON
+tree, then to the original `u2.h` envelope. It reads `u2.h.b()` and uses the
+request model's target class to deserialize that JSON element. It emits a
+typed success when the payload is present and handles HTTP errors separately.
+The exact wire key for the inner element and the envelope's other fields
+still need the original model binding. The known `apk.download` member
+belongs to the resulting payload.
+
+The inspected `net.p` interceptor can rewrite the URL host when the path
+matches configured service routes. Its body has no direct header mutations.
+The other interceptors, configured route selectors, final headers and
+complete response schema remain open. No live request, signature or game
+key is produced.
+
+The next original-source pass verifies that the coroutine wrapper stores the
+same request model reference. The basic startup sequence registers the common
+callback before the Protobuf callback. The latter returns the supplied URL
+immediately for the model's `Default` content type. The traced common callback
+with the null optional mutator also leaves the byte-array field unchanged.
+This closes the form-encoded branch for the traced ordinary request model and
+callback chain. Live server acceptance remains untested.
+
+The original `u2.h` getters and field annotations bind the inner payload to
+`data`, the time field to `now` and the response alert to `alert`. The
+successful non-Protobuf branch deserializes `data` into the independently
+verified APK payload model, where `apk.download` supplies the source URL.
+The resulting success path is therefore `data.apk.download` in the original
+response JSON schema.
+
+The comparison wrapper calls `v2.f.c`. The SDK value renderer returns an
+owned static string or its empty default, and the clock offset getter reads
+an owned static long. Their producers, the comparator body and the serializer
+charset binding still need proof.
+
+Two more interceptors are verified from the exact cached fifth DEX member.
+`nj.a` may change the request host when the path matches its configured
+sampling route. The Fresco interceptor sets `User-Agent` from `f.b()` before
+proceeding. The header value producer, configured host routing and delegated
+monitor interceptors remain open. The managed pass reads 666 instruction
+bytes across eight bodies, plus 14 exception bytes, 357 annotation bytes and
+7,414 related metadata bytes. The separate fifth-member pass verifies
+11,182,613 existing compressed and inflated bytes to read two bodies totaling
+406 instruction bytes, 13 exception bytes and 3,187 related metadata bytes.
+These are static checks on signed distributor members, with no request,
+signature calculation, device access or game-key derivation.
+
 ### Community key candidate: research only
 
 The original author repository

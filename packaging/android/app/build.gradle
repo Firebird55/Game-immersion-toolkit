@@ -10,6 +10,16 @@ if (!hashBundle || !new File(hashBundle, 'assets/publisher-hash-manifest.json').
 }
 def cryptoBundle = System.getenv('ANDROID_PUBLISHER_CRYPTO')
 def cryptoFixtures = System.getenv('ANDROID_CRYPTO_FIXTURES')
+def genshinFixture = System.getenv('ANDROID_GENSHIN_PROFILE_FIXTURE')
+if (!genshinFixture || !new File(genshinFixture).isFile()) {
+    throw new GradleException('Prepare the bounded authored Genshin profile fixture first.')
+}
+def genshinInputs = new File(repository, 'packaging/genshin-reader/inputs.json')
+def genshinNotice = new File(repository, 'packaging/genshin-reader/AnimeStudio-LICENSE.txt')
+def genshinSoftware = new groovy.json.JsonSlurper().parse(genshinInputs)
+if (genshinSoftware.license.expression != 'MIT' || java.security.MessageDigest.getInstance('SHA-256').digest(genshinNotice.bytes).encodeHex().toString() != genshinSoftware.license.sha256) {
+    throw new GradleException('The complete original profile software license must verify.')
+}
 def wuwaFixture = System.getenv('ANDROID_WUWA_FIXTURE')
 if (!wuwaFixture || !new File(wuwaFixture).isFile()) {
     throw new GradleException('Prepare the bounded authored publisher bootstrap data fixture first.')
@@ -125,6 +135,9 @@ tasks.register('prepareToolkitReader') {
     inputs.file(new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'))
     inputs.dir(cryptoFixtures)
     inputs.file(wuwaFixture)
+    inputs.file(genshinFixture)
+    inputs.file(genshinInputs)
+    inputs.file(genshinNotice)
     inputs.file(publisherPolicyFile)
     inputs.file(new File(wheelhouse, 'zstandard-build-receipt.json'))
     inputs.file(new File(repository, 'packaging/android/python-runtime-extensions.json'))
@@ -141,6 +154,8 @@ tasks.register('prepareToolkitReader') {
         copy { from new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
         copy { from wuwaFixture; into output; rename { 'wuwa-authored-bootstrap.json' } }
+        copy { from genshinFixture; into output; rename { 'genshin-profile-authored.json' } }
+        copy { from genshinNotice; into new File(output, 'genshin-profile-licenses') }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
         copy { from new File(wheelhouse, 'zstandard-build-receipt.json'); into output }
         copy { from new File(repository, 'packaging/android/python-runtime-extensions.json'); into output }

@@ -1,5 +1,124 @@
 {
   "context_modules": {
+    "genshin_android_runtime": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_blb_body": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_blb_native": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_blb_portable": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_channel": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_dispatch": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_expression": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_literals": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_metadata": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_registration": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_usage": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_native_view": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_original_bootstrap": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_original_containers": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_original_excel": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "genshin_reader_identity": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
+    "hoyo_bootstrap_assets": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
     "publisher_apk": {
       "dependencies": [
         "python-stdlib",
@@ -14,6 +133,13 @@
       ],
       "purpose": "Bounded original APK-v2 and ZIP metadata integrity; explicit maintained crypto, no package installation or game-code execution."
     },
+    "raw_lz4": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-x64-capi-v1"
+      ],
+      "purpose": "Explicit authored Genshin profile component using the verified APK data decoder; no game-data factory, dispatch activation or SourceReady."
+    },
     "sophon_assets": {
       "dependencies": [
         "python-stdlib",
@@ -24,15 +150,87 @@
   },
   "excluded": {
     "endfield": "The reviewed factory requires the separate Windows decoder/hash runtime before any transfer.",
-    "genshin": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "genshin": "Only the explicit profile component is packaged; the game-data factory and remaining source/runtime stages are excluded.",
     "infinitynikki": "The actual game-data factory and full source/runtime closure are not packaged.",
     "starrail": "The actual game-data factory and full source/runtime closure are not packaged.",
     "zzz": "The current bootstrap imports unverified Android crypto and compression dependencies."
   },
   "files": {
+    "backend/genshin_android_runtime.py": {
+      "sha256_lf": "33d635a79d46c7be2bb1214b6e051d45a4fe15f4642dca96779fac4648737954",
+      "source_commit": "6d539c67dc9696fff838611ca946ee8acda01d33"
+    },
+    "backend/genshin_blb_body.py": {
+      "sha256_lf": "ebaf2b42933c94e7dfe6e3a524770142883c7b8dabe4b5ce04efe3e227e14ba5",
+      "source_commit": "4561a8627906771502bbaf827a0b6f5d5767a00e"
+    },
+    "backend/genshin_blb_native.py": {
+      "sha256_lf": "e28ec235695a980b9c3d4a26b7b6cb0bb02994fa644f16a912f0f39603686c5d",
+      "source_commit": "1c94e5c3ebd80954273c099d1331cd87663ef6bc"
+    },
+    "backend/genshin_blb_portable.py": {
+      "sha256_lf": "1884996b6f4931e04397b7a493e3171688dd7795469b45f535b079808d22f700",
+      "source_commit": "0ca6f74a308e393a97858b880fb455047e3db639"
+    },
+    "backend/genshin_native_channel.py": {
+      "sha256_lf": "289e067e057aaf9696b30cf2f47c8866a8c75c451c7015f9c2f7ead47db5da32",
+      "source_commit": "58a96477fc834ac0d1736d0044ecd69da94d60e6"
+    },
+    "backend/genshin_native_dispatch.py": {
+      "sha256_lf": "ba9bb63ee524bdf748edfb398d4f58420e15f62ad8b65c02f80c33b54b7a1890",
+      "source_commit": "58a96477fc834ac0d1736d0044ecd69da94d60e6"
+    },
+    "backend/genshin_native_expression.py": {
+      "sha256_lf": "35dc526412c6c8df0a8ab7dc62d0917f254205b0a152bae3c43df3b4c6e5563e",
+      "source_commit": "c8ccd37a0988cb69e7261c6f2215528a119e71fd"
+    },
+    "backend/genshin_native_literals.py": {
+      "sha256_lf": "61dd97c0bf6d5fbdfea1aeb9ddc4a4f6c264efd80204d4e0c5dda6d4367a78d9",
+      "source_commit": "3845a9a18a4ebd508f984e085c19d692ee7a1c42"
+    },
+    "backend/genshin_native_metadata.py": {
+      "sha256_lf": "08a5bd1418f27e70dfbebd40a88ac859a79d047feacace0522baed55d20210b9",
+      "source_commit": "c8ccd37a0988cb69e7261c6f2215528a119e71fd"
+    },
+    "backend/genshin_native_registration.py": {
+      "sha256_lf": "994af626dfb48f97dbc0cdb45bda514be59d3733ed9232bd15fcf21fd6e2f7c4",
+      "source_commit": "c8ccd37a0988cb69e7261c6f2215528a119e71fd"
+    },
+    "backend/genshin_native_usage.py": {
+      "sha256_lf": "a493999614861d0b23c0f695e09613dfc9ef3a60bf7349d73be5560e4b691831",
+      "source_commit": "c8ccd37a0988cb69e7261c6f2215528a119e71fd"
+    },
+    "backend/genshin_native_view.py": {
+      "sha256_lf": "3ff56f6978722ef943dba4af5235f9fd11b8ced5b13ec8cc1a08180e9cb20855",
+      "source_commit": "c8ccd37a0988cb69e7261c6f2215528a119e71fd"
+    },
+    "backend/genshin_original_bootstrap.py": {
+      "sha256_lf": "385db551dbb92936f257533b08fd3da067bfc4836b468c58003a7b405714d559",
+      "source_commit": "4561a8627906771502bbaf827a0b6f5d5767a00e"
+    },
+    "backend/genshin_original_containers.py": {
+      "sha256_lf": "cd8e243c8335559f429e76256b43566d610e5fcdbad95ff0fb4e2cff05d1061a",
+      "source_commit": "7d46240bff4aceb8174f6cbe8797e007caabe577"
+    },
+    "backend/genshin_original_excel.py": {
+      "sha256_lf": "230edebf8ef7fa11b251392a88e8b2602550e3273f88908e0e7b0a7eab5e881e",
+      "source_commit": "52978e4e773855ea5fb05bdabca136eadc8784f0"
+    },
+    "backend/genshin_reader_identity.py": {
+      "sha256_lf": "1a39edbcfdd95e27e38ebddb2752ac425ee9c7ac2db397f5ffcef12b6c42ed71",
+      "source_commit": "6d539c67dc9696fff838611ca946ee8acda01d33"
+    },
+    "backend/hoyo_bootstrap_assets.py": {
+      "sha256_lf": "f638d18bd7e4657e2e14ab8420d68d8d6b52b0c59e0f44c4c07dd05d287b5690",
+      "source_commit": "dabb05368270f9931b9c4678989bb95747ba68c9"
+    },
     "backend/nte_game_data.py": {
-      "source_commit": "3219971ca1eb5cd19df4de3b63884fe638471795",
-      "sha256_lf": "aba1bb0dfa0c5c720db9d2ef533b976897b22f34f6b3f076c4b28a16158976a7"
+      "sha256_lf": "aba1bb0dfa0c5c720db9d2ef533b976897b22f34f6b3f076c4b28a16158976a7",
+      "source_commit": "3219971ca1eb5cd19df4de3b63884fe638471795"
+    },
+    "backend/nte_game_data_snapshot.py": {
+      "sha256_lf": "020c92b5ccf3320a9bed9a36dd5b61c9d56debab3795a5a9f1793e9df45f40dc",
+      "source_commit": "b9acf7491e2d3d1214c56bfd4186590d3b499360"
     },
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
@@ -61,6 +259,10 @@
     "backend/publisher_apk_zip.py": {
       "sha256_lf": "1475113232243876b850cddf2d7cf2b2e1caa77f33509b85b639f856391c8b2c",
       "source_commit": "91a7fa8c91bd18f34a7f7e0a35192f6188c2a096"
+    },
+    "backend/raw_lz4.py": {
+      "sha256_lf": "88886b9d21610700db7e2ec2165e3e74fbd6c61ee362048c0d7deedfd06bfd3a",
+      "source_commit": "4561a8627906771502bbaf827a0b6f5d5767a00e"
     },
     "backend/reverse1999_game_data.py": {
       "sha256_lf": "47268867be6c082cb9b903611125fb797f7b325e53df609f559f55caf493fabc",
@@ -93,10 +295,6 @@
     "backend/wuwa_game_data.py": {
       "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
-    },
-    "backend/nte_game_data_snapshot.py": {
-      "source_commit": "b9acf7491e2d3d1214c56bfd4186590d3b499360",
-      "sha256_lf": "020c92b5ccf3320a9bed9a36dd5b61c9d56debab3795a5a9f1793e9df45f40dc"
     }
   },
   "forbidden_stage_imports": [

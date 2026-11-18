@@ -7,14 +7,13 @@ next content stage. Missing host readers cannot trigger large source transfers.
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
-import marshal
 from pathlib import Path
 import re
 
 from . import sophon_assets as sophon
 from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage
+from .genshin_reader_identity import PROFILE_IMPLEMENTATION, SEED_IMPLEMENTATION, implementation_identity
 from .private_data_paths import _no_links
 from .publisher_transport import PublisherTransport
 
@@ -161,15 +160,10 @@ def _record(ctx, handle):
 
 
 def _implementation(names):
-    implementation = hashlib.sha256()
-    for name in names:
-        spec = importlib.util.find_spec('backend.' + name)
-        code = spec.loader.get_code(spec.name) if spec is not None and hasattr(spec.loader, 'get_code') else None
-        if code is None:
-            raise GameDataError('genshin_bootstrap_reader_unavailable', 'Repair the original Genshin bootstrap reader.')
-        implementation.update(name.encode())
-        implementation.update(marshal.dumps(code))
-    return implementation.hexdigest()
+    try:
+        return implementation_identity(names)
+    except ValueError as error:
+        raise GameDataError('genshin_bootstrap_reader_unavailable', 'Repair the original Genshin bootstrap reader.') from error
 
 
 def _seed_owner(cache, files, runtime_identity):
@@ -184,9 +178,7 @@ def _seed_owner(cache, files, runtime_identity):
     # Reader implementation changes require extraction again from original bytes.
     # Frozen Python loaders expose code objects; an installed app need not ship
     # editable .py files. Include the complete maintained parser closure.
-    implementation = _implementation(('genshin_native_dispatch', 'genshin_native_channel', 'genshin_original_excel', 'genshin_native_x64',
-                 'genshin_native_metadata', 'genshin_native_expression', 'genshin_native_registration',
-                 'genshin_native_view', 'genshin_native_usage', 'genshin_native_literals'))
+    implementation = _implementation(SEED_IMPLEMENTATION)
     return {'sources': sources, 'runtime_identity': runtime_identity, 'implementation_sha256': implementation}
 
 
@@ -258,8 +250,7 @@ def _profile_owner(handle, seed_owner, seed_receipt, files):
             'loader_contract_sha256': hashlib.sha256(_canonical(contract)).hexdigest(),
             'source': {'name': asset.name, 'md5': asset.digest, 'bytes': asset.size},
             'runtime_identity': handle['runtime_identity'],
-            'implementation_sha256': _implementation(('genshin_original_bootstrap', 'genshin_original_containers',
-                'genshin_blb_native', 'genshin_blb', 'genshin_blb_portable', 'genshin_native_x64', 'hoyo_bootstrap_assets')),
+            'implementation_sha256': _implementation(PROFILE_IMPLEMENTATION),
             'bounds': {'package': MAX_PACKAGE, 'body': MAX_BODY, 'text': MAX_TEXT, 'receipt': MAX_RECEIPT}}
 
 

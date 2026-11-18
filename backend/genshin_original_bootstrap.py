@@ -13,6 +13,7 @@ import struct
 import tempfile
 from urllib.parse import urlsplit
 
+from .genshin_blb_body import unpack
 from .genshin_original_containers import DataObjects
 
 
@@ -105,20 +106,6 @@ def profile_body(data, contract):
                              'payload_sha256': hashlib.sha256(payload).hexdigest(), 'payload_bytes': len(payload)}
 
 
-def _bounded_body(decoded):
-    with decoded.open('rb') as stream:
-        prefix = stream.read(28)
-        check(len(prefix) == 28 and prefix[:4] == b'Blb\x03')
-        size = struct.unpack_from('<I', prefix, 4)[0]
-        check(56 <= size <= 1024**2 and 28 + size <= decoded.stat().st_size <= MAX_PACKAGE)
-        head = stream.read(size)
-    blocks = struct.unpack_from('<i', head, 24)[0]
-    last = struct.unpack_from('<I', head, 4)[0]
-    shift = head[21]
-    check(0 < shift <= 23 and 0 < blocks <= 8192 and 0 < last <= 1 << shift
-          and (blocks - 1) * (1 << shift) + last <= MAX_BODY)
-
-
 @dataclass(frozen=True)
 class PreparedProfile:
     payload: bytes = field(repr=False)
@@ -128,7 +115,6 @@ class PreparedProfile:
 
 def prepare_profile(executable, source, source_receipt, contract, helper, *, directory, check_cancel=lambda: None):
     """Profile-only acceptance from all current original-derived full contracts."""
-    from . import genshin_blb as blb
     from .genshin_blb_native import discover_candidates
     from .genshin_native_x64 import Image
     check(isinstance(executable, bytes) and isinstance(contract, dict)
@@ -157,8 +143,7 @@ def prepare_profile(executable, source, source_receipt, contract, helper, *, dir
             parameters.write_bytes(candidate.parameters)
             try:
                 helper.decode(source, parameters, decoded, work=work)
-                _bounded_body(decoded)
-                blb.unpack(decoded, body)
+                unpack(decoded, body, max_package=MAX_PACKAGE, max_body=MAX_BODY)
                 parsed, payload, details = profile_body(body.read_bytes(), contract)
             except (ValueError, TypeError, struct.error, RecursionError):
                 continue

@@ -11,14 +11,13 @@ import json
 import os
 from pathlib import Path
 import re
-import struct
 import subprocess
 import tempfile
 
 from .game_tools import _atomic_file
 from .prebuilt_readers import GENSHIN_SOFTWARE, _no_links, prebuilt_reader, reader_environment
 from .runtime_bundle import discover_layout
-from .witcher_narrative import _lz4
+from .genshin_blb_body import unpack as _unpack_body
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -138,33 +137,5 @@ def helper(directory):
 
 
 def unpack(decoded, destination):
-    """Decompress exact bounded blocks into one serialized original body."""
-    check(decoded.is_file() and 84 <= decoded.stat().st_size <= MAX_PACKAGE and not destination.exists())
-    with decoded.open('rb') as stream:
-        prefix = stream.read(28)
-        check(prefix[:4] == b'Blb\x03')
-        size = struct.unpack_from('<I', prefix, 4)[0]
-        check(56 <= size <= 1024**2)
-        head = stream.read(size); check(len(head) == size)
-        blocks, nodes = struct.unpack_from('<ii', head, 24)
-        last = struct.unpack_from('<I', head, 4)[0]
-        shift = head[21]; check(0 < shift <= 23)
-        step = 1 << shift
-        check(nodes == 1 and 0 < blocks <= 8192 and 0 < last <= step and (blocks - 1) * step + last <= MAX_BODY)
-        node = 40 + struct.unpack_from('<q', head, 40)[0]
-        check(56 <= node <= len(head) - 8)
-        node_offset, node_size = struct.unpack_from('<ii', head, node)
-        check(node_offset == 0 and node_size == (blocks - 1) * step + last)
-        at = 32 + struct.unpack_from('<q', head, 32)[0]
-        check(56 <= at <= len(head) - blocks * 4)
-        check(at + blocks * 4 <= node or node + 8 <= at)
-        ends = struct.unpack_from('<' + 'I' * blocks, head, at)
-        previous = 0
-        with destination.open('xb') as output:
-            for number, end in enumerate(ends):
-                check(previous < end <= decoded.stat().st_size - 28 - size)
-                compressed = stream.read(end - previous); check(len(compressed) == end - previous)
-                expected = last if number == blocks - 1 else step
-                raw = compressed if len(compressed) == expected else _lz4(compressed, expected)
-                check(len(raw) == expected); output.write(raw); previous = end
-            check(not stream.read(1))
+    """Decompress a legacy desktop client's complete original BLB body."""
+    return _unpack_body(decoded, destination, max_package=MAX_PACKAGE, max_body=MAX_BODY)

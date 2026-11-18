@@ -1,5 +1,6 @@
 """Official codec candidates are selected by complete publisher input, fail closed."""
 import hashlib
+import importlib.util
 import json
 from types import SimpleNamespace
 
@@ -16,7 +17,8 @@ def build():
                        'indexes': {'design': ['a' * 32, 1]}}}
 
 
-def test_whole_authenticated_original_package_reopens_cached_body_without_executing_codec(tmp_path, monkeypatch):
+@pytest.mark.parametrize('change', ['receipt', 'genshin_blb_body', 'raw_lz4'])
+def test_cached_body_requires_the_original_package_and_current_parser(tmp_path, monkeypatch, change):
     directory = tmp_path / 'tools/genshin-original-text'; directory.mkdir(parents=True)
     publisher = directory.parent / 'sophon/genshin-packages'; publisher.mkdir(parents=True)
     raw = b'authored original publisher container fixture'
@@ -49,11 +51,20 @@ def test_whole_authenticated_original_package_reopens_cached_body_without_execut
     assert reopened.catalog.sha256 == first.catalog.sha256
     before = dict(first.package_receipts)
     body = next((directory / 'bodies').glob('*.json'))
-    corrupted = json.loads(body.read_bytes()); corrupted['owner']['package']['md5'] = '0' * 32
-    body.write_text(json.dumps(corrupted))
+    if change == 'receipt':
+        corrupted = json.loads(body.read_bytes())
+        corrupted['owner']['package']['md5'] = '0' * 32
+        body.write_text(json.dumps(corrupted))
+    else:
+        module = importlib.util.find_spec('backend.' + change)
+        code = module.loader.get_code(module.name)
+        monkeypatch.setattr(module.loader, 'get_code',
+            lambda _: code.replace(co_consts=(*code.co_consts, 'changed parser')))
+    previous_receipt = body.read_bytes()
     with pytest.raises(source.CodecRejected):
         source.Source(directory, build(), helper, directory / 'private', receipt)
     assert len(calls) == 2 and first.package_receipts == before
+    assert body.read_bytes() == previous_receipt
 
 
 @pytest.mark.parametrize('outcomes', [('reject', 'accept'), ('accept', 'accept'), ('reject', 'reject'), ('native-error', 'accept')])

@@ -51,6 +51,17 @@ acceptance or Android preparation. The five C055 captions preceding the unique
 anchor remain unresolved; the two later shared captions retain their conditional
 context path and their ordinary base rows remain unavailable.
 
+A bounded follow-up tested whether the two retained original Japanese C055
+soundtracks have an exactly shared native PCM prefix that could support the
+five earlier captions. The pinned decoder streamed both complete originals as
+44,100 Hz stereo float32, without intermediate PCM files, downloads or a new
+recording binding. The first bitwise difference occurs at frame 2,624, about
+0.0595 seconds, before the first caption at 11.3 seconds. An exactly common
+prefix was therefore not established. This is not an audibility or spoken-word
+comparison and does not prove that the early speech differs. The five captions
+remain unresolved; all seven saved recordings and their source fences stayed
+unchanged. No heuristic branch selection or relaxed context guard was added.
+
 ## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
 
 The original C055 subtitle tracks provide a safe forward relationship: each

@@ -469,6 +469,98 @@ def _crypto_cases(crypto, capi, jca):
         'publisher_requests':0,'account_keys_reused':False,'original_client_execution':False}
 
 
+def _genshin_profile_cases(root, fixture_json, runtime):
+    """Authored component checks; the caller establishes the actual runtime."""
+    import base64
+    from .private_data_paths import _no_links
+    if type(fixture_json) is not str or len(fixture_json.encode('utf8')) > 65536:
+        raise ValueError('Authored profile input exceeds its bound')
+    value = json.loads(fixture_json)
+    if (value.get('schema') != 'toolkit-authored-genshin-profile-v1'
+            or value.get('original_game_bytes') is not False):
+        raise ValueError('Unknown authored profile input')
+    expected = value['expected']
+    if expected['codec_candidates'] != 2 or expected['accepted_candidates'] != 1:
+        raise ValueError('Authored codec selection changed')
+    executable = base64.b64decode(value['executable_base64'], validate=True)
+    raw = base64.b64decode(value['carrier_base64'], validate=True)
+    if (not 512 <= len(executable) <= 32768 or not 84 <= len(raw) <= 4096
+            or hashlib.sha256(executable).hexdigest() != expected['executable_sha256']
+            or hashlib.sha256(raw).hexdigest() != expected['carrier_sha256']
+            or len(raw) != expected['carrier_bytes'] or hashlib.md5(raw).hexdigest() != expected['carrier_md5']):
+        raise ValueError('Authored source identity changed')
+    root = Path(root); _no_links(root); root.mkdir(parents=True, exist_ok=True)
+    active, source, pending = (root/name for name in ('accepted-profile.bin', 'authored.blk', 'profile.pending'))
+    for path in (active, source, pending): _no_links(path)
+    if not active.exists(): active.write_bytes(b'Prior authored profile must survive malformed input.')
+    if not active.is_file() or active.stat().st_size > 4096 or pending.exists():
+        raise ValueError('Preserve the existing authored component state')
+    previous = hashlib.sha256(active.read_bytes()).hexdigest()
+    def prepare(data):
+        source.write_bytes(data)
+        receipt = {'name':'Assets/'+value['contract']['source_basename'], 'bytes':len(data),
+            'sha256':hashlib.sha256(data).hexdigest(), 'md5':hashlib.md5(data).hexdigest()}
+        return runtime.channel_profile(executable, source, receipt, value['contract'],
+            directory=root, check_cancel=lambda: None)
+    malformed = value.get('malformed')
+    if (not isinstance(malformed, list) or len(malformed) != 2
+            or {row.get('kind') for row in malformed} != {'payload-eof', 'complete-map'}):
+        raise ValueError('Authored negative inventory changed')
+    rejected = 0
+    for row in malformed:
+        data = base64.b64decode(row['carrier_base64'], validate=True)
+        if not 84 <= len(data) <= 4096: raise ValueError('Authored negative exceeds its bound')
+        try: prepare(data)
+        except ValueError: rejected += 1
+        else: raise ValueError('An incomplete profile was accepted')
+        if hashlib.sha256(active.read_bytes()).hexdigest() != previous:
+            raise ValueError('A malformed profile replaced the prior state')
+    prepared = prepare(raw); proof = prepared.proof
+    if (proof['native_executable_sha256'] != expected['executable_sha256']
+            or proof['source']['sha256'] != expected['carrier_sha256']
+            or proof['body_sha256'] != expected['body_sha256'] or proof['payload_sha256'] != expected['payload_sha256']
+            or proof['codec_parameters_sha256'] != expected['parameters_sha256']
+            or proof['codec_method_sha256s'] != expected['method_sha256s']
+            or proof['helper_identity'] != runtime.identity
+            or proof['original_codec_candidates_tested'] != 2 or proof['profile_count'] != expected['profile_count']
+            or proof['objects'] != expected['objects'] or proof['named_objects'] != expected['named_objects']
+            or proof['complete_named_object_map'] is not True or proof['strict_payload_eof'] is not True
+            or proof['profile_only'] is not True or any(proof[key] is not False for key in
+                ('complete_dispatch_bootstrap','full_catalog_validated','selected_shards_validated',
+                 'later_override_excluded','response_signature_verified','community_numeric_data_used'))
+            or hashlib.sha256(prepared.payload).hexdigest() != expected['payload_sha256']
+            or list(root.glob('channel-codec-*'))):
+        raise ValueError('Authored complete profile differs from its independent reference')
+    with pending.open('xb') as output: output.write(prepared.payload)
+    pending.replace(active)
+    return {'schema':'toolkit-authored-genshin-profile-proof-v1','passed':True,'codec_candidates':2,
+        'accepted_candidates':1,'malformed_rejections':rejected,'prior_state_retained_on_failure':True,
+        'fixture_sha256':hashlib.sha256(fixture_json.encode('utf8')).hexdigest(),
+        'body_sha256':proof['body_sha256'],'payload_sha256':proof['payload_sha256'],
+        'parameters_sha256':proof['codec_parameters_sha256'],'method_sha256s':proof['codec_method_sha256s'],
+        'complete_named_object_map':True,'strict_payload_eof':True,'profile_only':True,
+        'full_catalog_validated':False,'selected_shards_validated':False,'response_signature_verified':False,
+        'complete_dispatch_bootstrap':False,'later_override_excluded':False,'community_numeric_data_used':False,
+        'original_game_bytes':False,'network_requests':0,'factory_activated':False,
+        'runtime_identity':runtime.identity,'runtime_provenance':proof.get('runtime_provenance')}
+
+
+def run_genshin_profile(root, fixture_json):
+    """Called only by DEBUG self-test after the actual native host has started."""
+    from . import android_host
+    from .genshin_android_runtime import AndroidGenshinRuntime
+    with android_host._host_lock:
+        host = android_host._host
+        if host is None or host.data_decoder is None:
+            raise ValueError('The installed host data decoder is required')
+        # AndroidGenshinRuntime rechecks exact provider identity, the maintained
+        # Java class and all 15 actual decoder contracts. No desktop fallback.
+        runtime = AndroidGenshinRuntime(host.data_decoder)
+    result = _genshin_profile_cases(root, fixture_json, runtime)
+    result['installed_host_decoder'] = True
+    return json.dumps(result)
+
+
 def run_crypto(native, capi_base64, jca_base64):
     import base64
     from .publisher_crypto import create_publisher_crypto

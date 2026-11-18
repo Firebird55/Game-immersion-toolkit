@@ -80,6 +80,10 @@ if($LASTEXITCODE -ne 0){throw 'The bounded authored cryptography fixtures could 
 $env:ANDROID_WUWA_FIXTURE=Join-Path $BuildRoot 'wuwa-authored-bootstrap.json'
 & $Python (Join-Path $PSScriptRoot 'prepare-android-wuwa-probe.py') --output $env:ANDROID_WUWA_FIXTURE
 if($LASTEXITCODE -ne 0){throw 'The bounded authored publisher bootstrap fixture could not be prepared.'}
+$env:ANDROID_GENSHIN_PROFILE_FIXTURE=Join-Path $BuildRoot 'genshin-profile-authored.json'
+& $Python (Join-Path $PSScriptRoot 'prepare-android-genshin-profile-probe.py') --output $env:ANDROID_GENSHIN_PROFILE_FIXTURE
+if($LASTEXITCODE -ne 0){throw 'The bounded authored Genshin profile fixture could not be prepared.'}
+
 & $Python (Join-Path $PSScriptRoot 'prepare-android-runtime-wheels.py') --verify $Wheelhouse
 if($LASTEXITCODE -ne 0){throw 'Compose the reviewed base and native-extension cohorts into a new Android runtime wheelhouse.'}
 $receipt=Get-Content -LiteralPath (Join-Path $Wheelhouse 'python-wheels-receipt.json') -Raw | ConvertFrom-Json
@@ -172,6 +176,7 @@ $proof.native_publisher_crypto_manifest_sha256=(Get-FileHash -LiteralPath (Join-
 $proof.publisher_crypto_authored_fixtures=$nativeAudit.native_publisher_crypto.authored_fixtures
 $proof.native_publisher_hash_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $hashRoot 'assets/publisher-hash-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
 $proof.publisher_hash_authored_fixture=$nativeAudit.native_publisher_hash.authored_fixture
+$proof.genshin_profile_component=$nativeAudit.genshin_profile_component
 $proof.wuwa_authored_fixture=$nativeAudit.wuwa_authored_fixture
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'

@@ -261,6 +261,49 @@ dialogue library remain retained. The installed-bundle and verified native x64
 decoder gate still precedes large publisher downloads. This Windows integration
 does not enable the Android factory or establish APK runtime delivery.
 
+Profile preparation now unpacks the decoded body through a standard-library
+module with explicit package and output limits. It shares the bounded raw LZ4
+decoder with the Witcher reader. The profile receipt fingerprints both modules,
+and the desktop original-text body cache includes their code digests. Existing
+source downloads and accepted libraries are retained.
+
+The standalone Android profile adapter loads independently of the game-data
+factory and accepts the decoder instance already installed by the Android host
+from its verified FrameOcr provider. Its profile
+receipt binds APK-entry and license verification, ABI, native source, library
+and manifest digests, the 15-case decoder contract, and the portable codec and
+reader implementation. This evidence attests the decoder entry in the installed
+APK. The ordinary Android provider remains gated pending device validation of
+the full profile path and the remaining original source stages.
+
+The following APK source component admits the reviewed standalone adapter and
+its pure reader closure as eighteen context modules. The closed core grows
+from 75 to 93 modules and the publisher policy from 17 to 35 pinned files. The
+registry remains exactly NTE, Reverse:1999 and Wuthering Waves; the Genshin game
+factory is excluded. No managed helper or C# source is embedded. The original
+complete AnimeStudio MIT notice is copied byte for byte and checked against
+`packaging/genshin-reader/inputs.json`.
+
+A DEBUG-only authored fixture serializes the existing `ToyImage` into a real
+PE32+ image with two codec owners and their shared RC4 method in the exception
+directory. Its independently encoded compressed BLB contains a complete named
+object map and typed profile. The started host's actual decoder must discover
+two contracts and accept exactly one. Expected body, payload and all three
+method hashes come from the host fixture, rather than an Android result.
+Malformed payload EOF and an unrelated broken map reference must both fail
+while retaining the prior authored profile. No original data, original key or
+dispatch request is part of this fixture.
+
+The mandatory Android self-test runs after the existing fifteen native CAPI
+contracts, through `AndroidHost.data_decoder` and `AndroidGenshinRuntime`.
+Archive/provenance and runtime checks bind the fixture, complete license,
+verified decoder library/manifest and the same fifteen-case contract digest.
+Both API 34/36 initial and update acceptance require the result; there is no
+missing-component skip. Whole APK identity remains the external candidate
+provenance, not an invented hash inside the decoder facade. This source
+checkpoint and its local Windows-reference tests establish no new APK/JNI,
+ARM64, physical-device or independent full-game preparation acceptance.
+
 This acceptance is expressly **profile only**. Its receipt marks full catalog,
 selected-shard, response-signature and override acceptance false. Final original
 Source activation must still validate its complete catalog and selected text
@@ -282,7 +325,5 @@ The inspected `UseDispatchData` body reads six configuration fields and does not
 write the seed, which does not exclude other replacement paths. The other
 original dialogue bindings, Subtitle
 acquisition, selected-dub materialization and full ordinary update acceptance
-still need their complete source route. Android retains its earlier runtime
-gate; a PC static decoder does not supply its BLB closure. This does not
-replace the accepted dialogue library with the TextMap/Readable subset or promote
-community bindings to official provenance.
+still need their complete source route. The accepted dialogue library remains
+available as the original-source work continues.

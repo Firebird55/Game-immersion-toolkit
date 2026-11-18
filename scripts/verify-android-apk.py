@@ -260,6 +260,58 @@ def verify_publisher_hash(archive, native_files, repository):
         'authored_fixture':{'bytes':len(fixture), 'sha256':hashlib.sha256(fixture).hexdigest(), 'cases':47}}
 
 
+def verify_genshin_profile_component(archive, repository):
+    """Only authored profile input and one original software notice, no client."""
+    name='assets/genshin-profile-authored.json'
+    if not 1 <= archive.getinfo(name).file_size <= 65536:
+        raise ValueError('Authored profile fixture exceeds its bound')
+    raw=archive.read(name);value=json.loads(raw)
+    if value.get('schema')!='toolkit-authored-genshin-profile-v1' or value.get('original_game_bytes') is not False:
+        raise ValueError('Unsupported authored profile fixture')
+    sources={'scripts/prepare-android-genshin-profile-probe.py',
+        'backend/tests/test_genshin_blb_native.py','backend/tests/test_genshin_blb_portable.py',
+        'backend/tests/test_genshin_original_containers.py','backend/tests/test_genshin_original_bootstrap.py'}
+    if set(value.get('fixture_sources',{}))!=sources:raise ValueError('Authored profile fixture source inventory changed')
+    for path,digest in value['fixture_sources'].items():
+        if hashlib.sha256((repository/path).read_bytes().replace(b'\r\n',b'\n')).hexdigest()!=digest:
+            raise ValueError('Authored profile fixture source changed')
+    executable=base64.b64decode(value['executable_base64'],validate=True)
+    carrier=base64.b64decode(value['carrier_base64'],validate=True);expected=value['expected']
+    if (not 512<=len(executable)<=32768 or not 84<=len(carrier)<=4096
+            or hashlib.sha256(executable).hexdigest()!=expected['executable_sha256']
+            or hashlib.sha256(carrier).hexdigest()!=expected['carrier_sha256']
+            or len(carrier)!=expected['carrier_bytes'] or hashlib.md5(carrier).hexdigest()!=expected['carrier_md5']
+            or expected['codec_candidates']!=2 or expected['accepted_candidates']!=1
+            or expected['profile_count']!=1 or expected['named_objects']!=1 or expected['objects']!=2):
+        raise ValueError('Authored profile fixture identities changed')
+    for key in ('body_sha256','decoded_sha256','payload_sha256','parameters_sha256'):
+        if not isinstance(expected.get(key),str) or not re.fullmatch('[0-9a-f]{64}',expected[key]):
+            raise ValueError('Missing authored profile independent expectation')
+    methods=expected.get('method_sha256s')
+    if (not isinstance(methods,list) or len(methods)!=3 or methods!=sorted(set(methods))
+            or any(not re.fullmatch('[0-9a-f]{64}',value) for value in methods)):
+        raise ValueError('Authored native method ownership changed')
+    if len(value.get('malformed',[]))!=2 or {row.get('kind') for row in value['malformed']}!={'payload-eof','complete-map'}:
+        raise ValueError('Authored profile negative inventory changed')
+    for row in value['malformed']:
+        if not 84<=len(base64.b64decode(row['carrier_base64'],validate=True))<=4096:
+            raise ValueError('Authored profile negative exceeds its bound')
+    inputs=json.loads((repository/'packaging/genshin-reader/inputs.json').read_text())
+    notice='assets/genshin-profile-licenses/AnimeStudio-LICENSE.txt'
+    expected_assets={name,notice}
+    if {path for path in archive.namelist() if path.startswith('assets/genshin-profile-') and not path.endswith('/')}!=expected_assets:
+        raise ValueError('The authored profile asset namespace is not closed')
+    if not 1<=archive.getinfo(notice).file_size<=16384:raise ValueError('Original profile software notice exceeds its bound')
+    original=(repository/'packaging/genshin-reader/AnimeStudio-LICENSE.txt').read_bytes()
+    if (inputs['license']['expression']!='MIT' or archive.read(notice)!=original
+            or hashlib.sha256(original).hexdigest()!=inputs['license']['sha256']):
+        raise ValueError('The complete original profile software notice changed')
+    return {'schema':'toolkit-android-genshin-profile-component-v1','bytes':len(raw),
+        'sha256':hashlib.sha256(raw).hexdigest(),'expected':expected,'fixture_sources':value['fixture_sources'],
+        'software_notice':{'bytes':len(original),'sha256':inputs['license']['sha256'],'expression':'MIT'},
+        'original_game_bytes':False,'profile_only':True,'factory_activated':False}
+
+
 def verify_zstandard_package(archive, native_files, repository):
     extension_raw = archive.read('assets/python-runtime-extensions.json')
     if extension_raw != (repository / 'packaging/android/python-runtime-extensions.json').read_bytes():
@@ -319,6 +371,7 @@ def verify(path):
         zstandard = verify_zstandard_package(archive, result, repository)
         crypto = verify_publisher_crypto(archive, result, repository)
         hashing = verify_publisher_hash(archive, result, repository)
+        genshin_profile = verify_genshin_profile_component(archive,repository)
         wuwa_fixture = verify_wuwa_fixture(archive,repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
@@ -350,6 +403,7 @@ def verify(path):
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'native_publisher_hash':hashing,
+        'genshin_profile_component':genshin_profile,
         'publisher_source_policy': publishers,
         'wuwa_authored_fixture':wuwa_fixture,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}

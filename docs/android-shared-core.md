@@ -9,6 +9,16 @@ an installed Android host, the existing desktop reader, and shared production
 matching, confirmation and transcript behavior. It does not permit a hosted-page
 wrapper or an Android-only matcher.
 
+The next [Genshin profile component](game-audits/genshin-android-data-runtime.md)
+adds eighteen reviewed pure context modules to the owned package (93 modules,
+35 publisher pins). Its mandatory DEBUG fixture uses the host-installed data
+decoder, full authored PE/BLB/object-map/typed-profile path and malformed-input
+retention checks. It leaves the game-data factory and full source activation
+gated. Only the complete original MIT software notice is added; native decoder
+software, both ABI libraries and its three existing notices remain unchanged.
+No new APK is built or accepted by this source checkpoint. Existing source-specific
+runtime records below are not evidence for the new component.
+
 The platform-independent [confirmation policy](../backend/capture_confirmation.py)
 is used by desktop capture and the [prepared session](../backend/prepared_session.py).
 Both use `MultilingualTextIndex`, the official locale/voice contracts,
