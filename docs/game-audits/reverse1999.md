@@ -1,6 +1,6 @@
 # Reverse: 1999 source and coverage audit
 
-Status checked **2026-11-17**. Tracked in
+Status checked **2026-11-18**. Tracked in
 [#144](https://github.com/Firebird55/Game-immersion-toolkit/issues/144).
 This is provider research and tested public launcher discovery, **not a playable
 toolkit adapter**. The game must remain unavailable for preparation until its
@@ -635,42 +635,81 @@ explicit provenance gaps. No actual APK URL, request contract, game key or
 preparable catalog follows from the unresolved interface; both content modes
 remain unavailable.
 
-### Original routed delegate and APK-info refresh contract
+### Original routed delegate and title/icon refresh
 
-The next bounded metadata pass reads only the two exact candidates' original
-class annotations. It consumes 603 metadata bytes within a 64 KiB ceiling,
-apart from necessary full signed-source hash validation. `LoaderProxy` alone
-has the runtime-visible original `@Route(path="/game_downloader/service")`;
-`Impl` has only `SourceDebugExtension`. This establishes the authored route
-without choosing a class by its name. Generated provider-index activation and
-runtime router execution remain unverified.
+The bounded annotation pass reads only the two exact candidates' original
+class annotations: 603 metadata bytes, apart from necessary signed-source hash
+validation. `LoaderProxy` alone has the original runtime-visible
+`@Route(path="/game_downloader/service")`; `Impl` has only
+`SourceDebugExtension`. The authored proxy reads its typed
+`$$delegate_0: GameDownloaderServiceImpl` and directly calls that final
+implementation. Generated provider-index activation and runtime router
+execution remain unverified.
 
-The authored proxy's exact `createApkInfo` reads its typed
-`$$delegate_0: GameDownloaderServiceImpl` field and directly calls the final
-implementation. That source-owned delegation resolves the former two-candidate
-body choice. The implementation's task factory calls `requestApkInfo`, which
-launches a concretely owned coroutine. Eight exact bodies total 1,248 instruction
-bytes within the eight-method / 8,192-byte ceiling; all signed hashes and typed
-bounds pass, with no constructor or exception-handler bodies needed.
+The implementation's task factory calls `requestApkInfo`, which launches the
+owned coroutine. Its relative path is `/app/v1/mini-multi-get`, with `ids` and
+response model `com.taptap.common.ext.support.bean.app.f`. A later complete
+response-consumer pass **corrects the earlier interpretation of this helper**:
+it copies only the returned app's title and icon into the task. It does not
+supply an APK transfer URL or replace the task's file descriptor. This branch
+is stopped; its name is not APK-delivery evidence.
 
-This actual APK-info-refresh chain passes `/app/v1/mini-multi-get`, parameter
-key `ids`, and response class `com.taptap.common.ext.support.bean.app.f`. This is
-new APK task provenance for that relative path, separate from the earlier
-conditional level-info branch. It is still not a verified live game download.
+The exact ID helper selects the literal `default` button flag and reads
+`appLaunch.appId`, returning null when absent. There is no fallback to
+`AppInfo.mAppId`. The retained Reverse:1999 SSR has no such launch value; no
+website ID is substituted. That absence does not imply the page lacks a file
+descriptor.
 
-The exact ID helper selects the `ButtonFlagItemV2` for literal `default`, then
-reads `appLaunch.appId`. It returns null when that launch metadata is absent;
-there is **no fallback to `AppInfo.mAppId`**. The coroutine aborts on a null or
-empty ID. The current Reverse:1999 default-launch value is not yet established,
-so the known website game ID is not silently substituted.
+For completeness, this stopped branch's static request-contract pass proves a
+POST request-model enum and conditional plugin identity in the input map. It
+does not establish absolute host, transmitted headers, authentication,
+accountless availability or a working game request. Its eight selected bodies
+total 580 instruction bytes. No endpoint is called or client code executed.
 
-The referenced network builder `common.net.f.e` first transforms the supplied
-map with `common.plugin.a.c(Map)` and delegates to
-`compat.net.c.s(path, map, Class, Continuation)`. Those exact parameter/transport
-owners and the response collector remain unread. No HTTP method, absolute host,
-headers, accountless availability, resulting APK URL or response binding is
-inferred. The phase stops at its eight-method limit without any new origin
-request, native/client execution, key fallback or Ready state.
+### Native APK descriptor and actual file-source boundary
+
+The exact original `AppInfo$URL` class is uniquely defined in the signed
+`classes3.dex`. Its field annotations bind `mId` to JSON **`md5`** and `mSize`
+to **`size`**. `mId` must therefore not be interpreted as a literal URL or the
+page's numeric APK identifier. The already retained publisher-linked
+[TapTap page](https://www.taptap.cn/app/221062) contains those exact descriptor
+fields for its primary, default mainland APK, with the previously inventoried
+MD5 and **1,990,140,900-byte** size. Its separate nonprimary cloud-game variant
+is excluded. This is a native-schema match for existing distribution metadata,
+not a computed game-APK checksum or a transfer URL.
+
+The selected task factory copies this size and passes the MD5 to its original
+source object's setter. That setter only stores the value. The original enum
+switch, numeric selector getter and initializer establish the concrete regular
+`LOCAL_TOTAL` route: type 1 selects `bd/e`; the different `SANDBOX` type 3
+selects `bd/g`. This follows the authored branch rather than choosing an
+implementation by name. The ordinary source `bd/e` inherits `getUrl`, which
+only returns a stored field. Its own `y()` returns local storage search paths,
+not network descriptors; that local-search branch is stopped. No source URL is
+constructed by the inspected methods.
+
+This real-source phase stops at its eight-body limit: 736 instruction bytes,
+32 try-table bytes and 19 handler bytes. Each selected body is checked against
+its complete signed DEX hash and typed instruction, register, branch and
+handler bounds. All DEX input is existing signed cache, and the SSR is the existing
+publisher-linked response; new origin bytes and client execution remain zero. The remaining concrete boundary is the
+source's `FileDownloaderType` and the consumer that populates or resolves its
+stored URL from the MD5/size descriptor. No anonymous delivery route, original
+game module, key, text/audio catalog or Ready state is established.
+
+A research-reader correction is retained explicitly. An earlier locator
+incorrectly assumed DEX `class_defs` were ordered by type index and reported
+the shared base source absent. A dependent metadata fallback then exceeded the
+64 KiB metadata allocation before finding that exact class; this is not a
+successful within-budget phase or a game-format failure. No unrelated method
+body or network data was read. The reader now requires a verified numeric
+class-definition index and stops on locator failure. A separately approved
+262,020-byte index pass covers all 65,491 original class definitions in the
+seven signed DEX members without reading names or bodies. Rechecking the five
+relevant earlier locator results changes only that base-class false negative;
+the other definitions remain unchanged. The overrun and failed preflight
+checks remain recorded. The independently verified signed model annotations
+and retained SSR descriptor are not reclassified as a transfer proof.
 
 ### Community key candidate: research only
 
