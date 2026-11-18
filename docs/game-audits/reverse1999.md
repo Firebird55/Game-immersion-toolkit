@@ -1125,11 +1125,45 @@ proved separately.
 
 This proves argument flow, not the calculation performed inside those three
 call targets or a named signature algorithm. At this phase boundary their
-extents have not received formal ownership checks. No selector/suffix data, other native body, context-helper
-body, context/account/device value or key material is read or printed in
+extents have not received formal ownership checks. No selector/suffix data,
+other native body, context-helper body, context/account/device value or key
+material is read or printed in
 this phase; there is no execution or network request. The unresolved context
 input is still the cached value supplied by the separate Java-context helper,
 not a value obtained from a development phone or game installation.
+
+The following coherent subgraph pass formally bounds and reads the actual
+state initializer, streaming input and output functions, their single
+compression-function callee, and the two already identified context helpers.
+Its cumulative bounds close at 4,092 of 4,096 permitted new code bytes, 644
+of 1,024 exact PC-reference data bytes and 734 formal metadata bytes. No
+target code is executed or emulated and no network request is made.
+
+The algorithm is now supported by the complete source operations rather
+than output length or a guessed library name. Static expression comparison
+matches all 64 MD5 rounds, including message-word order, Boolean functions,
+constants and rotations, plus all four feed-forward words. The original
+initial vector, zero bit counter, streaming block handling, saved bit length,
+padding and lowercase hexadecimal output agree. The byte-array helper's
+proved call sequence therefore computes lowercase hexadecimal MD5 of the
+original byte array followed by exactly 32 source-selected bytes. No actual
+signature value is computed. Source-selected blocks and comparison values
+stay private and are not printed, written as extracted values or committed.
+
+The context helpers resolve public Android application-identity lookups:
+package name, package manager, package information with the signing-identity
+flag, the first signature and its byte encoding. The signing-identity path
+uses the same MD5 routine for its guard. No actual Java context, device,
+account or private-key value is queried. Their common out-of-line Java-call
+delegate is a positive 156-byte FDE-owned function, but its body remains
+unread at this budget boundary. These are visible lookup dependencies, not
+yet a completed join to authenticated original application metadata.
+
+This establishes the native calculation while retaining distinct open gates:
+the Java-call delegate, original public-identity/selector binding, request-map
+and header canonicalization, time/nonce generation, other interceptors and
+the response envelope. It does not establish accepted anonymous delivery,
+derive the game's GameConfig key or make either preparation mode ready.
 
 ### Community key candidate: research only
 
