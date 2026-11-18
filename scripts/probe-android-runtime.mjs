@@ -158,11 +158,19 @@ const normalAccountGeneration = normalStartup.snapshot.context.account_generatio
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
 const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName,
   report:value=>writeFileSync(join(output,'android-insets-before-restore.json'),JSON.stringify({...value,
-    source_commit:provenance.source_commit,apk_sha256:provenance.apk_sha256},null,2)+'\n')});
+    source_commit:provenance.source_commit,apk_sha256:provenance.apk_sha256,
+    diagnostic_harness_source:process.env.TOOLKIT_DIAGNOSTIC_HARNESS_SOURCE??null},null,2)+'\n')});
 writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
   source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, ...insets,
   fixture: 'authored-emulator-reader-before-personal-data', physical_device_acceptance: 'not-established',
 }, null, 2) + '\n');
+if(process.env.TOOLKIT_INSETS_DIAGNOSTIC_ONLY==='1') {
+  writeFileSync(join(output,'android-insets-diagnostic-scope.json'),JSON.stringify({
+    schema:'toolkit-reused-apk-insets-diagnostic-v1',apk_source:provenance.source_commit,apk_sha256:provenance.apk_sha256,
+    harness_source:process.env.TOOLKIT_DIAGNOSTIC_HARNESS_SOURCE,geometry_and_evidence_source:'6a26cfcf8c0a5a0609640315130efb6584a3dcc0',
+    diagnostic_only:true,full_runtime_acceptance:false,production_fix_acceptance:false},null,2)+'\n');
+  await browser.close();process.exit(0);
+}
 // Only this explicit DEBUG process installs the generated source. Normal
 // startup above still used the real publisher registry and no imported data.
 await browser.close();
