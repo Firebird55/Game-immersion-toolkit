@@ -15,21 +15,22 @@ import pytest
 ROOT=Path(__file__).resolve().parents[2]
 
 
-@pytest.mark.parametrize('kind',['zstandard','crypto'])
+@pytest.mark.parametrize('kind',['zstandard','crypto','hash'])
 def test_actual_hosted_software_callers_create_cold_cache_and_keep_pin_verification(tmp_path,monkeypatch,kind):
     lines=(ROOT/'.github/workflows/android-shared-core.yml').read_text().splitlines()
     commands=[re.fullmatch(r'\s+python -c "(.+)"',line)[1] for line in lines if 'm.acquire(' in line]
-    assert len(commands)==2
-    command=next(value for value in commands if ('android-zstandard' if kind=='zstandard' else 'android-crypto-source') in value)
+    assert len(commands)==3
+    cache_name={'zstandard':'android-zstandard','crypto':'android-crypto-source','hash':'android-hash-source'}[kind]
+    command=next(value for value in commands if cache_name in value)
     scripts=tmp_path/'scripts';scripts.mkdir()
     shutil.copyfile(ROOT/'scripts/build-android-python-dependencies.py',scripts/'build-android-python-dependencies.py')
     policy=tmp_path/'packaging/android';policy.mkdir(parents=True)
     raw=b'Authored software source fixture; not a real dependency acquisition.'
     pin={'source':'https://software.invalid/original','sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)}
-    name='zstandard-native.json' if kind=='zstandard' else 'publisher-crypto-native.json'
+    name={'zstandard':'zstandard-native.json','crypto':'publisher-crypto-native.json','hash':'publisher-hash-native.json'}[kind]
     (policy/name).write_text(json.dumps(pin if kind=='zstandard' else {'source':pin}))
-    cache=tmp_path/'output'/('android-zstandard' if kind=='zstandard' else 'android-crypto-source')
-    archive=cache/('zstandard-0.25.0.tar.gz' if kind=='zstandard' else 'pycryptodome-3.24.1.tar.gz')
+    cache=tmp_path/'output'/cache_name
+    archive=cache/{'zstandard':'zstandard-0.25.0.tar.gz','crypto':'pycryptodome-3.24.1.tar.gz','hash':'xxhash-4.1.0.tar.gz'}[kind]
     calls=[]
     def fetch(url,*,timeout):
         assert url==pin['source'] and timeout==60

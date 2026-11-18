@@ -67,6 +67,68 @@ def recipe():
     return {name: sha(ROOT/name) for name in names}
 
 
+def validate_manifest(value):
+    """Use the same pinned recipe for bundle and APK verification."""
+    policy = json.loads((ROOT/'packaging/android/publisher-hash-native.json').read_text())
+    inputs = script('build-android-python-dependencies'); pins = json.loads(inputs.POLICY.read_text())
+    if (value.get('schema') != 'toolkit-android-publisher-hash-bundle-v1'
+            or value.get('contract') != policy['contract'] or value.get('recipe') != recipe()
+            or value.get('source') != policy['source']['source']
+            or value.get('source_sha256') != policy['source']['sha256']
+            or value.get('header_sha256') != policy['source']['members']['deps/xxhash/xxhash.h']
+            or value.get('source_members') != policy['source']['members']
+            or value.get('version') != policy['source']['xxhash_version']
+            or value.get('library') != policy['library'] or value.get('ndk') != policy['ndk']
+            or value.get('api') != policy['api'] or value.get('ndk_archive_sha256') != pins['ndk']['sha256']
+            or type(value.get('max_bytes')) is not int or value['max_bytes'] != 4096
+            or type(value.get('seed')) is not int or value['seed'] != 0
+            or value.get('custom_secret') is not False or value.get('original_client_execution') is not False
+            or set(value.get('libraries', {})) != set(policy['abis'])
+            or any(not isinstance(value.get(name), str) or not re.fullmatch('[0-9a-f]{64}', value[name])
+                for name in ('compiler_sha256', 'ndk_inventory_sha256'))):
+        raise ValueError('The publisher hash bundle differs from its reviewed recipe')
+    return policy, pins
+
+
+def verify_bundle(work):
+    work = Path(work).absolute(); _no_links(work)
+    path = work/'assets/publisher-hash-manifest.json'; _no_links(path)
+    if path.stat().st_size > 65536: raise ValueError('Publisher hash manifest exceeds its bound')
+    value = json.loads(path.read_text()); policy, _ = validate_manifest(value)
+    audit = script('verify-android-apk')
+    # The APK auditor checks actual ELF, notices and vectors, using these same
+    # bytes; wrapping only the reviewed namespace avoids a second ELF parser.
+    import io
+    import zipfile
+    expected = {'assets/publisher-hash-manifest.json'}
+    payload = io.BytesIO()
+    native_files = {}
+    with zipfile.ZipFile(payload, 'w') as archive:
+        archive.writestr('assets/publisher-hash-manifest.json', path.read_bytes())
+        for abi in policy['abis']:
+            path = work/'jniLibs'/abi/policy['library']; _no_links(path)
+            if not 1 <= path.stat().st_size <= 1024**2: raise ValueError('Publisher hash library exceeds its bound')
+            entry = 'lib/'+abi+'/'+policy['library']; raw = path.read_bytes()
+            native_files[entry] = audit.native(raw, abi)
+            archive.writestr(entry, raw); expected.add(path.relative_to(work).as_posix())
+        for name in ('xxhash-LICENSE', 'python-xxhash-LICENSE'):
+            path = work/'assets/publisher-hash-licenses'/name; _no_links(path)
+            if not 1 <= path.stat().st_size <= 16384: raise ValueError('Publisher hash notice exceeds its bound')
+            archive.writestr('assets/publisher-hash-licenses/'+name, path.read_bytes())
+            expected.add(path.relative_to(work).as_posix())
+        archive.writestr('assets/publisher-hash-authored-vectors.json',
+            (ROOT/policy['authored_vectors']).read_bytes())
+    actual = set()
+    for root in ('assets', 'jniLibs'):
+        for path in (work/root).rglob('*'):
+            _no_links(path)
+            if path.is_file(): actual.add(path.relative_to(work).as_posix())
+    if actual != expected: raise ValueError('The publisher hash software namespace is not closed')
+    with zipfile.ZipFile(io.BytesIO(payload.getvalue())) as archive:
+        audit.verify_publisher_hash(archive, native_files, ROOT)
+    return value
+
+
 def build(work, archive, ndk, ndk_archive):
     work, archive, ndk, ndk_archive = map(lambda value: Path(value).absolute(), (work, archive, ndk, ndk_archive))
     for path in (work, archive, ndk, ndk_archive): _no_links(path)
@@ -131,6 +193,7 @@ def build(work, archive, ndk, ndk_archive):
         'libraries':libraries, 'source_sha256':policy['source']['sha256'], 'recipe':identity,
         'android_execution':'not-established', 'release_eligibility':False}
     (work/'hash-build-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+    verify_bundle(work)
     return receipt
 
 

@@ -4,6 +4,10 @@ def repository = rootProject.projectDir.parentFile.parentFile
 def wheelhouse = System.getenv('ANDROID_PYTHON_WHEELHOUSE')
 def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
 def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
+def hashBundle = System.getenv('ANDROID_PUBLISHER_HASH')
+if (!hashBundle || !new File(hashBundle, 'assets/publisher-hash-manifest.json').isFile()) {
+    throw new GradleException('Build the reviewed bounded publisher hash bundle first.')
+}
 def cryptoBundle = System.getenv('ANDROID_PUBLISHER_CRYPTO')
 def cryptoFixtures = System.getenv('ANDROID_CRYPTO_FIXTURES')
 def wuwaFixture = System.getenv('ANDROID_WUWA_FIXTURE')
@@ -39,7 +43,7 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_authored_game_data.py', 'android_account_recovery.py',
     'native_frame_admission.py', 'browser_history_migration.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
-    'publisher_transport.py', 'publisher_crypto.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
+    'publisher_transport.py', 'publisher_crypto.py', 'source_recordings.py', 'private_data_paths.py', 'android_publisher_hash.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
 publisherPolicy.files.each { name, receipt ->
     if (!(name ==~ /backend\/[a-z0-9_]+\.py/)) throw new GradleException('Invalid packaged publisher source path.')
     def source = new File(repository, name)
@@ -90,8 +94,8 @@ android {
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs'); jniLibs.srcDir new File(cryptoBundle, 'jniLibs') } }
-    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so', '**/libtoolkit_publisher_crypto.so'] } }
+    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs'); jniLibs.srcDir new File(cryptoBundle, 'jniLibs'); jniLibs.srcDir new File(hashBundle, 'jniLibs') } }
+    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so', '**/libtoolkit_publisher_crypto.so', '**/libtoolkit_publisher_hash.so'] } }
 }
 
 chaquopy {
@@ -117,6 +121,8 @@ tasks.register('prepareToolkitReader') {
     inputs.dir(readerFrontend)
     inputs.dir(new File(decoderBundle, 'assets'))
     inputs.dir(new File(cryptoBundle, 'assets'))
+    inputs.dir(new File(hashBundle, 'assets'))
+    inputs.file(new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'))
     inputs.dir(cryptoFixtures)
     inputs.file(wuwaFixture)
     inputs.file(publisherPolicyFile)
@@ -131,6 +137,8 @@ tasks.register('prepareToolkitReader') {
         output.mkdirs()
         copy { from new File(decoderBundle, 'assets'); into output }
         copy { from new File(cryptoBundle, 'assets'); into output }
+        copy { from new File(hashBundle, 'assets'); into output }
+        copy { from new File(repository, 'packaging/android/publisher-hash-authored-vectors.json'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
         copy { from wuwaFixture; into output; rename { 'wuwa-authored-bootstrap.json' } }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }

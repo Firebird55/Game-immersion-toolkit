@@ -35,7 +35,8 @@ is written to that report.
 
 For a private build, supply the existing SDK, verified Python wheelhouse, shared
 reader frontend, Python/Java programs, original NDK archive, pinned publisher
-crypto source (`-PublisherCryptoSourceArchive`) and pinned decoder source
+crypto source (`-PublisherCryptoSourceArchive`), bounded hash source
+(`-PublisherHashSourceArchive`) and pinned decoder source
 archive to `scripts/build-android-app.ps1`. Its `-NdkArchive` and
 `-DecoderSourceArchive` inputs keep those source transfers explicit; a developer
 may opt into the pinned source download with `-DownloadDecoderSource`. An

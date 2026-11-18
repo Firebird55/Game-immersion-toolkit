@@ -38,10 +38,35 @@ and unsigned results above 2^63 using the verified desktop software reference.
 `android_publisher_hash.authored_probe` also requires native rejection of null
 and oversized inputs. A desktop Java-class simulation is not Android/JNI proof.
 
-This library is deliberately not added to the APK bundle policy, Gradle native
-inputs, or production Endfield provider in this checkpoint. Compilation, Java
-typechecking, source tests, and software-reference parity establish neither
-APK/JNI acceptance nor independent Endfield preparation. Reviewed packaging and
-actual target execution must precede that claim. Original source acquisition,
-master parameters, NumPy-dependent audio transforms, and audio codecs retain
-their separate gates. The existing game support matrix is not expanded.
+The APK build now requires `-PublisherHashSourceArchive` explicitly. Its owned
+builder verifies and compiles the original source with the existing authenticated
+NDK, then Gradle includes both ABI libraries unchanged, manifest and complete
+notices. The authored vector JSON is copied separately from maintained source.
+`keepDebugSymbols` preserves native hashes. Only `android_publisher_hash.py` is
+added to the closed core: 75 owned modules, with the same 17 pinned publisher
+files and three metadata-stage factories. Endfield's VFS, hash consumer and
+provider remain outside that packaged producer policy.
+
+The DEBUG startup probe calls the Python adapter through
+`FrameOcr.publisherHash()` and the exact own-APK Java loader. It must pass all
+47 vectors plus two public native-object boundary rejections. The normal runtime
+harness checks this proof on initial and update startup, binding the authored
+fixture, loaded library, source/header, manifest and provenance hashes. The APK
+auditor checks both actual ELF bodies and complete original notices, not just
+manifest fields. Its native-software inventory remains derived from the actual
+archive; this component adds two root-library entries, not a new container or
+an alignment exception. No new artifact count is claimed before that audit.
+
+The existing actual 57-case crypto probe already covers stream positions 64,
+65, a 64-bit random seek, the final valid counter and malformed inputs through
+Python, Java and JNI. The VFS-specific `64 + offset` and forced chunk-boundary
+regressions are host-only evidence because the VFS is not packaged. This change
+does not repeat or enlarge that crypto target suite.
+
+Compilation, Java typechecking, source tests, assembly-stage regressions and
+software-reference parity establish neither APK/JNI acceptance nor independent
+Endfield preparation. No APK is built by this checkpoint. The previous library
+build receipts remain source-specific; the changed recipe needs fresh ABI
+receipts before a new APK. Original source acquisition, master parameters,
+NumPy-dependent audio transforms and audio codecs retain their separate gates.
+The existing game support matrix is not expanded.

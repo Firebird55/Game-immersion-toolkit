@@ -211,6 +211,55 @@ def verify_publisher_crypto(archive, native_files, repository):
     return {**value,'manifest_sha256':hashlib.sha256(raw).hexdigest(),'authored_fixtures':fixtures}
 
 
+def verify_publisher_hash(archive, native_files, repository):
+    if not 1 <= archive.getinfo('assets/publisher-hash-manifest.json').file_size <= 65536:
+        raise ValueError('Publisher hash manifest exceeds its bound')
+    raw = archive.read('assets/publisher-hash-manifest.json')
+    if not 1 <= len(raw) <= 65536: raise ValueError('Publisher hash manifest exceeds its bound')
+    value = json.loads(raw)
+    spec = importlib.util.spec_from_file_location('apk_publisher_hash', repository/'scripts/build-android-publisher-hash.py')
+    software = importlib.util.module_from_spec(spec); spec.loader.exec_module(software)
+    policy, pins = software.validate_manifest(value)
+    inputs = software.script('build-android-python-dependencies')
+    for abi, row in value['libraries'].items():
+        name = 'lib/'+abi+'/'+policy['library']; entry = archive.getinfo(name)
+        if not 1 <= entry.file_size <= 1024**2: raise ValueError('Publisher hash library exceeds its bound')
+        actual = archive.read(name)
+        if (row.get('entry') != name or not 1 <= row['bytes'] <= 1024**2 or entry.file_size != row['bytes']
+                or entry.compress_type != zipfile.ZIP_STORED or native_files[name] != native(actual, abi)
+                or native_files[name]['sha256'] != row['sha256'] or row.get('needed') != ['libc.so']
+                or row.get('machine') != pins['targets'][abi]['elf_machine']
+                or row.get('minimum_load_alignment') != native_files[name]['minimum_load_alignment']):
+            raise ValueError('The packaged publisher hash differs from its compiled ABI receipt')
+        inputs.elf_contract(actual, pins['targets'][abi]['elf_machine'], expected_dependencies=('libc.so',))
+    expected = {'publisher-hash-licenses/xxhash-LICENSE':policy['source']['members']['deps/xxhash/LICENSE'],
+        'publisher-hash-licenses/python-xxhash-LICENSE':policy['source']['members']['LICENSE']}
+    expected_assets = {'assets/publisher-hash-manifest.json', 'assets/publisher-hash-authored-vectors.json',
+        *('assets/'+name for name in expected)}
+    if {name for name in archive.namelist() if name.startswith('assets/publisher-hash-') and not name.endswith('/')} != expected_assets:
+        raise ValueError('The publisher hash APK asset namespace is not closed')
+    actual_names = {name.removeprefix('assets/') for name in archive.namelist()
+        if name.startswith('assets/publisher-hash-licenses/') and not name.endswith('/')}
+    if set(value.get('licenses', {})) != set(expected) or actual_names != set(expected):
+        raise ValueError('Complete original publisher hash notices are required')
+    for name, digest in expected.items():
+        if not 1 <= archive.getinfo('assets/'+name).file_size <= 16384:
+            raise ValueError('Publisher hash notice exceeds its bound')
+        actual = archive.read('assets/'+name); row = value['licenses'][name]
+        if not 1 <= len(actual) <= 16384 or len(actual) != row['bytes'] or row['sha256'] != digest or hashlib.sha256(actual).hexdigest() != digest:
+            raise ValueError('An original publisher hash notice changed')
+    if not 1 <= archive.getinfo('assets/publisher-hash-authored-vectors.json').file_size <= 65536:
+        raise ValueError('Publisher hash vectors exceed their bound')
+    fixture = archive.read('assets/publisher-hash-authored-vectors.json')
+    if not 1 <= len(fixture) <= 65536 or fixture != (repository/policy['authored_vectors']).read_bytes():
+        raise ValueError('The authored publisher hash vectors changed')
+    vectors = json.loads(fixture)
+    if len(vectors.get('cases', [])) != 47 or vectors.get('original_game_bytes') is not False:
+        raise ValueError('Review the authored publisher hash fixture contract')
+    return {**value, 'manifest_sha256':hashlib.sha256(raw).hexdigest(),
+        'authored_fixture':{'bytes':len(fixture), 'sha256':hashlib.sha256(fixture).hexdigest(), 'cases':47}}
+
+
 def verify_zstandard_package(archive, native_files, repository):
     extension_raw = archive.read('assets/python-runtime-extensions.json')
     if extension_raw != (repository / 'packaging/android/python-runtime-extensions.json').read_bytes():
@@ -269,6 +318,7 @@ def verify(path):
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
         crypto = verify_publisher_crypto(archive, result, repository)
+        hashing = verify_publisher_hash(archive, result, repository)
         wuwa_fixture = verify_wuwa_fixture(archive,repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
@@ -299,6 +349,7 @@ def verify(path):
         'native_software_inventory':{key:value for key,value in inventory.items() if key!='files'},
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
+        'native_publisher_hash':hashing,
         'publisher_source_policy': publishers,
         'wuwa_authored_fixture':wuwa_fixture,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}

@@ -1,6 +1,7 @@
 """Explicit verified Android XXH3 data hashing; no xxhash namespace override."""
 from dataclasses import dataclass, field
 import json
+import hashlib
 import re
 
 SOURCE_SHA256 = 'c9b288e4c1f5dae54417bc8a05e6f6daf505783d916b4783f4dd2f2e7d5db486'
@@ -53,12 +54,12 @@ class AndroidPublisherHash:
 
 
 def authored_probe(host, fixture_json):
-    """Future DEBUG acceptance hook; callers must separately establish target execution."""
+    """DEBUG acceptance hook; callers must separately establish target execution."""
     _check(isinstance(fixture_json, str) and len(fixture_json) <= 65536)
     fixture = json.loads(fixture_json)
     _check(fixture.get('schema') == 'toolkit-authored-publisher-hash-v1' and fixture.get('algorithm') == 'XXH3-64'
         and fixture.get('seed') == 0 and fixture.get('custom_secret') is False and fixture.get('original_game_bytes') is False
-        and isinstance(fixture.get('cases'), list) and 0 < len(fixture['cases']) <= 128)
+        and isinstance(fixture.get('cases'), list) and len(fixture['cases']) == 47)
     native = host.publisherHash(); hashing = AndroidPublisherHash.from_native(native)
     for row in fixture['cases']:
         _check(isinstance(row, dict) and isinstance(row.get('expected_hex'), str)
@@ -77,4 +78,5 @@ def authored_probe(host, fixture_json):
     _check(rejected == 2)
     return json.dumps({'schema':'toolkit-authored-publisher-hash-proof-v1', 'passed':True,
         'cases':len(fixture['cases']), 'native_boundary_rejections':rejected,
+        'fixture_sha256':hashlib.sha256(fixture_json.encode('utf8')).hexdigest(),
         'runtime':hashing.runtime, 'original_game_bytes':False})

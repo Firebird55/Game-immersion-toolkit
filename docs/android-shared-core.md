@@ -269,6 +269,7 @@ pwsh scripts/build-android-app.ps1 -SdkRoot <sdk> -Wheelhouse <wheelhouse> \
   -Frontend <verified-desktop-frontend> -BuildRoot <private-build-directory> \
   -Python <build-python> -JavaHome <jdk> -NdkArchive <pinned-original-ndk-archive> \
   -PublisherCryptoSourceArchive <pinned-pycryptodome-source-archive> \
+  -PublisherHashSourceArchive <pinned-xxhash-source-archive> \
   -DecoderSourceArchive <pinned-capstone-source-archive> -DownloadGradle
 ```
 

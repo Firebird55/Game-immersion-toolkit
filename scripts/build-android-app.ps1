@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)][string]$JavaHome,
     [Parameter(Mandatory=$true)][string]$NdkArchive,
     [Parameter(Mandatory=$true)][string]$PublisherCryptoSourceArchive,
+    [Parameter(Mandatory=$true)][string]$PublisherHashSourceArchive,
     [string]$DecoderSourceArchive,
     [string]$GradleUserHome,
     [ValidateSet('debug','ownerCandidate')][string]$Variant='debug',
@@ -39,7 +40,7 @@ if($VersionCode -lt 1 -or $VersionCode -gt 2100000000){throw 'Invalid Android ve
 $SdkRoot=Resolve-AndroidSupplierPath $SdkRoot 'Android SDK' @("platforms/android-$($policy.compile_sdk)/android.jar","build-tools/$($policy.build_tools)/aapt2.exe","build-tools/$($policy.build_tools)/zipalign.exe")
 $Python=Resolve-AndroidSupplierPath $Python 'Build Python' @('')
 $JavaHome=Resolve-AndroidSupplierPath $JavaHome 'Build Java' @('bin/java.exe','bin/keytool.exe')
-foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome,$NdkArchive,$PublisherCryptoSourceArchive)) {Assert-AndroidNoLinks $item}
+foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome,$NdkArchive,$PublisherCryptoSourceArchive,$PublisherHashSourceArchive)) {Assert-AndroidNoLinks $item}
 $BuildRoot=[IO.Path]::GetFullPath($BuildRoot)
 New-Item -ItemType Directory -Path $BuildRoot -Force | Out-Null
 foreach($name in @('temp','gradle-user','android-user','avd')) {New-Item -ItemType Directory -Path (Join-Path $BuildRoot $name) -Force | Out-Null}
@@ -69,6 +70,10 @@ $cryptoRoot=Join-Path $BuildRoot 'publisher-crypto'
 & $Python (Join-Path $PSScriptRoot 'build-android-publisher-crypto.py') --work-dir $cryptoRoot --source-archive $PublisherCryptoSourceArchive --ndk-root (Join-Path $SdkRoot 'ndk/27.3.13750724') --ndk-archive $NdkArchive
 if($LASTEXITCODE -ne 0){throw 'The authenticated publisher cryptography software build failed.'}
 $env:ANDROID_PUBLISHER_CRYPTO=$cryptoRoot
+$hashRoot=Join-Path $BuildRoot 'publisher-hash'
+& $Python (Join-Path $PSScriptRoot 'build-android-publisher-hash.py') --work-dir $hashRoot --source $PublisherHashSourceArchive --ndk (Join-Path $SdkRoot 'ndk/27.3.13750724') --ndk-archive $NdkArchive
+if($LASTEXITCODE -ne 0){throw 'The authenticated publisher hash software build failed.'}
+$env:ANDROID_PUBLISHER_HASH=$hashRoot
 $env:ANDROID_CRYPTO_FIXTURES=Join-Path $BuildRoot 'crypto-authored'
 & $Python (Join-Path $PSScriptRoot 'prepare-publisher-crypto-probes.py') --work-dir $env:ANDROID_CRYPTO_FIXTURES --fixtures-only
 if($LASTEXITCODE -ne 0){throw 'The bounded authored cryptography fixtures could not be prepared.'}
@@ -165,6 +170,8 @@ Copy-Item -LiteralPath $apk -Destination $destination -Force
 $proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;python_runtime_extensions_policy_sha256=$receipt.extension_policy_sha256;zstandard_receipt_sha256=$receipt.zstandard_receipt_sha256;native_decoder_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $decoderRoot 'assets/native-decoder-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();publisher_source_policy_sha256=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/publisher-sources.json') -Algorithm SHA256).Hash.ToLowerInvariant();application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
 $proof.native_publisher_crypto_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $cryptoRoot 'assets/publisher-crypto-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
 $proof.publisher_crypto_authored_fixtures=$nativeAudit.native_publisher_crypto.authored_fixtures
+$proof.native_publisher_hash_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $hashRoot 'assets/publisher-hash-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+$proof.publisher_hash_authored_fixture=$nativeAudit.native_publisher_hash.authored_fixture
 $proof.wuwa_authored_fixture=$nativeAudit.wuwa_authored_fixture
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'

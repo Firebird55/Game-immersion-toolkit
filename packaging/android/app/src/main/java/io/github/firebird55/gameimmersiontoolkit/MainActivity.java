@@ -83,6 +83,18 @@ public final class MainActivity extends Activity {
                     report.put("native_publisher_crypto", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_crypto", ocr, authoredCryptoAsset("capi"), authoredCryptoAsset("jca")).toString()));
                     selfTestDiagnostic("native-publisher-crypto", "passed", null);
+                    selfTestDiagnostic("native-publisher-hash", "running", null);
+                    try (InputStream input = getAssets().open("publisher-hash-authored-vectors.json")) {
+                        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                        byte[] chunk = new byte[4096]; int count;
+                        while ((count = input.read(chunk)) != -1) {
+                            if (buffer.size() + count > 65536) throw new IllegalStateException();
+                            buffer.write(chunk, 0, count);
+                        }
+                        report.put("native_publisher_hash", new org.json.JSONObject(Python.getInstance().getModule("backend.android_publisher_hash")
+                            .callAttr("authored_probe", ocr, buffer.toString("UTF-8")).toString()));
+                    }
+                    selfTestDiagnostic("native-publisher-hash", "passed", null);
                     selfTestDiagnostic("native-wuwa-bootstrap", "running", null);
                     try (InputStream input = getAssets().open("wuwa-authored-bootstrap.json")) {
                         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
