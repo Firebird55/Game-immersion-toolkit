@@ -65,6 +65,7 @@ def fixture(tmp_path):
 
 
 def test_offline_restore_uses_only_bound_receipt_and_snapshot(tmp_path, monkeypatch):
+    from backend.zzz_game_data import ZzzGameDataProvider
     ctx, handle = fixture(tmp_path)
     def forbidden(*args, **kwargs):raise AssertionError('Offline restore entered a reader or source downloader')
     monkeypatch.setattr(stages, 'discover', forbidden)
@@ -72,6 +73,7 @@ def test_offline_restore_uses_only_bound_receipt_and_snapshot(tmp_path, monkeypa
     source = stages.restore(ctx, handle)
     assert source.snapshot_path == tmp_path / 'textmap.json' and source.voice_source is None
     assert source.restore_handle == handle and source.source_proof.origin == 'official'
+    assert ZzzGameDataProvider(platform='android').restore(handle, ctx) == source
     (tmp_path / 'textmap.json').write_bytes(b'changed')
     with pytest.raises(GameDataError):stages.restore(ctx, handle)
 

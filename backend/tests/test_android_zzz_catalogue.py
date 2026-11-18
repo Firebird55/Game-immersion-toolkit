@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.android_zzz_catalogue import CHUNK, IDENTITY, run_stage
+from backend.android_zzz_catalogue import AndroidCatalogueReader, CHUNK, IDENTITY, run_stage
 from backend.game_data_protocol import GameDataError
 
 
@@ -110,6 +110,28 @@ def test_scope_cancellation_stops_worker_and_removes_only_pending_stage(tmp_path
         run_stage(worker, 'scene-plan', {'design':['design-1.blk']}, tmp_path, receipts, ctx)
 
     assert ticket.cancelled and not list(tmp_path.glob('zzz-catalogue-*'))
+
+
+def test_reader_binds_verified_input_and_places_only_expected_output_in_workspace(tmp_path, monkeypatch):
+    from backend import android_zzz_catalogue
+    work = tmp_path / 'work'
+    work.mkdir()
+    receipts = input_digest(work)
+    events = read_source() + write_output('scene-plan-output.json', 2, b'{"owned":true}') + [{'type': 'complete'}]
+    ctx, worker, ticket, _ = authored(tmp_path, events)
+    native = object()
+
+    def capability(owner):
+        assert owner is native
+        return worker
+
+    monkeypatch.setattr(android_zzz_catalogue, 'create_android_catalogue', capability)
+    reader = AndroidCatalogueReader(native)
+    reader.run_operation('scene-plan', {'design': ['design-1.blk']}, work, ctx)
+    assert ticket.sent[0]['sha256'] == receipts['design-1.blk']
+    assert json.loads((work / 'scene-plan-output.json').read_bytes()) == {'owned': True}
+    assert set(path.name for path in work.iterdir()) == {'design-1.blk', 'scene-plan-output.json'}
+    assert not list(tmp_path.glob('zzz-catalogue-*'))
 
 
 @pytest.mark.parametrize('spec', [

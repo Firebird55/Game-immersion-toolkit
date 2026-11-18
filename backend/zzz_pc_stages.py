@@ -114,6 +114,10 @@ class _BoundFile:
 
 
 def _query(reader, work, mode, inputs, ctx):
+    portable = getattr(reader, 'run_operation', None)
+    if portable is not None:
+        portable(mode, inputs, work, ctx)
+        return _read_operation_output(work, mode)
     import subprocess
 
     (work / (mode + '-input.json')).write_bytes(encoded(inputs))
@@ -130,10 +134,9 @@ def _query(reader, work, mode, inputs, ctx):
                 _stdout, _stderr = process.communicate(timeout=.5)
                 break
             except subprocess.TimeoutExpired:pass
-        path = work / (mode + '-output.json')
-        if process.returncode or not path.is_file() or not 0 < path.stat().st_size <= MAX_TEXT:
+        if process.returncode:
             raise GameDataError('zzz_reader_source_failed', 'The original ZZZ text could not be read. Previous data is kept.')
-        return json.loads(path.read_bytes())
+        return _read_operation_output(work, mode)
     finally:
         if process.poll() is None:
             process.terminate()
@@ -141,10 +144,19 @@ def _query(reader, work, mode, inputs, ctx):
             except subprocess.TimeoutExpired:process.kill(); process.communicate(timeout=5)
 
 
+def _read_operation_output(work, mode):
+    path = _safe(work / (mode + '-output.json'))
+    if not path.is_file() or not 0 < path.stat().st_size <= MAX_TEXT:
+        raise GameDataError('zzz_reader_source_failed', 'The original ZZZ text could not be read. Previous data is kept.')
+    with path.open(encoding='utf-8') as stream:
+        return json.load(stream)
+
+
 def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
     operations = operation['operations']
-    reader.work_root.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='zzz-content-', dir=reader.work_root) as temporary:
+    work_root = ctx.directory if getattr(reader, 'run_operation', None) is not None else reader.work_root
+    work_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='zzz-content-', dir=work_root) as temporary:
         work = Path(temporary).resolve()
         for name, asset in files.items():
             with (work / name).open('xb') as output:
@@ -205,8 +217,8 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
             'coverage_warnings': [SCOPE], 'message': 'Official ZZZ text prepared without audio acquisition.'}
 
 
-def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None):
-    current = discover(ctx, launcher, bootstrap_cache, transport_factory=transport_factory)
+def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None, crypto=None):
+    current = discover(ctx, launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
     revision = sophon_assets.descriptor(current)[0]
     handle = {'schema': SCHEMA, 'game': 'zzz', 'request': ctx.request.json(), 'revision': revision,
               'build': current, 'reader': reader.identity}
@@ -248,7 +260,7 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
                  else 'Verify the original dialogue and voice references, then check the selected audio size.'))
 
 
-def download(ctx, planned, reader, *, transport_factory=PublisherTransport, codecs=None, verification=None):
+def download(ctx, planned, reader, *, transport_factory=PublisherTransport, codecs=None, verification=None, crypto=None):
     handle = planned.handle
     if (handle.get('schema') != SCHEMA or handle.get('request') != ctx.request.json()
             or handle.get('reader') != reader.identity or handle.get('revision') != planned.revision
@@ -300,7 +312,7 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
         return zzz_pc_audio.save_candidate(ctx, handle, result, reader)
     # Only the final source pointer check may spend the explicitly planned
     # metadata allowance. It has no permission to acquire a newer client key.
-    _verify_current(ctx, handle['build'], planned.revision, transport_factory)
+    _verify_current(ctx, handle['build'], planned.revision, transport_factory, crypto=crypto)
     destination = _safe(ctx.directory / 'textmap.json')
     write_payload('zzz', result, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check, reader_revision=LANGUAGE_INDEX_VERSION)
     with destination.open('rb') as stream:
@@ -316,14 +328,14 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
     return SnapshotSource(destination, result_handle, SourceProof('official', digest, True))
 
 
-def _verify_current(ctx, build, revision, transport_factory):
+def _verify_current(ctx, build, revision, transport_factory, *, crypto=None):
     channel = build['channel']
     def official_fetch(url, *, limit):
         (launcher, _, downloader), _, _, _ = sophon_assets.CHANNELS[channel]
         return transport_factory(ctx, hosts={launcher, downloader}).fetch_bytes(url, limit=limit, kind='metadata')[0]
     latest_launcher = sophon_assets.release(channel, fetch=official_fetch)
     bootstrap_cache = Path(ctx.cache_directory) / 'zzz-original' / ctx.request.region
-    latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory)
+    latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
     if sophon_assets.descriptor(latest)[0] != revision:
         raise GameDataError('zzz_publisher_changed', 'The original ZZZ update changed during preparation. Retry; previous data is kept.', 409)
 

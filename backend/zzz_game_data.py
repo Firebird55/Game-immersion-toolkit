@@ -137,7 +137,12 @@ class ZzzGameDataProvider:
         # No desktop helper or speculative native method is a portable reader.
 
     def _reader(self):
-        if self.platform == 'android':return None
+        if self.platform == 'android':
+            try:
+                from .android_zzz_catalogue import AndroidCatalogueReader
+                return AndroidCatalogueReader(self.native)
+            except (GameDataError, ImportError):
+                return None
         from .prebuilt_node_reader import production_zzz_reader
         from .preparation_errors import PreparationFailure
         try:return (self.reader_resolver or production_zzz_reader)()
@@ -202,12 +207,13 @@ class ZzzGameDataProvider:
                 pass
             else:
                 handle['bootstrap_proof'] = hoyo_dispatch_metadata.provenance(config)
-                reader = self._reader()
+                crypto = self._android_gateway()
+                reader = self._reader() if self.platform != 'android' or crypto is not None else None
                 if reader is not None:
                     from . import zzz_pc_stages
                     options = {'codecs': self._codecs()} if request.content_mode == 'text-audio' else {}
-                    return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory, **options)
-                crypto = self._android_gateway()
+                    return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory,
+                                              crypto=crypto, **options)
                 if crypto is not None:
                     from . import zzz_pc_sources
                     current = zzz_pc_sources.discover(ctx, build, cache, transport_factory=self.transport_factory,
@@ -231,12 +237,15 @@ class ZzzGameDataProvider:
 
     def download(self, plan, ctx):
         if plan.handle.get('schema') == 'zzz-pc-official-text-v1':
+            crypto = self._android_gateway()
             reader = self._reader()
-            if reader is None:raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
+            if reader is None or self.platform == 'android' and crypto is None:
+                raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
             from . import zzz_pc_stages
             with ctx.transfer_lock:
                 options = {'codecs': self._codecs(), 'verification': self._verification(ctx)} if ctx.request.content_mode == 'text-audio' else {}
-                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory, **options)
+                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory,
+                                                  crypto=crypto, **options)
         selection = _selection(ctx.request)
         handle = plan.handle
         if (handle.get('schema') != SCHEMA or handle.get('game') != 'zzz' or handle.get('request') != selection
@@ -279,8 +288,7 @@ class ZzzGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
-        if self.platform == 'android' and isinstance(handle, dict) and handle.get('schema') in (
-                'zzz-pc-official-audio-v1', 'zzz-pc-official-text-v1'):
+        if self.platform == 'android' and isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-audio-v1':
             raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
         if isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-audio-v1':
             from . import zzz_pc_audio

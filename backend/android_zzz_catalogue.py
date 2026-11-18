@@ -1,5 +1,6 @@
 """Scoped Android host I/O for the pinned ZZZ publisher catalogue worker."""
 import base64
+import hashlib
 import json
 import re
 import shutil
@@ -192,3 +193,30 @@ def run_stage(worker, mode, spec, staged_directory, receipts, ctx):
         finally:
             if not complete:
                 shutil.rmtree(pending)
+
+
+class AndroidCatalogueReader:
+    identity = 'android-zzz-catalogue-' + IDENTITY
+
+    def __init__(self, native):
+        self.worker = create_android_catalogue(native)
+
+    def run_operation(self, mode, spec, work, ctx):
+        names, outputs = _roles(mode, spec, ctx.request.content_mode == 'text-audio')
+        receipts = {}
+        for name in sorted(names):
+            ctx.check()
+            path = work / name
+            _regular(path)
+            with path.open('rb') as stream:
+                receipts[name] = hashlib.file_digest(stream, 'sha256').hexdigest()
+        pending = run_stage(self.worker, mode, spec, work, receipts, ctx)
+        try:
+            for name in sorted(outputs):
+                ctx.check()
+                (pending / name).replace(work / name)
+        finally:
+            # This directory belongs only to the completed, validated worker
+            # transaction. The preparation workspace owns the moved outputs.
+            _no_links(pending)
+            shutil.rmtree(pending)
