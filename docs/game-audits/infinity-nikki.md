@@ -1038,6 +1038,26 @@ and reopening retained progress offline. Those checks used no original
 publisher transfer. They establish staging as far as verified source metadata,
 with original dialogue capture and all dubs still unprepared.
 
+On November 18, an empty Windows game-data directory at source commit
+`dee4d21c` replayed the previously archived Global generation `2872.24` through
+the production registry and game-data manager. Windows reran offline Authenticode
+on the selected launcher PE. The archived anonymous SDK reply and plain
+BuildVersion selected both whole Global manifests, which then selected one
+configuration carrier. All five `Default_Ini_2872_P` files passed the original
+manifest SHA-1 checks. The replay used 51,619,018 distinct retained input bytes
+and reached an observed peak of 54,881,299 additional disk bytes in 29.391
+seconds. It transferred zero bytes over the network, used no mainland native
+input and left the archived inputs unchanged.
+
+The launcher ETag was explicitly authored for offline replay. Manifest checks
+reused recorded prefixes and original validators. The carrier checks used its
+original validator and the prefix of the archived whole carrier. This validates
+the cold route through file integrity for the archived generation. After an
+offline reopen, the verified configuration PAK's encrypted zero-GUID index
+triggered the native-owner requirement. The manager kept the
+verified configuration stage without selecting a profile, contacting CMS or
+preparing a language library.
+
 Separately bounded native work selects two executable candidates with apparent
 creation/group argument flows. Their actual branch edges and selected helper
 algorithm are observed, but the names' typed registration and class ownership
