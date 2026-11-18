@@ -193,3 +193,18 @@ def test_ordinary_build_cannot_enter_debug_catalogue_probe(tmp_path):
     with pytest.raises(RuntimeError, match='DEBUG only'):
         run_zzz_catalogue(tmp_path, host, '{}')
     assert not list(tmp_path.iterdir())
+
+
+def test_authored_attestation_failure_exports_only_its_checkpoint_and_closed_code(tmp_path, monkeypatch):
+    path = Path(__file__).resolve().parents[2] / 'packaging/android/zzz-catalogue/authored-operation.json'
+    fixture_json = path.read_text(encoding='utf8')
+
+    def denied():
+        raise OSError('Private filesystem diagnostic that must stay local')
+
+    host = SimpleNamespace(assertAuthoredGameData=lambda: None, zzzCatalogueWorker=denied)
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda name: object))
+    with pytest.raises(RuntimeError) as failure:
+        run_zzz_catalogue(tmp_path, host, fixture_json)
+    assert str(failure.value) == 'authored-zzz-stage[attestation/zzz_catalogue_worker_unavailable]'
+    assert not list(tmp_path.iterdir())

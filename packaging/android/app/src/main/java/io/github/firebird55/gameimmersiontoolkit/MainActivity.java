@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
     private long lifecycleRevision;
     private String selfTestPhase = "created";
     private String selfTestRun;
+    private String catalogueWorkerPhase;
     private String lastInsetsEvidence;
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
 
@@ -119,10 +120,15 @@ public final class MainActivity extends Activity {
                                 if (buffer.size() + count > 4096) throw new IllegalStateException();
                                 buffer.write(chunk, 0, count);
                             }
-                            report.put("native_zzz_catalogue", new org.json.JSONObject(Python.getInstance()
-                                .getModule("backend.android_probe").callAttr("run_zzz_catalogue",
-                                    new File(getCacheDir(), "zzz-catalogue-probe").getCanonicalPath(),
-                                    ocr, buffer.toString("UTF-8")).toString()));
+                            try {
+                                report.put("native_zzz_catalogue", new org.json.JSONObject(Python.getInstance()
+                                    .getModule("backend.android_probe").callAttr("run_zzz_catalogue",
+                                        new File(getCacheDir(), "zzz-catalogue-probe").getCanonicalPath(),
+                                        ocr, buffer.toString("UTF-8")).toString()));
+                            } catch (com.chaquo.python.PyException error) {
+                                catalogueWorkerPhase = ocr.zzzCatalogueWorker().authoredPhase();
+                                throw error;
+                            }
                         }
                         selfTestDiagnostic("native-zzz-catalogue", "passed", null);
                     } else {
@@ -213,16 +219,27 @@ public final class MainActivity extends Activity {
                 org.json.JSONArray types = new org.json.JSONArray();Throwable cause = error;
                 for (int depth=0; cause != null && depth<6; depth++, cause=cause.getCause()) types.put(cause.getClass().getName());
                 value.put("exception_types", types);
+                if ("native-zzz-catalogue".equals(phase) && catalogueWorkerPhase != null)
+                    value.put("catalogue_worker_phase", catalogueWorkerPhase);
                 // Keep only the Python exception TYPE, never its message,
                 // stack, provider response, credential or filesystem path.
                 String message = error.getMessage();
                 if (message != null) {
+                    if ("native-zzz-catalogue".equals(phase)) {
+                        java.util.regex.Matcher checkpoint = java.util.regex.Pattern.compile(
+                            "authored-zzz-stage\\[(attestation|positive|negative)/(zzz_catalogue_worker_unavailable|invalid_zzz_catalogue_stage|preparation_cancelled|unexpected)\\]")
+                            .matcher(message);
+                        if (checkpoint.find()) value.put("catalogue_checkpoint", checkpoint.group(1))
+                            .put("catalogue_result_code", checkpoint.group(2));
+                    }
                     java.util.regex.Matcher match = java.util.regex.Pattern.compile("(?:^|\\n)([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))(?=:|\\n|$)").matcher(message);
                     String type = null;while (match.find()) type=match.group(1);
+                    if (type != null) type = type.substring(type.lastIndexOf('.') + 1);
                     if (java.util.Arrays.asList("RuntimeError", "ValueError", "TypeError", "AttributeError", "ImportError",
                             "ModuleNotFoundError", "FileNotFoundError", "PermissionError", "OSError", "AssertionError",
                             "KeyError", "IndexError", "JSONDecodeError", "TimeoutError", "InterruptedError", "UnicodeError",
-                            "UnicodeDecodeError", "MemoryError", "OverflowError", "NameError", "UnboundLocalError").contains(type)) {
+                            "UnicodeDecodeError", "MemoryError", "OverflowError", "NameError", "UnboundLocalError",
+                            "GameDataError").contains(type)) {
                         value.put("python_exception_type", type);
                     }
                 }

@@ -107,6 +107,13 @@ port and destroys the WebView when the context stops, the renderer exits or
 the 180-second stage deadline expires. Failure removes pending files and
 preserves the previous accepted library.
 
+The Android host serves the verified document from memory on the exact
+private main-frame HTTPS GET and keeps WebView network loads disabled.
+The committed document and the tested browser route share the same origin
+and CSP. Hosted self-test failure details include the last worker phase and,
+when available, the authored checkpoint and its bounded result code. Raw
+exception messages and stage data stay outside that receipt.
+
 The runtime checks the software manifest pin
 `e2c8551d8841c7447689b356d09d77e6c72651d94b9bc9bf245634b3362bc24b`,
 then verifies every runtime member before executing it. Its selected operations
