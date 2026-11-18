@@ -61,7 +61,7 @@ _OFFSETS = {
     'field_offsets': (0x148, 0x329e1172),
     'methods': (0x14c, -207601004),
     'images': (0x150, -662544034),
-    'assemblies': (0x158, -532747583),
+    'assemblies': (0x158, -532747583),  # Unclassified landmark used as a conservative fence.
     'generic_classes': (0x164, 0x7f5c5934),
     'type_index_map': (0x180, -455350429),
     'events': (0x1ac, 0x37080d6e),
@@ -112,6 +112,10 @@ def _integer(data, offset, width=4, *, signed=False):
 
 def _signed(value, bits=32):
     return (value ^ (1 << (bits - 1))) - (1 << (bits - 1))
+
+
+def _field_range(start, count):
+    return _signed((start - 1954887780) & _MASK32), (count + 17485) & 0xffff
 
 
 def _stamp(info):
@@ -333,6 +337,8 @@ def _runtime_type_stride(image, table_offset, available, count, cancelled):
 
 class _Records:
     def __init__(self, files, cancelled):
+        self.cancelled = cancelled
+        self.field_extent_proved = False
         self.metadata = files['metadata']
         self.startup = files['startup']
         self.image = _Image(files['native'])
@@ -392,27 +398,62 @@ class _Records:
         _, _, image_index, image = self.images[owner]
         name = self.name((_integer(data, 0x28) - 369268488) & _MASK32)
         _require(name, 'type name')
+        field_start, field_count = _field_range(_integer(data, 0x20), _integer(data, 0x32, 2))
         return {'name': name, 'namespace': self.name((_integer(data, 0x24) - 237818487) & _MASK32),
                 'image': image, 'image_index': image_index,
                 'parent': _signed((_integer(data, 0x04) - 1224299847) & _MASK32),
                 'declaring_type': _signed((_integer(data, 0x0c) - 472568492) & _MASK32),
                 'flags': (_integer(data, 0x14) - 17986448) & _MASK32,
-                'field_start': _signed((_integer(data, 0x20) - 1954887780) & _MASK32),
-                'field_count': (_integer(data, 0x32, 2) + 17485) & 0xffff,
+                'field_start': field_start, 'field_count': field_count,
                 'method_start': _signed(_integer(data, 0x08) ^ 0x1a7af5fe),
                 'method_count': (_integer(data, 0x34, 2) + 24467) & 0xffff,
                 'nested_start': _signed(_integer(data, 0x3a, 2) ^ 0xb2c0, 16),
                 'nested_count': (_integer(data, 0x43, 1) + 4) & 0xff,
                 'generic_container': _signed((_integer(data, 0x3c, 2) - 44028) & 0xffff, 16)}
 
+    def prove_field_extent(self):
+        if self.field_extent_proved:
+            return
+        start, _ = self.windows['fields']
+        end, _ = self.windows['literal_data']
+        length = end - start
+        competing = any(start <= offset <= end for role, (offset, _) in self.windows.items()
+                        if role not in {'fields', 'assemblies', 'literal_data'})
+        _require(not competing and 0 < length <= 8 * _MAX_INDEX and length % 8 == 0,
+                 'field declaration boundary')
+        slots = length // 8
+        owned = bytearray(slots)
+        declared = 0
+        # The assembly-related header slot has no proved coordinate. Require
+        # every original declaration to tile to the separately owned literal
+        # data boundary before extending the conservative field reader.
+        for at in range(0, self.definition_count * 70, 70):
+            _check_cancelled(self.cancelled)
+            raw_start = _integer(self.read('types', at + 0x20, 4), 0)
+            raw_count = _integer(self.read('types', at + 0x32, 2), 0, 2)
+            first, count = _field_range(raw_start, raw_count)
+            if count:
+                _require(0 <= first <= slots - count, 'field declaration range')
+                stop = first + count
+                _require(not any(owned[first:stop]), 'field declaration overlap')
+                owned[first:stop] = b'\x01' * count
+                declared += count
+        _require(declared == slots, 'field declaration gap')
+        self.windows['fields'] = start, length
+        self.field_extent_proved = True
+
     def field(self, index, owner_index, owner):
+        first = owner['field_start']
+        _require(0 <= first <= index < first + owner['field_count'], 'field type ownership')
+        if (index + 1) * 8 > self.windows['fields'][1]:
+            self.prove_field_extent()
         raw = self.read('fields', index * 8, 8)
         key = -1388221511 - 744344320 * (index + 1954887780)
         type_index = (_integer(raw, 4) + key) & _MASK32
         _require(type_index < self.type_count, 'field type index')
         mapped = _integer(self.read('type_index_map', owner_index * 4, 4), 0)
         offset_index = _integer(self.read('index_table', mapped * 12 + 8, 4), 0)
-        offset = _integer(self.read('field_offsets', (offset_index + index - owner['field_start']) * 4, 4), 0)
+        offset = _integer(self.read('field_offsets', (offset_index + index - first) * 4, 4), 0)
         name = self.name((_integer(raw, 0) + 716162949 + key) & _MASK32)
         _require(name, 'field name')
         return {'owner': owner_index, 'type': type_index, 'name': name, 'offset': offset}

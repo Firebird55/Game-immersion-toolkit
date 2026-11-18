@@ -359,3 +359,36 @@ def test_type_projection_bounds_the_combined_requested_and_nested_definitions(ro
     else:
         with pytest.raises(MetadataFormatError, match='projected type definition count'):
             stage.project((0,), roots, {})
+
+
+def _field_boundary_sources(tmp_path, other_owner):
+    sources = _sources(tmp_path)
+    native = bytearray(sources['native'].path.read_bytes())
+    metadata = bytearray(sources['metadata'].path.read_bytes())
+    # Put the opaque header slot inside Actor's field row. Literal data owns
+    # the first actual global boundary after the two declared field slots.
+    struct.pack_into('<I', native, 0x640 + 0x158, 532747583 + 0x20c)
+    struct.pack_into('<I', native, 0x640 + 0x08, 149860775 + 0x210)
+    if other_owner is not None:
+        other = len(_HEADER) + 0x100 + 70
+        struct.pack_into('<I', metadata, other + 0x20, 1954887780 + other_owner)
+        struct.pack_into('<H', metadata, other + 0x32, (1 - 17485) & 0xffff)
+    for role, raw in [('native', native), ('metadata', metadata)]:
+        path = sources[role].path
+        path.write_bytes(raw)
+        sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
+    return sources
+
+
+def test_complete_declarations_recover_a_field_crossing_the_opaque_header_slot(tmp_path):
+    sources = _field_boundary_sources(tmp_path, 0)
+    assert read_required(sources, type_indices=(0,))['fields'] == {
+        1: {'owner': 0, 'type': 2, 'name': 'volume', 'offset': 24},
+    }
+
+
+@pytest.mark.parametrize(('other_owner', 'failure'), [(None, 'gap'), (1, 'overlap'), (2, 'range')])
+def test_field_extension_requires_exact_nonoverlapping_declared_ownership(tmp_path, other_owner, failure):
+    sources = _field_boundary_sources(tmp_path, other_owner)
+    with pytest.raises(MetadataFormatError, match=f'field declaration {failure}'):
+        read_required(sources, type_indices=(0,))

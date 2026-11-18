@@ -914,13 +914,22 @@ runtime type check. The probes treated those bytes as an index-table witness
 and read zero default values. [Pinned default scan](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/MetadataCache.cs#L37-L50)
 · [Pinned field-offset lookup](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Definitions/Il2CppTypeDefinition.cs#L89-L94)
 
-The remaining ownership gap is the field target. The portable field window
-ends at `AssemblyRelatedStuffOffset`, an unused header slot in the pinned
-source. In Global 4.6 and 4.7, 98,481 and 101,489 default rows respectively
-refer to field IDs beyond that cutoff. The assembly slot's coordinate still
-needs independent evidence before those field references can be accepted.
-The Android provider gate continues to require the native-index projection
-and device evidence.
+The initial portable field window ended at `AssemblyRelatedStuffOffset`, an
+unused header slot in the pinned source. In Global 4.6 and 4.7, 98,481 and
+101,489 default rows respectively referred to field IDs beyond that cutoff.
+The follow-up read the field start and count from all 82,343 and 85,219 type
+definitions. Their nonempty ranges tile 569,819 and 589,553 complete field
+slots respectively, without gaps or overlap, through the next independently
+owned table at `StringLiteralDataOffset`. The opaque assembly slot lies
+inside each proved range. All default field IDs fit the tiled ownership.
+Three high-field samples in each generation matched the pinned sparse C#
+control for their field owner, type, name and byte offset.
+
+The reader extends a field window only when complete authenticated type
+declarations tile to that distinct literal-data boundary. Authored fixtures
+exercise recovery across the opaque header slot and rejection of gaps,
+overlaps and out-of-range declarations. Selected default values, the required
+native-index projection and Android device acceptance remain open.
 
 ## Original hotfix discovery prototype · November 16, 2026
 
