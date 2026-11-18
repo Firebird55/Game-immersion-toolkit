@@ -2,8 +2,8 @@
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import threading
+import time
 from types import MappingProxyType, SimpleNamespace
 import wave
 
@@ -14,6 +14,16 @@ from backend import nte_game_data_snapshot as text
 from backend.game_data_protocol import GameDataRequest, GameDataError
 from backend.game_tools import _atomic_file
 from backend.tests.test_native_codecs import fixture as codec_fixture, seal
+
+
+def decoded_fixture(command, output, **_):
+    if Path(command[0]).name == 'vgmstream-cli.exe':
+        assert '-p' in command and '-o' not in command
+        with wave.open(str(output), 'wb') as stream:
+            stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(16000); stream.writeframes(bytes(32000))
+    else:
+        assert command[-3:] == ['-f', 'mp3', 'pipe:1']
+        output.write_bytes(b'ID3'+bytes(200))
 
 
 def fixture(tmp_path, monkeypatch):
@@ -75,18 +85,12 @@ def test_audio_restore_rejects_tampering_and_swapped_local_contracts(tmp_path, m
 
 def test_resolve_uses_only_closed_codecs_and_authored_gain_and_keeps_previous_output_on_cancellation(tmp_path, monkeypatch):
     source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); commands = []
-    class Child:
-        returncode = 0
-        def __init__(self, command, **kwargs):
-            commands.append(command)
-            assert kwargs['env']['PATH'] == str(root) and kwargs['cwd'].is_relative_to(layout.data_root)
-            if Path(command[0]).name == 'vgmstream-cli.exe':
-                with wave.open(command[command.index('-o')+1], 'wb') as stream:
-                    stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(16000); stream.writeframes(bytes(32000))
-            else: Path(command[-1]).write_bytes(b'ID3'+bytes(200))
-        def communicate(self, **_): return None
-        def poll(self): return 0
-    monkeypatch.setattr(voice.subprocess, 'Popen', Child)
+    def run(command, output, **kwargs):
+        commands.append(command)
+        assert kwargs['env']['PATH'] == str(root) and kwargs['cwd'].is_relative_to(layout.data_root)
+        assert kwargs['limit'] == 128*1024**2
+        decoded_fixture(command, output)
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
     output = layout.data_root/'audio/owned.mp3'
     assert source.voice_source.resolve(row, output, cancelled=lambda: False) == output
     assert len(commands) == 2 and commands[0][0] == str(root/'vgmstream-cli.exe')
@@ -98,18 +102,10 @@ def test_resolve_uses_only_closed_codecs_and_authored_gain_and_keeps_previous_ou
 
 def test_codec_or_original_mutation_during_decode_cannot_replace_an_existing_clip(tmp_path, monkeypatch):
     source, row, layout, root, ctx = fixture(tmp_path, monkeypatch)
-    class Child:
-        returncode = 0
-        def __init__(self, command, **_):
-            if Path(command[0]).name == 'vgmstream-cli.exe':
-                with wave.open(command[command.index('-o')+1], 'wb') as stream:
-                    stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(16000); stream.writeframes(bytes(32000))
-            else:
-                Path(command[-1]).write_bytes(b'ID3'+bytes(200))
-                (root/'owned-library.dll').write_bytes(b'changed after processing')
-        def communicate(self, **_): return None
-        def poll(self): return 0
-    monkeypatch.setattr(voice.subprocess, 'Popen', Child)
+    def run(command, output, **_):
+        decoded_fixture(command, output)
+        if Path(command[0]).name == 'ffmpeg.exe': (root/'owned-library.dll').write_bytes(b'changed after processing')
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
     output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous clip')
     with pytest.raises(GameDataError): source.voice_source.resolve(row, output, cancelled=lambda: False)
     assert output.read_bytes() == b'previous clip'
@@ -123,37 +119,106 @@ def test_missing_runtime_is_typed_and_locale_contract_matches_the_existing_reade
 
 
 def test_cancellation_stops_the_running_child_and_keeps_existing_output(tmp_path, monkeypatch):
-    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); state = {'cancelled': False, 'killed': False}
-    class Child:
-        returncode = None
-        def __init__(self, *_a, **_k): pass
-        def communicate(self, **_):
-            state['cancelled'] = True
-            raise subprocess.TimeoutExpired('authored-codec', .1)
-        def poll(self): return self.returncode
-        def kill(self): state['killed'] = True; self.returncode = 1
-        def wait(self, **_): return 1
-    monkeypatch.setattr(voice.subprocess, 'Popen', Child)
+    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch)
+    def run(command, output, **_):
+        output.write_bytes(b'incomplete fixture')
+        raise voice.CappedProcessCancelled()
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
     output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous clip')
-    assert source.voice_source.resolve(row, output, cancelled=lambda: state['cancelled']) is None
-    assert state['killed'] and output.read_bytes() == b'previous clip'
+    assert source.voice_source.resolve(row, output, cancelled=lambda: False) is None
+    assert output.read_bytes() == b'previous clip'
+    assert not list(output.parent.glob('nte-offline-voice-*'))
 
 
 def test_codec_change_after_first_child_rejects_before_starting_the_second_child(tmp_path, monkeypatch):
     source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); commands = []
-    class Child:
-        returncode = 0
-        def __init__(self, command, **_):
-            commands.append(command)
-            assert Path(command[0]).name == 'vgmstream-cli.exe'
-            with wave.open(command[command.index('-o')+1], 'wb') as stream:
-                stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(16000); stream.writeframes(bytes(32000))
-        def communicate(self, **_): (root/'owned-library.dll').write_bytes(b'changed before second child')
-        def poll(self): return 0
-    monkeypatch.setattr(voice.subprocess, 'Popen', Child)
+    def run(command, output, **_):
+        commands.append(command)
+        assert Path(command[0]).name == 'vgmstream-cli.exe'
+        decoded_fixture(command, output)
+        (root/'owned-library.dll').write_bytes(b'changed before second child')
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
     output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous clip')
     with pytest.raises(GameDataError): source.voice_source.resolve(row, output, cancelled=lambda: False)
     assert len(commands) == 1 and output.read_bytes() == b'previous clip'
+
+
+@pytest.mark.parametrize('damage', ['truncated', 'trailing', 'frames'])
+def test_incomplete_pcm_cannot_start_encoding_or_replace_old_output(tmp_path, monkeypatch, damage):
+    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); commands = []
+    def run(command, output, **_):
+        commands.append(command); decoded_fixture(command, output); raw = output.read_bytes()
+        if damage == 'truncated': raw = raw[:-2]
+        elif damage == 'trailing': raw += b'!'
+        else:
+            raw = raw[:40]+(int.from_bytes(raw[40:44], 'little')+2).to_bytes(4, 'little')+raw[44:]
+        output.write_bytes(raw)
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
+    output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous clip')
+    with pytest.raises(GameDataError): source.voice_source.resolve(row, output, cancelled=lambda: False)
+    assert len(commands) == 1 and output.read_bytes() == b'previous clip'
+
+
+def test_queue_is_bounded_cancellable_and_does_not_start_another_decoder(tmp_path, monkeypatch):
+    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(voice, 'DECODE_WAIT_SECONDS', .02)
+    monkeypatch.setattr(voice, 'run_capped_stdout', lambda *_a, **_k: pytest.fail('Occupied slot started decoder'))
+    output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous clip')
+    assert voice._DECODE_SLOT.acquire(timeout=1)
+    try:
+        with pytest.raises(GameDataError): source.voice_source.resolve(row, output, cancelled=lambda: False)
+        assert source.voice_source.resolve(row, output, cancelled=lambda: True) is None
+        assert output.read_bytes() == b'previous clip'
+    finally: voice._DECODE_SLOT.release()
+
+
+def test_two_sources_in_same_backend_never_decode_concurrently(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); state = {'active': 0, 'maximum': 0}
+    lock = threading.Lock()
+    def run(command, output, **_):
+        with lock:
+            state['active'] += 1; state['maximum'] = max(state['maximum'], state['active'])
+        try:
+            time.sleep(.03); decoded_fixture(command, output)
+        finally:
+            with lock: state['active'] -= 1
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
+    second = snapshot.restore(source.restore_handle, ctx, layout)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        calls = [pool.submit(current.voice_source.resolve, row, layout.data_root/f'{number}.mp3', cancelled=lambda: False)
+            for number, current in enumerate((source, second))]
+        assert all(call.result(timeout=5).is_file() for call in calls)
+    assert state == {'active': 0, 'maximum': 1}
+
+
+@pytest.mark.parametrize('rejection', ['overflow', 'timeout', 'cancelled'])
+def test_real_process_rejection_cannot_replace_previous_mp3(tmp_path, monkeypatch, rejection):
+    import sys
+    from backend.capped_process import run_capped_stdout
+    source, row, layout, root, ctx = fixture(tmp_path, monkeypatch); signal = threading.Event(); timers = []
+    def run(command, destination, **options):
+        assert Path(command[0]).name == 'vgmstream-cli.exe'
+        if rejection == 'overflow':
+            code = "import os; os.write(1,b'x'*1025)"; options['limit'] = 1024
+        else:
+            code = "import time; print('prefix',flush=True); time.sleep(10)"
+            if rejection == 'timeout': options['timeout'] = .15
+            else:
+                timer = threading.Timer(.15, signal.set); timers.append(timer); timer.start()
+        return run_capped_stdout([sys.executable, '-B', '-c', code], destination, **options)
+    monkeypatch.setattr(voice, 'run_capped_stdout', run)
+    output = layout.data_root/'existing.mp3'; output.parent.mkdir(exist_ok=True); output.write_bytes(b'previous immutable MP3')
+    try:
+        if rejection == 'cancelled': assert source.voice_source.resolve(row, output, cancelled=signal.is_set) is None
+        else:
+            with pytest.raises(GameDataError): source.voice_source.resolve(row, output, cancelled=signal.is_set)
+    finally:
+        for timer in timers: timer.join()
+    assert output.read_bytes() == b'previous immutable MP3'
+    assert not list(output.parent.glob('nte-offline-voice-*'))
+    assert voice._DECODE_SLOT.acquire(timeout=1)
+    voice._DECODE_SLOT.release()
 
 
 def test_provider_restores_audio_from_explicit_codec_layout_without_reopening_native_reader_or_keys(tmp_path, monkeypatch):

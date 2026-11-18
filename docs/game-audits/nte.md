@@ -124,6 +124,42 @@ explicit codec capability reuses its original inventory without copying software
 or changing supplier acceptance/redistribution flags. Complete real-source audio
 materialization, playback and recovery through this new route remain unfinished.
 
+The subsequent ordinary live-server trial acquired exactly the first recording
+stage: 66,584,576 original carrier bytes across 42 range responses, plus 311,258
+bytes of before/after source checks. All 1,016 carrier cells passed the original
+checksums. Initial and following plan discovery accounted separately for
+1,043,444 metadata bytes. The source remained the retained Global 1.5.4 recipe;
+this is not a changed-key or new-generation proof. The trial stopped at the next
+64,798,682-byte quote without starting it. It read no WEM member, materialized no
+recording and executed no codec. Extra disk use was 67,391,488 bytes; the previous
+Text-only pointer and snapshot remained byte-identical and restored offline.
+Partial carrier acquisition did not become Audio Ready.
+
+A separate metadata-only comparison explains the 4,272-row mode difference.
+Both modes retain exactly the same 121,302 authored namespace/key or caption
+roots, including every nonempty localized Japanese string in the selected
+corpus and the same Chinese translations. No subtitle root or nonempty wording
+is added by bank parsing. In Text + audio, 4,272 base records split into 8,544
+explicit female/male performance variants. Another 898 roots already have both
+variants in both modes; 117,928 exact record IDs remain unchanged. The 4,272 base
+IDs themselves are replaced by variant IDs in the new audio snapshot, while
+their existing caption-root identity and explicit player role remain available.
+Raw record-count equality is therefore not a coverage criterion. The retained
+old snapshot remains independently addressable; this trial did not open user
+history/recordings or demonstrate a completed new audio snapshot migration.
+
+The NTE voice resolver now uses parent-owned stdout writers for both tools:
+vgmstream's nonlooping WAV output and FFmpeg's explicit MP3 pipe output each
+have a hard 128 MiB staging-file limit. Overflow, cancellation, timeout, failed
+processes and incomplete PCM reject the entire result and retain an existing
+MP3. Diagnostic retention is bounded separately. A cancellable, time-limited
+queue permits one active NTE decode across sources in the normal backend
+process, limiting its two output files to 256 MiB in total. This is not a global
+quota across separate backend processes or an unlimited accumulated MP3 cache.
+An oversized clip fails explicitly; it is never accepted as a truncated clip.
+Existing stored MP3s are not rewritten. Newly pipe-muxed MP3 bytes may differ;
+real complete-PCM equivalence and playback remain separate acceptance checks.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before
