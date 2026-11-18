@@ -71,7 +71,7 @@ Windows Setup can prepare dialogue, verified film contexts and shared-song capti
 
 ## Neverness to Everness
 
-[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-17 · [Dekkingsnotities](../nte-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-18 · [Dekkingsnotities](../nte-languages.md)
 
 Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever
 

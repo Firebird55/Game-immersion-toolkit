@@ -9,6 +9,16 @@ newer community mapping. Each preparation verifies its actual required layouts
 and source revision. An unavailable or incompatible source leaves the previous
 completed library intact. See the [source verification](game-audits/nte.md).
 
+The shared game-data Download route can now finish a Global Windows Text-only
+library from explicitly quoted publisher inputs. Text-only reads selected text
+packs and authoring-declared subtitles, without voice-bank or WEM member reads.
+Its completed snapshot restores offline without the native reader or current
+key/source discovery. The measured original-source trial is Japanese with a
+Simplified Chinese target; service fixtures cover all five study locales.
+Shared-service Text + audio acquisition, mainland bootstrap integration and an
+independent Android native reader remain separate gates. The existing Windows
+publisher Setup voice route below retains its own evidence and limitations.
+
 Study locales are English, Japanese, Korean, Simplified Chinese and Traditional
 Chinese. Mandarin audio is shared by the two Chinese scripts. Preparation reads
 only requested localization tables and the selected Wwise language's event banks

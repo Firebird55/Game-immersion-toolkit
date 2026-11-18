@@ -86,8 +86,8 @@ def plan(recipe, retained, ctx, reader, values):
         return required
     completed = _read(packet, ctx)
     if completed is not None:
-        return GameDataPlan('nte-language-records-'+content._identity(packet), None, None, handle=packet,
-            stage='content', message='Original NTE dialogue formats are verified. Complete language and audio preparation still follows.')
+        from . import nte_game_data_text as text
+        return text.plan(packet, completed, ctx, reader)
     # Reserve temporary registry/output copies and immutable publication, not
     # merely the final JSON sizes. No original native file is copied here.
     return GameDataPlan('nte-process-authoring-'+content._identity(packet), 0, 3*1024**3,
