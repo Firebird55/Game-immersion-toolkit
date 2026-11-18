@@ -915,6 +915,80 @@ Its later method reads reuse verified immutable RAM and numeric indices. No
 new origin requests, game/client execution, whole-game-APK verification,
 community fallback or Ready state is claimed.
 
+The next environment-selection phase follows the exact `cl.a.b` getter. It
+reads a public static `IEnvConfig` field and throws if that field is unset;
+no default domain is established. A formal field-write pass over only the
+owner's thirteen methods (382 instruction bytes) finds its six-byte setter.
+The setter receives one of two explicit `IEnvConfig` parameters from the
+118-byte `init` method, selected by `isRND()`. This establishes the parameter
+selection, not the concrete objects supplied by initialization callers.
+
+The retained primary DEX has no reference to that exact `cl.a.init` signature.
+The already validated invoke indices for the third and sixth DEX members
+contain no caller. A separate, metadata-only check of the remaining four
+signed members also finds no reference to that concrete owner/signature,
+using 37,923,650 existing-file verification bytes and 2,290 metadata bytes.
+This closes only direct invokes of that concrete method in the seven standard
+DEX members. The original class metadata declares `IEnvConfigService`. An
+exact query for the same signature under that interface, using only retained
+metadata and the existing invoke indices, finds one concrete startup caller
+in the sixth DEX. That separate query uses 2,891 metadata bytes without a new
+source scan or cold read. Interface dispatch explains the earlier concrete-
+owner negative result; it is not evidence of missing initialization.
+
+The separate body phase closes at three bodies / 148 instruction bytes and
+9,909 metered metadata bytes, entirely from authenticated immutable RAM.
+The later four-member metadata pass reads no bodies and retains no additional
+source member because there is no positive carrier. Neither phase uses new
+origin bytes.
+
+The next bounded phase reads the positive 150-byte startup caller. It obtains
+the already bound export provider's environment service and passes the
+original `n3/a` and `n3/b` configuration fields, together with three explicit
+false Boolean arguments. The provider's six-byte `getEnvConfig` returns the
+same `cl.a` service. Its 46-byte `isRND` takes the false branch for these
+arguments without invoking the conditional runtime helper. Combined with the
+previously inspected `init` selection, this proves which supplied
+configuration this authored call selects; it does not assume a runtime
+default or assign the alternative configuration the same host.
+
+Only that selected configuration's 26-byte `getApiDomain` is then read. It
+uses `Context.getString` on the original `R$string.api_domin` field. Exact
+encoded-field metadata supplies its Android resource identifier. No hostname
+is inferred from the resource name, and the unselected configuration remains
+unread. This phase closes at four bodies / 228 instruction bytes, ten
+bytes of explicit already-approved constant-operand rereads and 6,700 metered
+metadata bytes. A failed private input-owner check and its bounded metadata
+reconstruction remain included in that count; the original source is intact.
+All reads in this phase reuse authenticated immutable RAM, with no new cold
+source or origin bytes.
+
+A separate resource-source phase rechecks the original 526,981-byte manifest
+against its already CMS-bound SHA-256 and obtains the exact signed
+`resources.arsc` member digest. Three strict same-owner/ETag range requests
+read 44 local-header/name bytes, two declared zero alignment bytes and the
+2,065,876-byte stored resource member: 2,065,922 transfer bytes in total.
+The complete member matches both that signed SHA-256 and its original ZIP
+CRC before resource interpretation. The two alignment bytes are qualified as
+padding, not incorrectly claimed to form a complete extra-field TLV.
+
+Formal lookup follows only resource identifier `0x7f100021`, already read
+from the signed DEX. It has one string entry with the default configuration
+and value `https://api.taptapdada.com`; no alternate configuration or alias is
+present for this identifier. The runtime table key is `_`, rather than the
+DEX field name `api_domin`. The binding is numeric, so equality of these
+symbolic names is not required. An initial private post-parse equality check
+was too strict; that reader limitation and both 2,713-byte interpretation
+passes remain recorded without classifying the original bytes as corrupt.
+No unrelated strings are decoded and no locale is guessed.
+
+This establishes the host supplied by this authored initialization and
+resource configuration. It does not prove runtime activation, request-header
+construction or the outer response envelope. The source remains the signed
+distribution tool, not a verified Reverse:1999 game APK. No whole-APK checksum,
+installation acceptance, game/client execution or live detail request is
+claimed; both preparation modes remain discovery-only.
+
 ### Community key candidate: research only
 
 The original author repository
