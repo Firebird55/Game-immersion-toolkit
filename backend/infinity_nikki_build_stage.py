@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 
@@ -100,8 +101,10 @@ def _decode_build(raw,sdk_handle,crypto,ctx):
     _check(isinstance(raw,bytes) and 0<len(raw)<=native.MAX_WRAPPED)
     if raw.lstrip().startswith(b'{'):
         try:
+            def finite(value):
+                number=float(value);_check(math.isfinite(number));return number
             value=json.loads(raw.decode('utf-8'),object_pairs_hook=release._unique_object,
-                parse_constant=lambda _: _check(False))
+                parse_constant=lambda _: _check(False),parse_float=finite)
             _check(isinstance(value,dict))
             return value
         except (UnicodeError,ValueError,RecursionError) as error:

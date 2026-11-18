@@ -156,6 +156,7 @@ def test_original_plain_build_json_needs_no_wrapper_parameter_or_native_decode(t
 
 @pytest.mark.parametrize('raw',[b'{"DefaultVersion":"3400","DefaultVersion":"3400","FastPatchVersion":"1"}',
     b'{"DefaultVersion":"3400","FastPatchVersion":"1","extra":NaN}',
+    b'{"DefaultVersion":"3400","FastPatchVersion":"1","extra":1e400}',
     b'{"DefaultVersion":"3401","FastPatchVersion":"1"}',b'{"DefaultVersion":3400,"FastPatchVersion":"1"}',b'{"broken":'])
 def test_plain_build_ambiguity_invalid_json_or_pointer_mismatch_stops_before_manifest_quote(tmp_path,apk_fixture,monkeypatch,raw):
     fixture=Fixture(tmp_path,apk_fixture,monkeypatch);previous=fixture.source_stage()
