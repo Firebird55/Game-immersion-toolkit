@@ -134,7 +134,7 @@ Android runtime, the shared provider adapter, or a complete selected-audio plan.
 | --- | --- | --- |
 | Official release, dispatch and inventories | `sophon_assets.release`, `zzz_hotfix.discover`, `hoyo_dispatch_metadata.load` | Package this provider closure and its TLS/decompression/crypto dependencies. Keep Global/CN source partitions, immutable initial provenance and final generation checks. |
 | Original bootstrap TextAssets | `hoyo_bootstrap_assets.object_ranges` / `text_assets`, `hoyo_zzz_bootstrap.renew` | The metadata-only reader is standard Python. Its availability in a desktop checkout does not establish APK inclusion or an Android source run. |
-| Unity/BLB dialogue, catalogs, comics and film tracks | `zzz_publisher._read_catalogue`, `prebuilt_node_reader.production_zzz_reader`, `ZzzReader.publisher_command` | Supply an explicit Android runtime for the frozen reader protocol, or a format-equivalent owned adapter. The current Node subprocess/`node:fs` protocol is not a WebView or Python module. |
+| Unity/BLB dialogue, catalogs, comics and film tracks | `zzz_pc_stages._execute`, `ZzzReader.publisher_command`, `runPublisherOperation` in [the owned catalogue reader](../../scripts/zzz-publisher-dialogue.mjs) | Supply an executor for the owned operation and its explicit byte, codec and reader capabilities. The desktop provider currently launches the Node CLI. |
 | Block decompression and hashing | Frozen `galgame-perform` reader, source-built `ooz` WASM and `xxhash-wasm` | Bind the actual Android executor, WASM/native dependencies, notices, preferred source and build provenance. Desktop manifests do not authorize an Android build. |
 | PCK/Wwise/event/bus/media ownership | `honkai_assets`, `zzz_publisher_cinematics`, `zzz_voice_layers`, `zzz_bus_routing` | Much is standard Python plus locked FlexBuffers. Package the import closure without accidentally invoking another game's installer. Preserve source kind, bank/language, full-media, player and bus guards. |
 | Original WEM decoding and MP3 output | `VoiceAssets.extract` / `extract_batch`, `media_tools`, `native_codecs` | Replace the present vgmstream-to-WAV-to-FFmpeg subprocess adapter with the verified Android codec service. Verify original WEM/whole-context decoding and MP3 output on the actual ABI. Existing prepared playback is a separate capability. |
@@ -148,6 +148,26 @@ import closure and source notices require verification; adding package names is
 not native ABI evidence. `node_tools.ARCHIVES` and the codec host resolvers have
 desktop targets, with no accepted Android resource contract. A Linux ARM64
 selection must not be reported as Android/Bionic support.
+
+The catalogue operation accepts parsed stage inputs, synchronous reads of
+staged leaf files, bounded byte writes and bounded gzip decoding. The existing
+Node CLI supplies these capabilities for all five original-source stages.
+Text only retains authored voice references but omits registry bytes and
+cinema occurrence hashing. Text + audio supplies SHA-256 for the serialized
+timeline identity and retains the same output file contract. The Android host
+still needs the reader's Buffer API and fatal UTF-8 decoding, seed-zero XXH64,
+MHY1 descrambling with AES-128-ECB encryption, and the pinned ooz Kraken decoder
+over WebAssembly or a verified native bridge built from the same preferred
+source. The module also uses ES modules and BigInt. An executor must verify
+software identity and the Android ABI, keep stage files private, and bind its
+operations to cancellation and the provider's source receipts.
+
+An authored staged fixture checks byte-identical CLI and isolated operation
+outputs, including selected asset ranges, an overwrite TextMap and a complete
+cinema occurrence. It denies external file, process and network capabilities
+inside the operation module graph and supplies a synthetic MHY1 adapter.
+Android decoding, memory limits and current original preparation require
+separate evidence under the new frozen reader identity.
 
 The official Windows data route can remain a data source on Android: its
 `StandaloneWindows64` inventory and Wwise packages describe data, and no game
@@ -225,8 +245,9 @@ state; no full-download button should advertise an invented amount.
 
 Run the real publisher provider on Android with an empty app cache, no desktop
 import, no game installation and community requests blocked after immutable
-initial input. Exercise both editions, all four spoken dubs and Chinese script
-selection, ordinary and supported film recordings, and cold codec output. Then
+initial input. Exercise the Global edition's four official spoken dubs and
+both Chinese text scripts, ordinary and supported film recordings, and cold
+codec output. Then
 prove an upstream-only generation change, interrupted transfer/publication,
 retained old/new history after app restart, selected-game deletion and accurate
 planned/actual byte accounting. Existing desktop source controls and prepared
