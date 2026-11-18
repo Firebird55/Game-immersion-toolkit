@@ -25,6 +25,8 @@ jobs:
     # Public metadata checks inspect submitted identities. Application checks
     # separately verify GitHub's synthetic merge commit and both event parents.
     runs-on: ubuntu-latest
+    outputs:
+      release_profile: ${{ steps.release_profile.outputs.profile }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +38,9 @@ jobs:
       - run: node scripts/prepare-release-version.mjs
       - name: Verify the source identity for publication audit
         run: node scripts/check-ci-gate.mjs checkout source-audit
+      - name: Select the release profile from the verified source
+        id: release_profile
+        run: node scripts/release-profile.mjs >> "$GITHUB_OUTPUT"
       - run: npm run audit:public
       - name: Upload safe audit identity
         if: ${{ always() && hashFiles('output/checks/ci/source-audit.json') != '' }}
@@ -278,8 +283,8 @@ jobs:
             release/LICENSE
             release/SHA256SUMS
   publish:
-    if: (github.event_name == 'push' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
-    needs: [package, native-desktop]
+    if: needs.source-audit.outputs.release_profile == 'all-desktops' && (github.event_name == 'push' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
+    needs: [source-audit, package, native-desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
