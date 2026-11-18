@@ -94,7 +94,8 @@ except GameDataError as error:assert error.code=='game_runtime_unavailable'
 else:raise AssertionError('Wuwa admitted a missing maintained native crypto capability')
 for stage in ('original-indices','archive-index-ranges','authoring-import-ranges',
  'process-authoring','initial-descriptions','dialogue-package-ranges',
- 'process-metadata','global-import-metadata','authored-subtitle-ranges','normalize-text'):
+ 'process-metadata','global-import-metadata','authored-subtitle-ranges','normalize-text',
+ 'audio-member-ranges','process-audio-bindings','materialize-audio','finalize-audio'):
  try:providers['nte'].download(SimpleNamespace(stage=stage),SimpleNamespace(check=lambda:None))
  except GameDataError as error:assert error.code=='nte_reader_unavailable'
  else:raise AssertionError('Android admitted a desktop-only continuation')
@@ -102,6 +103,10 @@ assert all(name not in sys.modules for name in policy['forbidden_stage_imports']
 try:providers['nte'].restore({'schema':'nte-original-text-snapshot-v1'},SimpleNamespace(check=lambda:None))
 except GameDataError as error:assert error.code=='nte_text_source_invalid'
 else:raise AssertionError('Android trusted an incomplete self-contained text receipt')
+try:providers['nte'].restore({'schema':'nte-original-audio-snapshot-v1'},SimpleNamespace(check=lambda:None))
+except GameDataError as error:assert error.code=='nte_audio_runtime_unavailable'
+else:raise AssertionError('Android admitted a desktop-only original-audio runtime')
+assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
 class Response(io.BytesIO):
  status=200
  def __init__(self,body,url):
