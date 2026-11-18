@@ -225,8 +225,8 @@
       "source_commit": "dabb05368270f9931b9c4678989bb95747ba68c9"
     },
     "backend/nte_game_data.py": {
-      "sha256_lf": "aba1bb0dfa0c5c720db9d2ef533b976897b22f34f6b3f076c4b28a16158976a7",
-      "source_commit": "3219971ca1eb5cd19df4de3b63884fe638471795"
+      "sha256_lf": "556bda0939eccdfac70b4856359624956a8deb29ea8dfcc2f2885e6c9f507cb0",
+      "source_commit": "dbcee6c4926e7ab64dff7dfc3f05ab7ea2198cdc"
     },
     "backend/nte_game_data_snapshot.py": {
       "sha256_lf": "020c92b5ccf3320a9bed9a36dd5b61c9d56debab3795a5a9f1793e9df45f40dc",
@@ -235,6 +235,10 @@
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
       "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_release.py": {
+      "sha256_lf": "e24331bd6c2801de5b03c671adced958d3f739fb9d835b242d845eed41800d2a",
+      "source_commit": "dbcee6c4926e7ab64dff7dfc3f05ab7ea2198cdc"
     },
     "backend/nte_updater_baseline.py": {
       "sha256_lf": "4f1f20193d9a9120e34588387262f08c773e8ffa56079303764166389d170c9e",
@@ -245,8 +249,8 @@
       "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
     },
     "backend/nte_updater_source.py": {
-      "sha256_lf": "f131125e80192913c51f282cc05a7c2721f4577b23ec02dfd2de550ab8a2cd47",
-      "source_commit": "0624af5548f16488cc1a5f1543cda0ef1043432d"
+      "sha256_lf": "f0608ae678bf868ad19357edca01c27eea148a62621b0ec5912368d8e4d576e2",
+      "source_commit": "dbcee6c4926e7ab64dff7dfc3f05ab7ea2198cdc"
     },
     "backend/preparation_errors.py": {
       "sha256_lf": "ec7734a89a70a52ac3abea952b72a668d62f068c3a971dfa1a1e8ff137c8490b",
@@ -302,7 +306,6 @@
     "backend.runtime_paths",
     "backend.runtime_bundle",
     "backend.publisher_http",
-    "backend.nte_release",
     "backend.production_zzz_reader",
     "Crypto",
     "brotli",
@@ -321,7 +324,8 @@
   "providers": {
     "nte": {
       "dependencies": [
-        "python-stdlib"
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
       ],
       "download_runtime": true,
       "factory": "backend.nte_game_data:create_provider",
@@ -332,11 +336,13 @@
         "nte_updater_native",
         "nte_original_updater",
         "preparation_errors",
-        "nte_game_data_snapshot"
+        "nte_game_data_snapshot",
+        "nte_release"
       ],
       "snapshot_runtime": false,
       "stages": [
-        "compatibility"
+        "compatibility",
+        "manifest-verification"
       ]
     },
     "reverse1999": {
