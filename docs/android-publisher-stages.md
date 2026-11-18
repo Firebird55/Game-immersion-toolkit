@@ -1,14 +1,14 @@
 # Reviewed Android publisher stages
 
 `packaging/android/publisher-sources.json` is the explicit maintained-source
-closure. It pins 40 original toolkit modules from reviewed commits, by
+closure. It pins 43 original toolkit modules from reviewed commits, by
 SHA-256 after UTF-8 CRLF-to-LF normalization. The ordinary APK source manifest
 separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
 Together with the 58 core, host, crypto, decoder and authored acceptance modules,
-this policy selects 98 owned modules. The NTE text-receipt reader uses the
+this policy selects 101 owned modules. The NTE text-receipt reader uses the
 existing protocol and private path guards for self-contained offline restoration.
 The generated acceptance provider is installed
 only by a separately named, explicitly opted-in native DEBUG startup; it never
@@ -27,7 +27,7 @@ acquired later remain private input data outside the APK.
 | Reverse: 1999 | Official Global launcher discovery through the shared bounded metadata transport; mainland selection retains its explicit source gap. Both content modes keep selected text/shared sizes unknown. | No asset download, source snapshot, key derivation, native/audio service or ready library. Optional voice inventory is not fetched by either mode. |
 | Neverness to Everness | Official Global updater metadata and explicitly sized SDK/configuration compatibility download. The frozen historical pair is independently authenticated. After bootstrap, planning verifies the current official resource inventory using the derived updater parameters and APK-attested AES-CBC. Self-contained text-receipt validation supports offline restoration. | Both content modes still need portable archive expansion and Unreal dialogue authoring. The content estimate stays unknown. Mainland preparation is unavailable. |
 | Wuthering Waves | Explicit publisher-crypto capability, bounded original Android catalogue/range plan, then consented complete-carrier APK-v2 verification and retention of one authenticated native member. | Standard-library Deflate and read-only mmap inspect ARM64 code as data. Completion returns a native-source `PreparationStage`; the independent release-manifest ENTRY key/IV gate remains. No text snapshot, optional voice packs or ready library. |
-| Zenless Zone Zero | Global and mainland launcher manifest and bootstrap stages use the original checksummed objects and the same bounded transfer quotes as desktop. | The current Android provider still stops at the catalogue reader gate. A prepared text or audio library requires the gateway and dialogue reader runtime. |
+| Zenless Zone Zero | Global and mainland launcher manifest and bootstrap stages use original checksummed objects and bounded transfer quotes. With the attested RSA runtime, planning also checks the updater roots and base revision through the same official gateway contract as PC. | The current Android provider stops at the catalogue reader gate. The gateway has host proof with the actual toolkit adapter. A prepared library and live Android gateway still require target acceptance. |
 
 Endfield's current reviewed factory requires its Windows decoder/hash runtime
 before I/O.

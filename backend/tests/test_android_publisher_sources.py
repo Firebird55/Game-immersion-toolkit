@@ -29,7 +29,7 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa', 'zzz'}
-    assert len(policy['files']) == 40 and len(portable_sources()) == 98
+    assert len(policy['files']) == 43 and len(portable_sources()) == 101
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert 'backend/android_publisher_hash.py' in portable_sources()
@@ -40,7 +40,8 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     for name in ('nte', 'wuwa'):
         assert policy['providers'][name]['dependencies'] == ['python-stdlib','toolkit-publisher-crypto-v1']
     assert policy['providers']['reverse1999']['dependencies'] == ['python-stdlib']
-    assert policy['providers']['zzz']['dependencies'] == ['python-stdlib', 'zstandard==0.25.0']
+    assert policy['providers']['zzz']['dependencies'] == [
+        'python-stdlib', 'zstandard==0.25.0', 'toolkit-publisher-crypto-v1']
     assert policy['providers']['nte']['stages'] == ['compatibility', 'manifest-verification']
     for name, receipt in policy['files'].items():
         assert re.fullmatch(r'backend/[a-z0-9_]+\.py', name)
@@ -83,6 +84,7 @@ from backend.game_data_providers import create_game_data_providers
 from backend.game_data import GameDataService
 from backend.publisher_transport import PublisherTransport
 from backend import nte_updater_source as source,nte_updater_baseline as baseline
+from backend import zzz_pc_sources
 class UnusedNative:
  def __getattribute__(self,name):raise AssertionError('A pure stage queried a native service')
 providers=create_game_data_providers(platform='android',native=UnusedNative())
@@ -125,6 +127,7 @@ def open_(request,**kwargs):
  assert request.headers['Accept-encoding']=='identity'
  return Response(bodies[request.full_url],request.full_url)
 providers['nte'].opener=open_
+providers['zzz'].native=None
 providers['zzz'].transport_factory=lambda ctx,**kwargs:PublisherTransport(ctx,opener=open_,**kwargs)
 inputs=source._inputs(data['inputs'])
 artifact_urls={artifact.url for artifact in inputs.artifacts}
@@ -251,7 +254,7 @@ def test_exact_closed_namespace_authenticates_original_sources_without_desktop_o
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 98 and proof['registry'] == ['nte','reverse1999','wuwa','zzz']
+    assert proof['owned_modules'] == 101 and proof['registry'] == ['nte','reverse1999','wuwa','zzz']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['manifest_verified'] == 2
     assert proof['native_android_execution'] is False

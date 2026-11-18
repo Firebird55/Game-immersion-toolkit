@@ -48,6 +48,13 @@ envelope, observes each admitted block and rejects a changed base revision
 without replacing the earlier bootstrap receipt. APK runtime and live Android
 gateway acceptance are still pending.
 
+A separate retained Global gateway response of 10,957 bytes passed the
+original capture hash, then produced the same complete decoded response
+through both the desktop gateway and the new explicit crypto interface with
+the locked desktop implementation. The selected original key candidate, three
+update roots and five index roles matched. All inputs were retained on the
+host and the replay used zero network.
+
 The portable catalogue operation also reproduced one real Global 3.3.0
 presentation stage offline. Frozen reader 24 and the portable operation
 produced identical 2,773-byte output from the authenticated catalogue and root

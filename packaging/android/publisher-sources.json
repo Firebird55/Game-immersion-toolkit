@@ -308,13 +308,25 @@
       "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
     },
+    "backend/xxhash64.py": {
+      "sha256_lf": "bdde27c3176f28b3314aaaf8e3745b84e1def1a31b38a28c9671217fef3e74db",
+      "source_commit": "0de5adc1b345113d553031f823de3d35da157625"
+    },
     "backend/zzz_game_data.py": {
-      "sha256_lf": "0ab7b95c20d76f29c99c435cfc3ef6ada07eb26b1f3fcd8a2a76e7dbf7609cbd",
-      "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
+      "sha256_lf": "a22c91241ddfb3bb84583b1b5d1e78eff0a6994ffa2de1774cf3b410f2b2cf60",
+      "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
+    },
+    "backend/zzz_hotfix.py": {
+      "sha256_lf": "42e5ab33725a86abc38873bcec38547b4ee1d1aeaf787c8004271bbe03aff0cd",
+      "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
     },
     "backend/zzz_native_key_data.py": {
       "sha256_lf": "21e5dcfc9f2e538d3e7c051b7dcbf068a5a5a940349e3c66f76306e96a03f98c",
       "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
+    },
+    "backend/zzz_pc_sources.py": {
+      "sha256_lf": "df822e980354f832dc8e3ce0f9370f08f6ca3642251fdfb64307b6fad8c8ee48",
+      "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
     }
   },
   "forbidden_stage_imports": [
@@ -399,20 +411,25 @@
     "zzz": {
       "dependencies": [
         "python-stdlib",
-        "zstandard==0.25.0"
+        "zstandard==0.25.0",
+        "toolkit-publisher-crypto-v1"
       ],
       "download_runtime": true,
       "factory": "backend.zzz_game_data:create_provider",
       "modules": [
         "hoyo_dispatch_metadata",
         "hoyo_zzz_bootstrap",
+        "xxhash64",
         "zzz_game_data",
-        "zzz_native_key_data"
+        "zzz_hotfix",
+        "zzz_native_key_data",
+        "zzz_pc_sources"
       ],
       "snapshot_runtime": false,
       "stages": [
         "official-manifest",
-        "official-bootstrap"
+        "official-bootstrap",
+        "gateway-discovery"
       ]
     }
   },
