@@ -626,20 +626,32 @@ def test_actual_normal_discovery_uses_mixuri_and_packageversion_not_resource_rev
     assert release._snapshot(tmp_path, stamp)['native_key_sources'] == list(inputs.sources)
 
 
-def test_normal_pointer_recheck_rejects_keylist_update_before_descriptor_publication(native_discovery, tmp_path, monkeypatch):
-    calls, _, mix, wire, _, fetch = native_discovery
+@pytest.mark.parametrize('pointer', ['entry', 'resource-keys'])
+def test_normal_pointer_recheck_rejects_update_before_descriptor_publication(
+        native_discovery, tmp_path, monkeypatch, pointer):
+    _, _, mix, wire, _, fetch = native_discovery
+    entry = 'https://aki-config-owned.aki-game.net/OwnedBootstrapRoute123/index.json'
+    url_to_change = entry if pointer == 'entry' else mix + 'KeyList_3.8.0.json'
     count = 0
+
     def changes(url, *, limit):
         nonlocal count
-        if url == mix + 'KeyList_3.8.0.json':
+        if url == url_to_change:
             count += 1
-            if count == 2: return wire + b' '
+            if count == 2:
+                if pointer == 'entry':
+                    changed = json.loads(fetch(url, limit=limit))
+                    changed['default']['ResUri'] = 'OwnedNextResourceRoot123'
+                    return json.dumps(changed).encode()
+                return wire + b' '
         return fetch(url, limit=limit)
+
     monkeypatch.setattr(release, 'download', changes)
     monkeypatch.setattr(release, '_native_key_download', changes)
     with pytest.raises(ValueError, match='updated'):
         release._current(tmp_path, 206)
-    assert not list((tmp_path/'wuwa-publisher').glob('wuwa-*/release.json'))
+    assert count == 2
+    assert not list((tmp_path / 'wuwa-publisher').glob('wuwa-*/release.json'))
 
 
 @pytest.mark.parametrize('fault', ['outage', 'corrupt-packet', 'publication'])

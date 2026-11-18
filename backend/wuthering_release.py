@@ -344,7 +344,9 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     for prefix in prefixes[0].split(';'):
         if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.' + domain, prefix):
             try:
-                source = _json(download(f'{prefix}/{routes[0]}/index.json', limit=LIMIT), cache)['default']
+                entry_url = f'{prefix}/{routes[0]}/index.json'
+                entry_data = download(entry_url, limit=LIMIT)
+                source = _json(entry_data, cache)['default']
                 break
             except OSError as error:
                 network_error = error
@@ -391,7 +393,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
                     name = row[prefix + 'Name']
                     pak.check(name == f'Video_{scene}-{tier.upper()}-WindowsNoEditor.' + prefix.lower())
                     files['Video/' + tier + '/' + name] = _file(name, row[prefix + 'Size'], row[prefix + 'Hash'])
-    pointers = {root + 'config.json': config_data, **video_pointers}
+    pointers = {entry_url: entry_data, root + 'config.json': config_data, **video_pointers}
     from . import wuthering_publisher_keys as publisher_keys
     mix = source.get('MixUri')
     pak.check(isinstance(mix, str) and re.fullmatch(r'[A-Za-z0-9]{16,80}', mix))

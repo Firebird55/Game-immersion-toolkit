@@ -1,6 +1,6 @@
 # Wuthering official bootstrap investigation
 
-## November 18, 2026 · Fresh Global Windows discovery and portable manifest reader
+## November 18–19, 2026 · Fresh Global Windows discovery and portable manifest reader
 
 Ordinary Windows publisher discovery completed from an empty toolkit cache
 with no installed game. The original 1,396,149,288-byte APK carrier passed
@@ -10,6 +10,20 @@ supplied the live entry URL. The official 3.8.12 resource and English 3.8.6,
 Japanese 3.8.5, Korean 3.8.8 and Mandarin 3.8.5 dub inventories passed the
 publisher-declared SHA-1 checks. Discovery verified 598 manifest entries and
 rechecked three current pointers.
+
+Normal Global library preparation with the packaged vgmstream decoder completed
+for every study selection. English, Japanese, Korean, Simplified Chinese and
+Traditional Chinese produced 144,130, 144,182, 144,028, 145,782 and 144,880
+rows, respectively. One original recording per dub decoded to nonzero PCM.
+Both Chinese scripts selected the same original Mandarin performance. The
+English sample also matched its original hash from a fresh process with
+publisher requests disabled.
+
+Five reachable entry mirrors returned byte-identical encrypted entry metadata,
+and four publisher content mirrors returned byte-identical encrypted platform
+metadata. Normal discovery and language preparation now recheck the selected
+entry response with the platform and key pointers. A redirected resource root
+during preparation causes the candidate to be rejected before publication.
 
 The existing immutable community pin supplied the ENTRY parameters. Its URL
 and SHA-256 were verified. The reviewed v1.1.0 source declares the same
