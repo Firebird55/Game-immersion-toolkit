@@ -276,6 +276,34 @@ reader implementation. This evidence attests the decoder entry in the installed
 APK. The ordinary Android provider remains gated pending device validation of
 the full profile path and the remaining original source stages.
 
+The following APK source component admits the reviewed standalone adapter and
+its pure reader closure as eighteen context modules. The closed core grows
+from 75 to 93 modules and the publisher policy from 17 to 35 pinned files. The
+registry remains exactly NTE, Reverse:1999 and Wuthering Waves; the Genshin game
+factory is excluded. No managed helper or C# source is embedded. The original
+complete AnimeStudio MIT notice is copied byte for byte and checked against
+`packaging/genshin-reader/inputs.json`.
+
+A DEBUG-only authored fixture serializes the existing `ToyImage` into a real
+PE32+ image with two codec owners and their shared RC4 method in the exception
+directory. Its independently encoded compressed BLB contains a complete named
+object map and typed profile. The started host's actual decoder must discover
+two contracts and accept exactly one. Expected body, payload and all three
+method hashes come from the host fixture, rather than an Android result.
+Malformed payload EOF and an unrelated broken map reference must both fail
+while retaining the prior authored profile. No original data, original key or
+dispatch request is part of this fixture.
+
+The mandatory Android self-test runs after the existing fifteen native CAPI
+contracts, through `AndroidHost.data_decoder` and `AndroidGenshinRuntime`.
+Archive/provenance and runtime checks bind the fixture, complete license,
+verified decoder library/manifest and the same fifteen-case contract digest.
+Both API 34/36 initial and update acceptance require the result; there is no
+missing-component skip. Whole APK identity remains the external candidate
+provenance, not an invented hash inside the decoder facade. This source
+checkpoint and its local Windows-reference tests establish no new APK/JNI,
+ARM64, physical-device or independent full-game preparation acceptance.
+
 This acceptance is expressly **profile only**. Its receipt marks full catalog,
 selected-shard, response-signature and override acceptance false. Final original
 Source activation must still validate its complete catalog and selected text

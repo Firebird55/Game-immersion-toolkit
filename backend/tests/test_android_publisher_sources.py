@@ -29,11 +29,11 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa'}
-    assert len(policy['files']) == 17 and len(portable_sources()) == 75
+    assert len(policy['files']) == 35 and len(portable_sources()) == 93
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert 'backend/android_publisher_hash.py' in portable_sources()
-    assert not {'backend/endfield_vfs.py', 'backend/endfield_xxhash.py', 'backend/endfield_game_data.py'} & portable_sources()
+    assert not {'backend/endfield_vfs.py', 'backend/endfield_xxhash.py', 'backend/endfield_game_data.py', 'backend/genshin_game_data.py'} & portable_sources()
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
         module for provider in policy['providers'].values() for module in provider['modules']} | set(policy['context_modules'])
     assert all(not provider['snapshot_runtime'] for provider in policy['providers'].values())
@@ -181,6 +181,6 @@ def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_netwo
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 75 and proof['registry'] == ['nte','reverse1999','wuwa']
+    assert proof['owned_modules'] == 93 and proof['registry'] == ['nte','reverse1999','wuwa']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['native_android_execution'] is False

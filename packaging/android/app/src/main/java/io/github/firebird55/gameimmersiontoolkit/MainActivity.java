@@ -66,6 +66,19 @@ public final class MainActivity extends Activity {
                     report.put("native_x64_decoder", new org.json.JSONObject(Python.getInstance().getModule("backend.android_x64_decoder")
                         .callAttr("authored_probe", ocr).toString()));
                     selfTestDiagnostic("native-data-decoder", "passed", null);
+                    selfTestDiagnostic("native-genshin-profile", "running", null);
+                    try (InputStream input = getAssets().open("genshin-profile-authored.json")) {
+                        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                        byte[] chunk = new byte[4096]; int count;
+                        while ((count = input.read(chunk)) != -1) {
+                            if (buffer.size() + count > 65536) throw new IllegalStateException();
+                            buffer.write(chunk, 0, count);
+                        }
+                        report.put("native_genshin_profile", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
+                            .callAttr("run_genshin_profile", new File(getCacheDir(), "genshin-profile-probe").getCanonicalPath(),
+                                buffer.toString("UTF-8")).toString()));
+                    }
+                    selfTestDiagnostic("native-genshin-profile", "passed", null);
                     selfTestDiagnostic("native-zstandard", "running", null);
                     try (InputStream input = getAssets().open("zstandard-authored-vectors.json")) {
                         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();

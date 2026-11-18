@@ -1,3 +1,4 @@
+import {assertNativeGenshinProfile} from './android-genshin-profile-proof.mjs';
 import {assertNativePublisherHash} from './android-publisher-hash-proof.mjs';
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
@@ -112,6 +113,7 @@ function assertProtectedStorage(report) {
 }
 assertProtectedStorage(core.native_protected_storage);
 assertNativeDataDecoder(core.native_x64_decoder, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_data_decoder, provenance.native_decoder_manifest_sha256);
+assertNativeGenshinProfile(core.native_genshin_profile, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_x64_decoder);
 assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(core.native_publisher_crypto, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, provenance);
 assertNativePublisherHash(core.native_publisher_hash, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_hash, provenance);
@@ -277,6 +279,7 @@ const upgradedCore = await authoredCore(update.version_code, core.self_test_run_
 ({browser, page} = await connectReader());
 assertProtectedStorage(upgradedCore.native_protected_storage);
 assertNativeDataDecoder(upgradedCore.native_x64_decoder, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_data_decoder, update.native_decoder_manifest_sha256);
+assertNativeGenshinProfile(upgradedCore.native_genshin_profile, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update, upgradedCore.native_x64_decoder);
 assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(upgradedCore.native_publisher_crypto, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, update);
 assertNativePublisherHash(upgradedCore.native_publisher_hash, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_hash, update);
@@ -317,7 +320,7 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   application_id: packageName, version_code: provenance.version_code, variant: provenance.variant,
   android_api_level: deviceApi, native_page_size: pageSize, target_sdk: buildPolicy.target_sdk,
   updated_apk_sha256: update.apk_sha256, updated_version_code: update.version_code,
-  shared_core_identical: true, native_media_completed: true, native_x64_data_decoder: core.native_x64_decoder, bundled_ocr_to_transcript: true,
+  shared_core_identical: true, native_genshin_profile_component: true, genshin_profile_only: true, native_media_completed: true, native_x64_data_decoder: core.native_x64_decoder, bundled_ocr_to_transcript: true,
   synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
