@@ -289,6 +289,13 @@ class PublisherTransport:
             digests=digests, original_range=original_range, headers=headers, method=method, body=body)
         return b''.join(chunks), receipt
 
+    def stream_bytes(self, url, receive, *, limit, expected_size, digests=None, original_range=None):
+        """Send bounded asset chunks to a consumer that commits only after verification."""
+        if not callable(receive) or not _integer(expected_size, minimum=1):
+            raise ValueError('An asset stream needs a consumer and an exact source size')
+        return self._transfer(url, receive, limit=limit, kind='asset', expected_size=expected_size,
+            digests=digests, original_range=original_range, headers=None, method='GET', body=None)
+
     def download_to(self, url, destination, *, limit, kind='asset', expected_size=None, digests=None,
                     original_range=None, headers=None):
         raw_root = Path(self.ctx.cache_directory).absolute()

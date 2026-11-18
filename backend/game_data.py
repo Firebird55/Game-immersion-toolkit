@@ -130,7 +130,9 @@ class _Context:
         self.transfer_lock = threading.RLock()
         self.transfers_closed = False
         self.data_epoch = service.epochs.get((root, game), 0)
-        self.stage_handle = service._stage_handle(root, game, request) if phase == 'plan' else None
+        stage = service._matching_stage(root, game, request) if phase == 'plan' else None
+        self.stage_handle = private_handle(stage['handle']) if stage else None
+        self.stage_directory = self.cache_directory / 'sources' / stage['directory'] if stage else None
 
     def cancelled(self):
         try:
@@ -246,9 +248,13 @@ class GameDataService:
             raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
         return result
 
-    def _stage_handle(self, root, game, request):
+    def _matching_stage(self, root, game, request):
         stage = self._stage(root, game)
-        return private_handle(stage['handle']) if stage and stage['request'] == request.json() else None
+        return stage if stage and stage['request'] == request.json() else None
+
+    def _stage_handle(self, root, game, request):
+        stage = self._matching_stage(root, game, request)
+        return private_handle(stage['handle']) if stage else None
 
     def _validate_metadata(self, value, game):
         if (not isinstance(value, dict) or value.get('schema') != 'game-data-source-v1' or value.get('game') != game
