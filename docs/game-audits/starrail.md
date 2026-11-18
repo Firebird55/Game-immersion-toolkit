@@ -977,9 +977,24 @@ Global 4.7 TypeDef records. In the same generations, the 142 and 143 nonempty
 image ranges tile the first 82,341 and 85,217 definitions respectively, without
 internal gaps or overlap. The final two definitions in each file lack an
 established image owner. The census reports unresolved ownership before
-publishing a result. The separate complete field-range evidence remains valid.
-Method endpoint and MethodDef slot verification await a source-owned treatment
-of the trailing declarations. All publisher hashes and file fences passed.
+publishing a result. The pinned dump writer starts its root enumeration from
+the original image ranges and traverses authored nested references separately.
+The metadata cache still loads every TypeDef. [Pinned image enumeration](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Output/DumpWriter.cs#L29-L39)
+· [Pinned declaration cache](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/MetadataCache.cs#L23-L28)
+
+A separate narrow read found that both trailing declarations in each file
+have empty names and namespaces, zero field, method and nested counts, and
+absent parent, declaring type and generic container indexes. Their image
+ownership stays unresolved. They contribute zero entries to the field and
+method intervals.
+
+The MethodStart and MethodCount words tile 748,286 Global 4.6 and 776,172
+Global 4.7 method slots without gaps or overlap. The nominal 26-byte declaration
+spans are 19,455,436 and 20,180,472 bytes. The next consumed header role is
+`EventsOffset`, with 1,413,176 and 1,459,396 unassigned bytes between it and
+the declared method ends. The physical method endpoint remains unresolved.
+Both probes verified the publisher hashes and input fences. The MethodDef
+records and native pointer slots still require original-input verification.
 
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
