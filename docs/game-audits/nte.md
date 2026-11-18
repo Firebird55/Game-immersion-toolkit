@@ -196,6 +196,35 @@ recording's resolver and saved-recording replay on the retained Japanese source.
 It does not complete the remaining WEM downloads, ordinary full audio-snapshot
 activation/recovery, other-dub trials or independent Android preparation.
 
+The later full-corpus Japanese trial kept that producer, original generation and
+tool inventory fixed. Eighteen further bounded WEM acquisition stages completed;
+the nineteenth received its selected carrier bytes but failed the final original
+configuration checksum guard. Its total download traffic was 1,257,892,388 bytes,
+including the original-source checks; ordinary plan discovery accounted for
+9,912,718 metadata bytes separately. These are this trial's transfer totals,
+not a cold-installation size or complete-story denominator.
+
+The terminal accounting and distinct transport error identify the first final
+source check, the 3,299-byte official update configuration. The failed response
+body/hash was not retained, so this does not establish a changed game generation
+or corrupted voice media. The preparation stopped without retry, fallback or
+relaxed validation. It never materialized the complete recording set, invoked a
+voice codec or activated an audio snapshot. The previous complete Text-only
+pointer, immutable text snapshot and saved original recording stayed
+byte-identical. The full audio readiness, fresh-source restoration and subsequent
+saved-recording trial therefore remain incomplete; the earlier single-recording
+proof above retains its independent scope.
+
+A separately bounded, single official metadata request then returned another
+3,299-byte configuration with a different SHA256 and 15 changed semantic fields
+out of 74. The release version/size, publisher hash declarations and five base
+resource version/size pairs changed; bootstrap URLs and the remaining fields did
+not. This establishes a changed official release declaration, rather than only
+XML encoding or ordering. It does not establish the new manifest's contents,
+changed captions/voices/keys or successful update recovery. Further preparation
+requires a new original-source plan; replacing only the old recipe's configuration
+checksum would not preserve its source contract.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before
