@@ -1,4 +1,4 @@
-"""Authored source-stage inputs, copied unchanged from the NTE owner fixtures.
+"""Authored source-stage inputs based on the NTE owner fixtures.
 
 Original helper definitions: test_nte_updater_source.py at ed9117fe.
 No original publisher software, library approval or game content is included.
@@ -11,6 +11,7 @@ from zipfile import ZIP_STORED, ZipFile
 
 from backend import nte_updater_source as source
 from backend.tests.test_nte_original_updater import authored_sdk
+from backend.tests.test_nte_updater_source import resource_manifest
 
 
 def packed(name, data):
@@ -18,6 +19,15 @@ def packed(name, data):
     with ZipFile(output, 'w', compression=ZIP_STORED) as archive:
         archive.writestr(name, data)
     return output.getvalue()
+
+
+def release_responses(*, checksum=None):
+    archive, expected = resource_manifest()
+    root = 'https://ntecdn1.perfectworld.com/clientRes/PC_100/Version/Windows'
+    config = ('<Config><ResVersion>1.2.3</ResVersion><BaseVerson>'
+              '<Res Tag="baseTag" version="1.2.3" ResSize="5"/></BaseVerson>'
+              f'<Extra><listHash>{expected if checksum is None else checksum}</listHash></Extra></Config>').encode()
+    return {root+'/config.xml': config, root+'/version/1.2.3/ResList.bin.zip': archive}
 
 
 class Originals:
