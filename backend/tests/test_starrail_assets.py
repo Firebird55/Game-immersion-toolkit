@@ -118,6 +118,22 @@ def test_storybook_and_archive_use_explicit_audio_ids_and_keep_events_unavailabl
     assert event['dialogue_kind'] == 'battle_voice'
 
 
+@pytest.mark.parametrize('locale', ['en', 'ja', 'ko', 'zh-Hans'])
+def test_archive_event_precedes_audio_id_and_cannot_be_mislabeled_silent(locale):
+    catalog = Catalog()
+    catalog.tables['VoiceConfig'].append({'VoiceID': 99, 'VoiceType': 'NoVoice'})
+    row = {'AvatarID': 100, 'VoiceID': 30, 'Voice_M': {'Hash': 105},
+           'AudioID': 99, 'AudioEvent': 'Ev_original_precedence'}
+    catalog.tables['VoiceAtlas'].append(row)
+    links = {link['id']: link for link in starrail.authored_links(catalog, locale)}
+    result = links['voice-atlas-100-30']
+    assert result['audio_event'] == row['AudioEvent'] and result['source'] is None
+    assert result['voice_status'] == 'unavailable'
+    row['AudioEvent'] = ''
+    result = next(link for link in starrail.authored_links(catalog, locale) if link['id'] == 'voice-atlas-100-30')
+    assert result['voice_status'] == 'unvoiced' and 'audio_event' not in result
+
+
 def test_retained_text_survives_the_shared_record_contract_without_false_audio():
     links = starrail.sentence_links([
         {'TalkSentenceID': 1, 'TalkSentenceText': {'Hash': 101}},

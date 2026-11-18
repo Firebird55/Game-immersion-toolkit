@@ -562,6 +562,123 @@ official route is impossible. The remaining original AES/header contract stays
 open. Text table/resource preparation must continue on its own evidenced
 original path; this boundary does not justify abandoning that work.
 
+### Independent authored-table validation — November 17
+
+The remaining registration producer was not found in the retained static
+sources. One bounded cached-only alternative checked two already MD5-verified
+containers: a 2,497-byte registered dialog graph and the 120,752-byte dialog UI.
+Only aligned, complete candidate Unity-v22 headers within each first 4 KiB were
+examined. No candidate passed the header search, so no serialized object or
+authored container/script owner was accepted. Including the corrected repeat
+and frozen selection software, the experiment consumed 523,172 bounded input
+bytes, below its 512-KiB limit. It transferred and copied no original payload.
+Frozen decoding software was used only to choose the two sample paths; it did
+not supply an official key or independent plaintext proof. This negative result
+does not establish that other containers are encrypted or that official
+derivation is impossible. The experiment stopped without expanding the hunt.
+
+The separate `endfield_authored_validation` component now validates what the
+original TableCfg source can establish independently. It reuses the owned
+narrative reducers through a table-only view, excluding optional graph/UI hooks,
+and constructs ordinary text records plus non-playable configured voice facts.
+The facts retain authored locale/gender variants, exact primary source path and
+file ID, original AudioDialog IDs and the positive-duration result. They do not
+assert that a recording exists or that its caller enables primary speech.
+An explicit-source entry point reopens the context-owned text receipt and its
+original client/resource/request, typed index and consumed whole-table checks;
+ambient legacy catalogs are not adopted. Evidence mutation checks cover texts,
+configured references and table controls. These are field-validation reports,
+with a distinct format, rather than capture snapshots or `SnapshotSource`.
+
+The source-stable cached current-original comparison reads 30 complete tables,
+39,698,672 bytes, with original MD5 and SparkBuffer-root controls. All **54,585**
+ordinary record IDs and full English/Simplified-Chinese texts agree with the
+existing candidate. Its **25,576** playable-reference candidates agree with the
+configured source path, file ID and locale; their playback presence remains
+uncertified. The table projection contains 25,580 configured references, of
+which 25,577 also have the required positive primary duration. Its statuses
+remain 34,404 unavailable, 185 unknown and 19,996 authored unvoiced; no missing
+voice inventory is converted into silence or usable audio.
+
+The report separately identifies dependencies that tables cannot certify:
+6,182 graph predecessors, 392 graph speaker IDs, 16 graph-owned channel changes,
+two graph-disabled silence claims and 501 cinematic rows outside the ordinary
+table projection. It preserves the candidate and all those claims unchanged,
+without admitting them. The new regression cases cover five study scripts in
+both modes, paired protagonist performances, unsafe/ambiguous/non-media sources,
+changed IDs/texts/translations/bindings, scope separation and retention of an
+older valid index when a non-snapshot report is presented. This comparison uses
+zero network bytes and activates no library. Official AES/header provenance,
+graph/UI/cinematic decoding, selected recording materialization and complete
+canonical capture admission remain separate open gates.
+
+### Ordinary authored-validation continuation — November 17
+
+The normal provider now inserts an explicit `original-authored-table-validation`
+stage after the complete original TableCfg stage. Older navigation/container
+continuations without its evidence take the same route. Its plan reopens the
+explicit original text receipt and only requests a 16-byte current index header;
+it does not fetch or decode original table bodies. Even a large complete index
+is separately quoted for the download stage. That stage reads the entire
+current typed index twice, checks all authored file fields against the retained
+source, parses the already retained whole-MD5/SparkBuffer tables and performs
+final client/resource/index checks before publishing. A matching short header,
+old local SHA or unchanged marketing version cannot replace those checks.
+
+Facts and controls live in bounded content-addressed private files, outside the
+service handle. The local-output bound is 129 MiB, including a 1-MiB receipt;
+the temporary disk quote is 258 MiB. These derived bytes are local work, not
+publisher transfer. The current all-five-script plan separately quotes
+11,247,834 wire bytes as an upper bound for index/source rechecks. Navigation
+and container steps retain and recheck the exact validation reference. Corrupt
+derived evidence gets a new explicit repair quote; changed original text
+ownership returns to the original source-size stage. A same-client resource
+hotfix retains the previous source and replans from its checked upstream owner.
+Cancellation, storage interruption and failed controls publish no completed
+candidate and leave older libraries/recordings intact. No stage returns
+`SnapshotSource` or removes graph, UI, cinematic, AES/header or media gates.
+
+A bounded live metadata refresh read 395,982 response bytes and confirmed the
+same original Global 1.6.4 client artifact identity, both 11775769-12 resource
+layers and the complete 94,181-byte original TableCfg index. Selecting all five
+study scripts yields **761 of 770 files / 90,149,683 bytes**. Fifty-six existing
+original files, 77,373,864 bytes, passed exact current size, MD5 and SparkBuffer
+controls and were reused through F-drive hardlinks. The separately approved
+705 missing files / 12,775,819 bytes then passed the ordinary production source
+download, with real shared contexts and official HTTPS. Actual wire use was
+13,869,536 bytes, including 1,093,717 metadata bytes, below the 24,023,621-byte
+provider upper quote. The controlled interruption occurred before opening a
+sixth missing file, after five complete atomic cache writes. Retry transferred
+no duplicate body. All 761 complete tables passed their original controls and
+the final live source checks before a genuine text-source receipt was written.
+No audio, native client or presentation-container body was acquired.
+
+From that genuine receipt, the actual authored stage creates an 81,601,489-byte
+facts artifact, with 33 consumed original table controls and 25,580 configured
+voice references. It uses 301,801 planning metadata bytes and 490,147 download
+metadata bytes, with no further original bodies. English is the source and
+English, both Chinese scripts, Japanese and Korean are retained as configured
+text locales. The resulting **54,682 ordinary rows** differ from the earlier
+English/Simplified-Chinese projection only because 97 existing rows expand into
+194 female/male variants when other official target locales contain gender
+markup. All 97 original IDs remain in `member_text_ids`; there are no other
+added/missing IDs and no changed English text for a retained ID. No historical
+library is rewritten. Without a media inventory, the facts retain 34,411
+unavailable, 185 unknown and 20,086 authored-unvoiced rows.
+
+Exact-source offline restore and the older library's unchanged SHA are verified.
+The actual source/facts trials use the production source functions and real
+shared contexts; upstream common parameters are rederived from the retained
+artifact-matching original client bytes with their earlier partial-range
+provenance. They are not a newly performed cold client/bootstrap download, a
+whole-native-file hash, a running UI/device trial or standalone Android proof.
+The complete provider continuation through navigation and containers is also
+tested with explicit synthetic upstream recognizer seams, real SparkBuffer,
+CRC/MD5, HTTP and budget controls, for both content modes. The five study-source
+locales are exercised synthetically in both modes; the actual new facts-stage
+trial above uses English source with all five script tables. Complete capture
+admission and the existing active prologue audio exception remain unresolved.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-

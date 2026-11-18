@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 import hashlib
 import struct
 
-from Crypto.Cipher import AES
-
 from .infinity_nikki_native import _Elf, _call, _literal_pair, _adrp, extract_wrapper_material
 
 
@@ -321,7 +319,7 @@ def extract_default_pak_material(native, *, expected_native_sha256: str) -> Defa
     return DefaultPakMaterial(value, expected_native_sha256, callback, binding, addresses)
 
 
-def decode_default_index(raw: bytes, material: DefaultPakMaterial, expected_sha1: bytes, *, key_guid: bytes) -> bytes:
+def decode_default_index(raw: bytes, material: DefaultPakMaterial, expected_sha1: bytes, *, key_guid: bytes, crypto=None) -> bytes:
     """Read the evidenced default-index AES/XOR format and verify its plaintext.
 
     No source authentication or nonzero key-GUID support is inferred from a
@@ -331,7 +329,12 @@ def decode_default_index(raw: bytes, material: DefaultPakMaterial, expected_sha1
            isinstance(material, DefaultPakMaterial) and len(material.parameter) == 32 and
            isinstance(expected_sha1, bytes) and len(expected_sha1) == 20 and
            isinstance(key_guid, bytes) and key_guid == bytes(16))
-    result = bytearray(AES.new(material.parameter, AES.MODE_ECB).decrypt(raw))
+    if crypto is None:
+        from .publisher_crypto import DesktopPublisherCrypto
+        crypto = DesktopPublisherCrypto()
+    decoded = crypto.block_cipher('AES', 'ECB', material.parameter, raw)
+    _check(isinstance(decoded, bytes) and len(decoded) == len(raw))
+    result = bytearray(decoded)
     for start in range(0, len(result), 16):
         result[start] ^= material.parameter[-1]
         result[start + 15] ^= material.parameter[0]

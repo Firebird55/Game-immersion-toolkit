@@ -13,6 +13,12 @@ Bodies without Content-Length require observed EOF. Bytes already received
 remain charged when cancellation occurs during a blocking read; no further
 output may publish into that retired scope.
 
+The preparation job reports cumulative charged wire bytes as they arrive, even
+when a provider does not emit phase-progress callbacks. A phase change cannot
+rewind that counter or replace the approved overall transfer total with a
+smaller decoding total. Late bytes remain charged to the old job on cancellation;
+the accounting update grants no permission to publish a source or recording.
+
 All normal HTTPS, allowlisted redirect, encoding, strong If-Match and size rules
 also apply. Callbacks are packaged toolkit readers, never downloaded code.
 They own provisional member cleanup after failure. A transport receipt alone

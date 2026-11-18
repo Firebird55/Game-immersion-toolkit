@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import hashlib
 import json
 import re
@@ -17,6 +16,7 @@ from typing import Callable, Iterable
 from rapidfuzz import fuzz, process
 
 from .models import TextMatch
+from .text_display import TAG_RE, display_text
 
 
 TEXTMAP_URLS = {
@@ -26,7 +26,6 @@ TEXTMAP_URLS = {
     "zh_overwrite": "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/TextMap/TextMapOverwriteTemplateTb.json",
 }
 
-TAG_RE = re.compile(r"<[^>]+>")
 FORMAT_RE = re.compile(r"\{[^{}]*\}|\[[^\[\]]*\]")
 NON_ALNUM_RE = re.compile(r"[^0-9a-z]+")
 DIALOGUE_ID_MARKERS = ("chat", "galgame", "dialog", "talk", "voice")
@@ -42,13 +41,6 @@ GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
 GENDER_VARIANT_RE = re.compile(r"\{([MF])#([^{}]*)\}")
 TERMINAL_PUNCTUATION_RE = re.compile(r"[.!?…][\"')\]}]*$")
-
-
-def display_text(value: str) -> str:
-    text = html.unescape(str(value or ""))
-    text = text.replace("\\n", " ").replace("\r", " ").replace("\n", " ")
-    text = TAG_RE.sub("", text)
-    return " ".join(text.split()).strip()
 
 
 def normalize_english(value: str) -> str:

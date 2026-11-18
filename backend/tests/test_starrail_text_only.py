@@ -5,6 +5,7 @@ import pytest
 
 from backend import starrail_assets as assets, starrail_films as films
 from backend import hoyo_publisher_voice as voices, starrail_events as events, starrail_movie_metadata as movie_metadata
+from backend import starrail_game_audio as game_audio
 from backend.language_worker import write_payload
 from backend.local_game import LocalDialogue
 from backend.multilingual_index import MultilingualTextIndex
@@ -44,6 +45,7 @@ def test_text_only_retains_authored_status_and_branches_without_any_audio_work(t
         pytest.fail('Text-only preparation attempted audio/header/bank/key work')
     for owner, names in [(voices, ('inventory', 'extract', '_table', '_archive')),
                          (events, ('bindings', 'extract')),
+                         (game_audio, ('owners', 'inventory_owners', 'header_quote', 'directories')),
                          (films, ('_takes', '_take_duration', '_reviewed_take', '_movie_take', '_reviewed_sources')),
                          (movie_metadata, ('check_latest', 'load'))]:
         for name in names:

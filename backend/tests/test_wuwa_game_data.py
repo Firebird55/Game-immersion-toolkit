@@ -53,16 +53,17 @@ def original(tmp_path, monkeypatch, signing_key):
         if controls['offline']: pytest.fail('This operation must remain offline')
         url = request.full_url
         calls.append(request)
-        if url.startswith(provider._native().CATALOGUE + '?_t='):
+        if url.startswith(provider._source().CATALOGUE + '?_t='):
             raw = json.dumps({'primary': URL, 'version': '1.0.0'}).encode()
             return Response(raw, url, headers={'Content-Length': str(len(raw))})
         assert url == URL
+        carrier = controls.get('carrier') or apk
         headers = {'ETag': '"original"'}
         if request.get_header('Range'):
             start, end = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
-            headers.update({'Content-Range': f'bytes {start}-{end}/{len(apk)}', 'Content-Length': str(end-start+1)})
-            return Response(apk[start:end+1], url, 206, headers)
-        raw = bytearray(apk)
+            headers.update({'Content-Range': f'bytes {start}-{end}/{len(carrier)}', 'Content-Length': str(end-start+1)})
+            return Response(carrier[start:end+1], url, 206, headers)
+        raw = bytearray(carrier)
         if controls['corrupt']: raw[-23] ^= 1
         headers['Content-Length'] = str(len(raw))
         def on_read():
@@ -71,7 +72,12 @@ def original(tmp_path, monkeypatch, signing_key):
     monkeypatch.setattr(provider, 'PublisherTransport', lambda ctx, **kwargs:
         PublisherTransport(ctx, opener=open_, **kwargs))
     # This lane must not touch legacy seeds, protected ownership, or processes.
-    monkeypatch.setattr(provider._native().metadata, '_read', lambda *a: pytest.fail('No protected bootstrap input'))
+    from backend import wuthering_metadata
+    monkeypatch.setattr(wuthering_metadata, '_read', lambda *a: pytest.fail('No protected bootstrap input'))
+    # Host-only simulation supplies the maintained desktop reference explicitly;
+    # actual Android capability/absence is exercised separately.
+    from backend.publisher_crypto import DesktopPublisherCrypto
+    monkeypatch.setattr(provider.WutheringGameDataProvider, '_crypto', lambda self: DesktopPublisherCrypto())
     return module, apk, calls, controls
 
 
@@ -84,12 +90,12 @@ def test_real_shared_transport_full_integrity_stage_then_honest_format_gate(tmp_
     plan = adapter.plan(ctx.request, ctx)
     assert plan.download_bytes == len(apk) and plan.required_disk_bytes >= len(module)
     assert plan.stage == 'bootstrap' and plan.runtime_available and plan.source_proof is None
-    assert all(request.get_header('Range') or request.full_url.startswith(provider._native().CATALOGUE) for request in calls)
+    assert all(request.get_header('Range') or request.full_url.startswith(provider._source().CATALOGUE) for request in calls)
     assert 'packaged media' in plan.message and 'optional voice pack' in plan.message
     ctx.phase, ctx.consumed, ctx.budget = 'download', 0, plan.download_bytes
     stage = adapter.download(plan, ctx)
     assert isinstance(stage, PreparationStage) and ctx.consumed == len(apk)
-    path = provider._native()._module(ctx.cache_directory, stage.restore_handle['source'])
+    path = provider._source()._module(ctx.cache_directory, stage.restore_handle['source'])
     assert path.read_bytes() == module
     assert not list(ctx.cache_directory.rglob('*.deflate')) and not list(ctx.cache_directory.rglob('*.apk'))
     controls['offline'] = True
@@ -126,7 +132,7 @@ def test_corrupt_retained_native_stage_is_not_ready_or_an_automatic_redownload(t
     plan = adapter.plan(ctx.request, ctx)
     ctx.phase, ctx.consumed, ctx.budget = 'download', 0, plan.download_bytes
     stage = adapter.download(plan, ctx)
-    path = provider._native()._module(ctx.cache_directory, stage.restore_handle['source'])
+    path = provider._source()._module(ctx.cache_directory, stage.restore_handle['source'])
     path.write_bytes(b'corrupt')
     ctx.phase, ctx.stage_handle = 'plan', stage.restore_handle
     controls['offline'] = True
@@ -180,3 +186,24 @@ def test_actual_settings_service_stage_restart_gate_and_scoped_delete(tmp_path, 
         assert history.read_bytes() == b'user history' and other.read_bytes() == b'other game'
     finally:
         restarted.close()
+
+
+def test_selected_module_limit_is_rejected_before_whole_carrier_acquisition(tmp_path, original):
+    import struct
+    import zipfile
+    _module, apk, calls, controls = original
+    raw = bytearray(apk)
+    name = b'lib/arm64-v8a/libUE4.so'
+    with zipfile.ZipFile(io.BytesIO(apk)) as archive:
+        local = archive.getinfo(name.decode()).header_offset
+    central = raw.rfind(name) - 46
+    assert raw[central:central+4] == b'PK\x01\x02'
+    # Signed metadata remains unchanged. Reject unsupported declared module
+    # size during planning, before whole-carrier integrity/body acquisition.
+    struct.pack_into('<I', raw, local + 22, provider._source().MAX_MODULE + 1)
+    struct.pack_into('<I', raw, central + 24, provider._source().MAX_MODULE + 1)
+    controls['carrier'] = bytes(raw)
+    ctx = Context(tmp_path)
+    with pytest.raises(ValueError): provider.create_provider('android').plan(ctx.request, ctx)
+    assert all(request.get_header('Range') or request.full_url.startswith(provider._source().CATALOGUE) for request in calls)
+    assert not list(ctx.cache_directory.rglob('*.json'))

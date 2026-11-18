@@ -345,8 +345,35 @@ estimate, with fresh checks after mutation; cached individual banks are removed
 before coalescing rather than downloading their surrounding gaps again. Each
 downloaded recording range must contain complete authored RIFFs with matching
 declared lengths. These are production planning/materialization steps, not an
-authorized 14 GB acquisition, a voice-state promotion or audio Ready. Canonical
-audio snapshot/restore and the unresolved film/locale dependencies remain open.
+authorized 14 GB acquisition or an audio Ready claim. Actual frozen source
+`7324fca1` yields 3,535 events with 3,568 recording candidates and leaves 143
+events explicitly at `state-choice-required`. Their required player/streamed
+inputs reuse the authenticated intake without transport. The external result
+remains 93,397 bindings and 1,565 missing paths, with the same 14,389,513,653-byte
+quote. Its batch estimate takes 1.64 seconds in that replay. The older intake's
+cache-generation identity is explicitly replayed; it is not silently adopted
+by the production cache.
+
+The canonical producer now has a guarded audio-snapshot and offline-restore
+path. Publication requires all supported authored source/event references in
+the prepared rows to resolve locally; pending state choices, missing external
+hashes and owned movie audio prevent that phase. Caption configurations without
+an original movie owner remain visible unavailable inventory and do not invent
+silence or a movie requirement. Sequence segmentation uses the matching raw
+official TextMap values, preserving playlist order, protagonist and localized
+speaker lines after display normalization. Every playable row must pass the
+original-member adapter's no-I/O membership check before publication. Its
+batched certification reads each covering body once and records each complete
+member hash; playback still rechecks the exact bytes and closed codecs.
+
+The private snapshot receipt hashes the complete text payload, inert member
+ownership map and source receipt. Offline restore verifies all three, then
+rechecks local original members and their PCK directories without metadata
+helper execution, transport or source rebuilding. Corrupt/missing members,
+changed ownership, unsupported source references and lost runtimes fail closed.
+Synthetic normal-provider snapshot/registry/restore tests exercise this path;
+the full actual current audio snapshot remains gated by the 143 state choices,
+1,565 external gaps, movie dependencies and unacquired full member quote.
 
 On frozen source `a954cde7`, the production lookup API also reconstructs the
 actual 4.7 index from three existing publisher-MD5-verified Sophon chunks with
@@ -374,6 +401,15 @@ original assets or native bodies were downloaded or built for this control.
 This is one English event recording, not acceptance of all 3,712 event
 candidates, the full dialogue catalog, Android, a cold factory or redistribution.
 The reused codec inventory's pending review labels remain unchanged.
+
+On frozen source `0c9aca83`, that same real English row is rejoined through the
+new event inventory, rendered from the canonical original text, packed/unpacked
+through the new ownership map and certified by the batch reader. Two offline
+resolutions after that member restore retain the same 126,310-frame PCM hash.
+The older experimental intake generation is explicitly replayed, not silently
+adopted into the production cache. This uses zero new source/software bytes and
+does not activate a one-row control as a complete current catalog or claim a
+cold factory, full audio snapshot, Android or release acceptance.
 
 A separate inventory covers every external VoiceConfig source exposed by the
 current supported English catalog, rather than only character-archive events.
@@ -412,8 +448,94 @@ callees are not fully described in the managed dump. No preference is read from
 an account or changed, no original code is executed, and no switch value is
 assumed. This establishes an explicit archive variant dependency, not a blanket
 Japanese fallback, an archive media binding, or the Fate story playback rule.
-Production selection must preserve the user's explicit variant choice and
-the separate study-text/audio languages after the playback consumer is proven.
+The subsequent exact AvatarVoiceArchiveEntry.PostVoice body adds 873 original
+bytes: nonempty VoiceAtlas.AudioEvent goes to the event player, whereas the
+AudioID branch passes GetWwiseAudioLanguageKey as AudioManager.PostVoice's final
+argument. The table adapter now preserves this event-first precedence even if
+a future row supplies both fields; an unused AudioID with NoVoice cannot turn
+the event into certified silence. The complete official 4.7 VoiceAtlas has
+5,555 rows, including 1,869 AudioID and 3,686 AudioEvent rows, with no overlap,
+so current counts are unchanged. Its 666-byte body reads VoiceConfig and the
+gender-modified filename,
+concatenates the original `Voice/` and `.wem` literals, then passes that relative
+path, `true` and the explicit language to GetExternalSourceInfo. That final
+914-byte body preserves a nonempty explicit language as format argument zero
+and the relative path as argument one. Only an empty language calls
+GetCurrentLanguage. The formatting string is read from the instance readonly
+`AudioManager.s_ExternalSourceFormat`. The pinned metadata writer's field-flag
+mapping confirms Static is clear, InitOnly set and Literal clear; the `s_`
+prefix is not treated as storage evidence. Its unique top-level instance
+constructor is then bounded to 1,924 original bytes and proves the exact
+`{0}/{1}` literal store to that receiver's field. This closes the archive
+path-format chain without selecting the copyright switch or establishing that
+its recordings exist in the unexamined hotfix directories. Every body is
+bounded by the original PE unwind directory and the whole original DLL MD5 is
+rechecked first. No client instruction or setter is executed. This archive
+chain does not establish the Fate story playback rule. Production selection
+must preserve the user's explicit copyright variant and separate study/audio
+languages; the unresolved preference details and package availability remain
+explicit. No rule for Fate story playback is derived from this archive route.
+
+The two previously uncached Japanese hotfix directories were then acquired as
+an explicitly separate metadata intake on frozen source `40419611`. Fresh
+28-byte prefixes and conditional directory remainders total 44,208 response
+bytes; 49,305 bytes including receipts/proof are retained. Each request checks
+strict 206, full owner size and actual strong ETag, with If-Match on the
+remainder. The canonical AudioV-derived ownership is used rather than adopting
+legacy SHA-only proxy ranges. Complete directories of 20,820 and 23,388 bytes
+contain 865 and 972 external records. Neither contains any of the 86 authored
+copyright-archive Japanese path hashes. This is directory availability, not
+spoken-recording acceptance, a whole-PCK MD5 verification or an authorization
+to select Japanese. The original discovery receipt is retained/replayed; these
+fresh range requests do not claim a fresh gateway discovery.
+
+A further cache-only metadata inventory identifies 36 common external-container
+candidates in that same AudioV, outside the current selected-dub/neutral-bank
+selection. That pass finds no complete authenticated cached directory; names
+alone do not establish a voice role. A separately approved fresh intake then
+receives exactly 1,008 prefix bytes and 19,228 directory bytes. Fresh AudioV
+marker/index checks before and after the phases use 228,340 metadata bytes in
+total and confirm the same official ownership. Original discovery remains
+retained/replayed rather than a newly claimed gateway response. Every complete
+directory passes section lengths, entry bounds, duplicate checks and exact EOF.
+The directories contain 739 external records, two bank entries and 15 sound
+entries; no bank or recording payload is read.
+
+Exact native-authored filename hashes now find all 86 Japanese copyright-archive
+paths uniquely in `External0.pck` and `External1.pck`, 43 each. None of the 1,565
+missing English path hashes is present. This supplies a concrete common-container
+availability route, not an inferred Japanese fallback or a selected copyright
+state. Complete directory SHA256 and actual strong ETag/If-Match receipts bind
+the partial reads; they do not verify the whole PCK MD5. No recording is promoted
+to voiced or decoded by this metadata intake. Actual member/body acceptance for
+these common recordings remains unproved; the English request's language/state
+choices remain unchanged.
+
+Canonical planning now inventories all other manifest PCK candidates outside
+the other official dub folders, so future newly named shared containers are not
+excluded by a filename/Fate/External0 allowlist. Their headers are separately
+quoted, never implicitly acquired. Primary generations are retained: the full
+AudioV identity already covers each auxiliary row, and every auxiliary owner
+also binds its exact URL, size and MD5. This does not adopt an older cache
+generation. Exact requested-locale source hashes, complete directory/span
+validation and unique ownership can certify an external member in a common
+container; another dub folder, a conflicting hash or an arbitrary offset cannot.
+All bank/stream directory bounds are checked even when their language is not
+selected. Event/bank owner rules and the 143 unresolved state choices are not
+relaxed. Tests cover newly named containers, source/URL drift, retained voices,
+common-owner snapshot/restore and text-only traps against all audio inventory.
+The additional unclassified headers are quoted only; no source bytes outside
+the approved common-directory intake were acquired for this implementation.
+
+A frozen cache-only replay exercises these production APIs against the same
+complete current AudioV identity and the 36 authenticated common directories.
+The Japanese request retains 209 primary owners and inventories 309 candidates
+in total. The APIs reproduce all 86 unique Japanese archive memberships and
+zero hits for the 1,565 missing English paths; supplying Japanese paths to an
+English request is rejected. The remaining 273 prefixes in this isolated cache
+are quoted as 7,644 bytes, without fetching them. All 86 located members total
+27,853,355 bytes and remain quote-only. This proves metadata binding, not actual
+recording acceptance, a copyright-state selection or an audio-ready snapshot.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts

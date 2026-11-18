@@ -30,7 +30,7 @@ def file(data):
 
 
 def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compression=False,
-            second=b'B' * 15, gap=False):
+            second=b'B' * 15, gap=False, global_toc=False, content=False):
     plain = b'A' * 80 + second
     chunks = [plain[:64], plain[64:], b'C' * 64]
     cipher = AES.new(KEY, AES.MODE_ECB)
@@ -53,8 +53,8 @@ def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compress
         stored.append(value)
         offset += len(value)
     ucas = stored[0] + (bytes(16) if gap else b'') + b''.join(stored[1:])
-    names = ['HT', 'a.uasset', 'A.uasset' if collision else 'b.uasset']
-    directory = (string('../../../') + struct.pack('<I', 2) +
+    names = ['Content' if content else 'HT', 'a.uasset', 'A.uasset' if collision else 'b.uasset']
+    directory = (string('../../../HT/' if content else '../../../') + struct.pack('<I', 2) +
         struct.pack('<4I', INVALID, 1, INVALID, INVALID) +
         struct.pack('<4I', 0, 0 if cycle else INVALID, INVALID, 0) +
         struct.pack('<I', 2) + struct.pack('<3I', 1, 1, 0) +
@@ -62,11 +62,13 @@ def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compress
         b''.join(string(n) for n in names))
     if encrypted:
         directory = cipher.encrypt(directory.ljust((len(directory) + 15) // 16 * 16, b'\0'))
+    if global_toc:
+        directory = b''
     header = bytearray(144)
     header[:16] = io.MAGIC
     header[16] = version
     struct.pack_into('<9I', header, 20, 144, 2, 3, 12, len(methods), 32, 64, len(directory), 1)
-    header[80] = 12 | int(encrypted) * 2 | int(compression)
+    header[80] = 4 | bool(directory)*8 | int(encrypted) * 2 | int(compression)
     struct.pack_into('<Q', header, 88, 2**64 - 1)
     offsets = (0).to_bytes(5, 'big') + (80).to_bytes(5, 'big') + (80).to_bytes(5, 'big') + len(second).to_bytes(5, 'big')
     toc = (bytes(header) + bytes(24) + offsets + b''.join(records) + b''.join(methods) +
@@ -239,6 +241,45 @@ def test_context_codec_uses_authenticated_decrypted_blocks_without_legacy_tools(
     assert [size for _, size in calls] == [64, 31]
     container = open_container(); container._managed_oodle = lambda _: b'partial'
     with pytest.raises(PreparationFailure): container.read('HT/a.uasset')
+
+
+@pytest.mark.parametrize('fault', [None, 'toc-missing', 'wrong-guid', 'wrong-block'])
+def test_owned_iostore_never_bypasses_range_transport_or_original_guid(monkeypatch, tmp_path, fault):
+    toc, ucas = fixture()
+    opened, _, _ = prepare(monkeypatch, tmp_path, toc=toc, ucas=ucas)
+    current = opened()
+    archive = object.__new__(Archive)
+    archive.source = SimpleNamespace(region='nte-global', branch='PC_150')
+    archive.encryption_guid = bytes([1])*16 if fault == 'wrong-guid' else bytes(16)
+    archive.selected_key, archive.cipher = '0x'+KEY.hex(), AES.new(KEY, AES.MODE_ECB)
+    calls = []
+    def owned(source, at, size):
+        assert source.toc == current.toc and source.ucas == current.ucas
+        calls.append((at, size)); raw = ucas[at:at+size]
+        return bytes([raw[0]^1])+raw[1:] if fault == 'wrong-block' else raw
+    monkeypatch.setattr(io.release, 'read_range', lambda *_: pytest.fail('Direct publisher range'))
+    monkeypatch.setattr(io.release, 'save_file', lambda *_: pytest.fail('Implicit original TOC'))
+    if fault == 'toc-missing': (current.root/'index.utoc').unlink()
+    def attempt():
+        source = io.Container('nte-global', 'PC_150', current.toc, current.ucas, [archive], tmp_path,
+                              range_reader=owned)
+        return source.read('HT/a.uasset')
+    if fault:
+        with pytest.raises(PreparationFailure): attempt()
+        assert not list(current.root.glob('*.block'))
+        assert bool(calls) == (fault == 'wrong-block')
+    else:
+        assert attempt() == b'A'*80 and len(calls) == 1
+
+
+def test_inventory_phase_forbids_even_already_cached_ordinary_package_bodies(monkeypatch, tmp_path):
+    opened, _, calls = prepare(monkeypatch, tmp_path)
+    source = opened()
+    assert source.read('HT/a.uasset') == b'A'*80
+    before = len(calls); source.inventory_metadata_only = True
+    for read in (lambda: source.read_stored(0, 1), lambda: source.read('HT/a.uasset'), lambda: source.stored_blocks(0, 1)):
+        with pytest.raises(PreparationFailure): read()
+    assert len(calls) == before
 
 
 def test_replaced_recording_does_not_replace_historical_cached_bytes(monkeypatch, tmp_path):

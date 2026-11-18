@@ -118,6 +118,34 @@ def owners(build, raw, locale):
                  for name, asset in sorted(found.items()))
 
 
+def inventory_owners(build, raw, locale):
+    """Add shared manifest candidates; only authored hashes confer a role."""
+    from . import starrail_hotfix as hotfix
+    from .hoyo_dialogue import voice_namespace
+    primary = owners(build, raw, locale)
+    known = {owner.name for owner in primary}
+    languages = {voice_namespace('starrail', code).casefold() for code in ('en', 'ja', 'ko', 'zh-Hans')}
+    roots = hotfix.audio_roots(build)
+    shared = {}
+    for line in raw.splitlines():
+        try:
+            row = json.loads(line); name = row['Path']
+            if (name in known or not name.endswith('.pck')
+                    or '/' in name and name.split('/', 1)[0].casefold() in languages):
+                continue
+            if name in shared or type(row['Patch']) is not bool:
+                _fail('The original shared audio inventory has conflicting owners.')
+            asset = hotfix.audio_file(roots, name, row['Patch'], name, row['Size'], row['Md5'])
+        except (KeyError, TypeError, ValueError) as error:
+            raise GameDataError('starrail_audio_index_changed', 'The original shared audio inventory is unsupported.') from error
+        # Retain the primary generation: its full AudioV identity already
+        # includes every shared row. Each auxiliary object independently binds
+        # its exact URL, size and MD5. Adding candidates cannot adopt a cache
+        # from another generation or invalidate unchanged primary originals.
+        shared[name] = Owner(name, asset.size, asset.digest, asset.url, primary[0].generation)
+    return primary + tuple(shared[name] for name in sorted(shared))
+
+
 class RangeStore:
     """Owned cache, checked at use; no hidden request on a cache miss."""
     def __init__(self, directory):
@@ -206,8 +234,7 @@ class RangeStore:
     def available(self, span):
         return self._locate(span) is not None
 
-    def missing(self, spans):
-        """Fresh batch verification; hash a covering body once per estimate."""
+    def _verified_covers(self, spans):
         pending = dict.fromkeys(spans)
         owners = {}
         for span in pending:
@@ -229,10 +256,35 @@ class RangeStore:
                     continue
                 covered = [span for span in requested if span in pending and start <= span.start
                            and span.length <= length-(span.start-start)]
-                if covered and self.receipt(Span(owner, start, length)) is not None:
+                parent = Span(owner, start, length)
+                if covered and (receipt := self.receipt(parent)) is not None:
                     for span in covered:
                         pending.pop(span)
+                    yield parent, covered, receipt
+
+    def missing(self, spans):
+        """Fresh batch verification; hash a covering body once per estimate."""
+        pending = dict.fromkeys(spans)
+        for _, covered, _ in self._verified_covers(pending):
+            for span in covered:
+                pending.pop(span)
         return tuple(pending)
+
+    def inspect(self, spans, *, cancelled=lambda: False):
+        """Certify complete RIFF members without repeatedly reading a cover."""
+        pending = dict.fromkeys(spans); found = {}
+        for parent, covered, receipt in self._verified_covers(pending):
+            OriginalVoices._check(cancelled)
+            raw = self._path(parent).read_bytes()
+            if len(raw) != parent.length or hashlib.sha256(raw).hexdigest() != receipt['sha256']:
+                _fail('The original recording range changed during verification.')
+            for span in covered:
+                OriginalVoices._check(cancelled)
+                start = span.start-parent.start; member = raw[start:start+span.length]
+                _riff(member); found[span] = hashlib.sha256(member).hexdigest(); pending.pop(span)
+        if pending:
+            _fail('The required original Star Rail recording is not verified locally.')
+        return found
 
     def acquire(self, span, transport):
         if self.available(span):
@@ -415,13 +467,24 @@ def directories(selected, store, locale):
         prefix = store.read(Span(owner, 0, 28))
         total, _, langs, banks, sounds, external = struct.unpack_from('<6I', prefix, 4)
         raw = prefix + store.read(Span(owner, 28, total + 8 - 28))
-        for start, length in ((28 + langs, banks), (28 + langs + banks, sounds),
-                              (28 + langs + banks + sounds, external)):
+        for start, length, width in ((28 + langs, banks, 20), (28 + langs + banks, sounds, 20),
+                                     (28 + langs + banks + sounds, external, 24)):
             if length < 4 or start > len(raw) - length:
                 _fail('The original PCK directory section leaves its header.')
-            records += struct.unpack_from('<I', raw, start)[0]
+            count = struct.unpack_from('<I', raw, start)[0]
+            if length != 4 + width * count:
+                _fail('The original PCK directory section does not end at its declared boundary.')
+            records += count
             if records > MAX_ROWS:
                 _fail('The original audio directory exceeds its record limit.')
+            if width == 20:
+                identities = set()
+                for key, block, size, sector, language_id in struct.iter_unpack('<5I', raw[start+4:start+length]):
+                    position = (block or 1) * sector
+                    if ((key, language_id) in identities or not size > 0
+                            or not len(raw) <= position <= owner.size-size):
+                        _fail('An original bank or stream leaves its package.')
+                    identities.add((key, language_id))
         class Header:
             size = owner.size
             name = owner.name
@@ -453,20 +516,24 @@ def external_members(inventory, sources, locale):
     from .hoyo_dialogue import voice_namespace
     from .voice_assets import voice_hash
     language = voice_namespace('starrail', locale)
+    voice_folders = {voice_namespace('starrail', code).casefold() for code in ('en', 'ja', 'ko', 'zh-Hans')}
     by_hash = {}
     for directory in inventory:
-        if not directory.owner.name.startswith(language + '/'):
+        folder = directory.owner.name.split('/', 1)[0].casefold()
+        if folder in voice_folders and folder != language.casefold():
             continue
         for key, span in directory.external.items():
             by_hash[key] = span if key not in by_hash else None
-    result = {}
+    result, requested = {}, {}
     for source in set(sources):
         if (not isinstance(source, str) or not 0 < len(source) <= 4096 or '\x00' in source
                 or re.split(r'[/\\]', source, maxsplit=1)[0].casefold() != language.casefold()):
             _fail('The authored original voice binding belongs to another dub.')
-        if span := by_hash.get(voice_hash(source)):
+        key = voice_hash(source)
+        requested.setdefault(key, set()).add(source.lower())
+        if span := by_hash.get(key):
             result[source] = span
-    return result
+    return {source: span for source, span in result.items() if len(requested[voice_hash(source)]) == 1}
 
 
 def neutral_bank_quote(inventory, lookup, names, store):
@@ -589,7 +656,7 @@ def _riff(raw):
 
 class OriginalVoices:
     """Frozen checked membership; has performs neither I/O nor decoding."""
-    def __init__(self, store, members, *, decoder=None, encoder=None, layout=None):
+    def __init__(self, store, members, *, decoder=None, encoder=None, layout=None, cancelled=lambda: False):
         from .native_codecs import packaged_codec_executable
         from .hoyo_dialogue import audio_locale, voice_namespace
         from .voice_assets import voice_hash
@@ -599,22 +666,28 @@ class OriginalVoices:
         self.decoder = Path(decoder) if decoder is not None else packaged_codec_executable('vgmstream', layout=layout)
         self.encoder = Path(encoder) if encoder is not None else packaged_codec_executable('ffmpeg', layout=layout)
         self.members = {}
+        voice_folders = {voice_namespace('starrail', code).casefold() for code in ('en', 'ja', 'ko', 'zh-Hans')}
         verified_directories = {}
+        checked, identities = [], set()
         for member in members:
+            self._check(cancelled)
             if (not isinstance(member, OriginalMember) or not isinstance(member.text_id, str)
                     or not member.text_id or not isinstance(member.audio, dict) or not member.audio
-                    or member.audio.get('movie') or member.text_id in self.members
+                    or member.audio.get('movie') or member.text_id in identities
                     or not isinstance(member.span, Span)
                     or member.player_voice is not None and member.player_voice not in ('male', 'female')):
                 _fail()
             frozen = json.loads(json.dumps(member.audio, allow_nan=False))
+            if frozen.get('source') and frozen.get('audio_event'):
+                _fail('The original recording has conflicting authored references.')
             locale = frozen.get('locale')
             if not isinstance(locale, str) or locale not in {'en', 'ja', 'ko', 'zh-Hans'} or audio_locale(locale) != locale:
                 _fail('The original recording has no supported authored dub.')
             language = voice_namespace('starrail', locale)
-            if not member.span.owner.name.startswith(language + '/'):
-                _fail('The original recording owner belongs to another dub.')
             if source := frozen.get('source'):
+                folder = member.span.owner.name.split('/', 1)[0].casefold()
+                if folder in voice_folders and folder != language.casefold():
+                    _fail('The original recording owner belongs to another dub.')
                 if (not isinstance(source, str) or len(source) > 4096 or '\x00' in source
                         or re.split(r'[/\\]', source, maxsplit=1)[0].casefold() != language.casefold()
                         or frozen.get('file_id') != f'{voice_hash(source):016x}'):
@@ -626,6 +699,8 @@ class OriginalVoices:
                 if directory.external.get(voice_hash(source)) != member.span:
                     _fail('The authored external recording does not match its original directory.')
             elif event := frozen.get('audio_event'):
+                if not member.span.owner.name.startswith(language + '/'):
+                    _fail('The original event recording owner belongs to another dub.')
                 reference = {key: frozen.get(key) for key in ('bank_package', 'bank_digest', 'bank_offset', 'bank_size')}
                 expected = {'bank_package': member.span.owner.name, 'bank_digest': member.span.owner.md5,
                             'bank_offset': member.span.start, 'bank_size': member.span.length}
@@ -641,8 +716,11 @@ class OriginalVoices:
                         _fail('The authored player recording branch changed.')
             else:
                 _fail('The original recording has no supported authored reference.')
-            raw = store.read(member.span); _riff(raw)
-            self.members[member.text_id] = (identity(frozen), OriginalMember(member.text_id, frozen, member.span, member.player_voice), hashlib.sha256(raw).hexdigest())
+            checked.append(OriginalMember(member.text_id, frozen, member.span, member.player_voice))
+            identities.add(member.text_id)
+        originals = store.inspect((member.span for member in checked), cancelled=cancelled)
+        for member in checked:
+            self.members[member.text_id] = (identity(member.audio), member, originals[member.span])
 
     def has(self, row):
         if (not isinstance(row, Mapping) or not isinstance(row.get('text_id'), str)

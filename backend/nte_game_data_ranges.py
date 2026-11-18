@@ -186,9 +186,15 @@ def plan(handle, ctx, reader):
     except GameDataError as error:
         if error.code != 'nte_initial_description_required':
             raise
-        return GameDataPlan('nte-initial-description-'+content._identity(handle), None, None,
-            handle=handle, stage='compatibility', message=str(error))
+        from . import nte_game_data_initial as initial
+        result = initial.plan(handle, ('archive',), ctx, reader)
+        if result is None:
+            raise
+        return result
     if not wanted:
+        if selection.get('members_count', 0):
+            from . import nte_game_data_iostore as imports
+            return imports.plan(handle, selection, ctx, reader)
         return GameDataPlan('nte-archive-blocks-'+content._identity(handle), None, None, handle=handle,
             stage='content', message='Original NTE package indexes are verified. Selected text and audio preparation still needs a bounded content plan.')
     wanted = _batch(sources, wanted)

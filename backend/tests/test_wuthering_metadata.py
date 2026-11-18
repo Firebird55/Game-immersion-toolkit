@@ -117,7 +117,7 @@ def test_other_package_cache_must_match_exact_native_hash_and_size(tmp_path, mon
 
 
 def test_reused_index_publication_is_atomic_and_failure_keeps_existing_bytes(tmp_path, monkeypatch):
-    from pathlib import Path
+    from backend import atomic_files
     key = bytes(range(32)); original = encrypted_package(key)
     monkeypatch.setattr(pak, 'block', lambda url, total, pos, count: bytes(original[pos:pos+count]))
     source = pak.Package('first', len(original), 'source', tmp_path, (key,))
@@ -126,13 +126,13 @@ def test_reused_index_publication_is_atomic_and_failure_keeps_existing_bytes(tmp
     main_hash = original[magic+24:magic+44].hex()
     target = source.cache.parent/'current'/main_hash
     target.parent.mkdir(); target.write_bytes(b'keep the preexisting incomplete cache')
-    before = target.read_bytes(); replace = Path.replace
+    before = target.read_bytes(); replace = atomic_files.replace
     def interrupted(path, destination):
         if destination == target:
             assert path.name == 'download' and hashlib.sha1(path.read_bytes()).hexdigest() == main_hash
             raise OSError('Authored atomic-publication interruption')
         return replace(path, destination)
-    monkeypatch.setattr(Path, 'replace', interrupted)
+    monkeypatch.setattr(atomic_files, 'replace', interrupted)
     with pytest.raises(OSError, match='atomic-publication'):
         pak.Package('second', len(original), 'current', tmp_path, (key,))
     assert target.read_bytes() == before

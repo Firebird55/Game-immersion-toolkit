@@ -462,6 +462,152 @@ a runtime text-only plan that pretends no audio/video-containing carrier bytes
 were transferred. A failed source/key check is not automatically evidence of a
 package-format change or official-source impossibility.
 
+## Shared APK metadata boundary
+
+`backend/publisher_apk_zip.py` now locates classic single-disk APK entries through
+a bounded exact-range callback. It has no network, extraction or execution
+effects and delegates signer metadata to the single `publisher_apk.py` verifier.
+Its optional keyword-only `crypto` capability is passed only to validation and
+is never serialized into a layout or handle. The exact shared portable verifier
+also passes the cached original RSA-2048 signer metadata with strict framing;
+that offline check does not revalidate the whole APK's content digest.
+Selected local headers, original encoded names, compression/CRC/size fields and
+carrier bounds must agree; ZIP64, encrypted/descriptor selected entries and
+unsupported compression are explicit gates. Small metadata-member inflation is
+bounded before reading. Original local-header witnesses must also match the
+subsequent complete carrier before accepting the selected native owner.
+
+An offline replay of already retained official CN metadata reads 126,205 bytes,
+parses all 1,395 entries and locates the same 76,697,538-byte compressed /
+213,538,488-byte native owner. It performs no network acquisition and does not
+repeat the earlier full-APK v2 verification. Authored APK fixtures separately
+exercise the walker and canonical whole-stream verifier together, including
+split directory/tail reads, CP437/UTF-8 names, misleading comment signatures,
+pre-read budgets, local/CD disagreement, invalid paths, compression/CRC failures
+and the explicitly opted-in signed-zero-tail dialect. This is shared format
+infrastructure, not an executable Nikki preparation stage or dialogue coverage.
+
+## Canonical native-bootstrap preparation stage
+
+`backend/infinitynikki_game_data.py` implements the shared plan/download/restore
+contract on PC and through an explicit Android cryptography capability. It reads
+the exact mainland website `android` field, follows its direct original APK
+family, pins actual size/strong ETag and quotes the complete integrity carrier
+before transfer. Selected native ownership uses the evidenced original
+`lib/arm64-v8a/libUnreal.so` member and its actual wrapper/index consumer chains;
+it does not invent AndroidManifest provenance or import another game's runtime.
+The module name is a source-owned format selector, not a frozen release URL,
+address, key or payload hash. Global requests disclose use of this mainland
+bootstrap source; each Global resource still requires compatibility verification.
+
+The consented stage streams the complete APK through the single shared v2
+verifier, checks selected local-header witnesses against that same stream,
+bounds Deflate/size/CRC and follows the owned address-independent native producer.
+It retains the authenticated native module and private integrity receipts, never
+derived key material or ignored media members. Required disk space includes the
+compressed native member, decoded module, planning metadata and receipt overhead.
+The full carrier contains unused media even for text-only requests; it is quoted
+as necessary bootstrap overhead and no optional voice pack is fetched.
+
+Metadata, source-generation, mode/locale or estimate changes, damaged content,
+unbound native consumers and cancellation stop preparation while retaining old
+game data. The returned value is only a `PreparationStage`. Restoring that stage
+is local and reports the unresolved content-reader gate; it cannot activate a
+matcher, blank snapshot or unverified voice source. Shared cache accounting and
+deletion include its retained source bytes.
+
+Authored APK/HTTP fixtures exercise the actual shared transport and contexts,
+whole signing/member checks, staged continuation, both content modes, explicit
+crypto propagation and failure retention. A fresh process also imports the
+factory and derives authored native material while Crypto and desktop service
+imports are blocked. The wrapper/default-index decoders now accept the explicit
+shared crypto capability and preserve their original ECB/NUL/XOR/hash rules;
+their desktop default is lazy. This does not establish the Android native
+manifest/ABI implementation, actual device acceptance, a fresh end-to-end game
+library, current patch precedence, caption/voice ownership or future-generation
+coverage. Those remain acceptance gates, not package-format-change assertions.
+
+Offline original-source replay binds this stage's code hashes to the retained
+official homepage, APK metadata and earlier complete carrier receipt. The
+metadata-to-quote path reports 625,323,294 download bytes and 290,470,325 required
+disk bytes for that recorded generation. Its original native consumer gate
+passes the authenticated 213,538,488-byte module. This uses existing cached data;
+it is not a fresh source-generation check, a complete new network plan, a new
+whole-APK verification or Android/device acceptance.
+
+## Dialogue-container and dynamic-key ownership checkpoint
+
+Two separately approved footer-only probes now bind the original
+`Default_Lua_2872_P.pak` and `Delay_Base_Bin_2872_P.pak` metadata to their original
+BuildPatch carriers. Both complete decoded-chunk SHA-1 checks and strict
+HEAD/ETag/If-Match/post-HEAD generation checks pass. The selected output is only
+221 footer bytes per package. The Lua footer has the evidenced encrypted v12
+zero-GUID format; the Bin footer uses the same framing with a nonzero encryption
+GUID. The default-key reader deliberately does not try that nonzero GUID. It
+requires an independently evidenced source producer, not a guessed default key
+or a package-format-change/impossibility conclusion.
+
+One additional approved 1,030,282-byte carrier supplies the Lua main index;
+its complete plaintext SHA-1 passes with the native-derived default material.
+The 720,944-byte full directory is reconstructed entirely from two retained,
+authenticated carriers with zero new network bytes. Its expected SHA-1 comes
+directly from the verified main-index descriptor. The owned reader reaches
+directory/index EOF and validates all 14,688 directory/compact-entry references.
+It reads no script, configuration-table, full member-header or audio bodies in
+this phase. Neither resource counts nor hashed script paths establish active
+dialogue, full-package integrity or a text/voice binding.
+
+These footer/main-index acquisitions total 2,974,109 new body bytes, including
+941,200 explicitly disclosed bytes to reobtain the previously discarded
+Framework carrier. All three authenticated compressed carriers are retained for
+exact subsequent metadata reuse. Related original source, selected metadata,
+receipts and private probe scripts total 5,027,322 bytes within the approved
+5 MiB phase cap; other carrier contents are not extracted as members. An invalid
+41-hex manual transcription was rejected before directory decryption, explicitly
+corrected against the original 20-byte descriptor, and preserved in the private
+receipt. Subsequent comparisons use parsed digest bytes directly.
+
+The already retained Global updater supplies a concrete official dynamic-key
+route: version/platform `PACDKCINFO_` parameters, followed by native Base64
+keychain creation, group refresh/deserialization and registration. Its referenced
+`PaperKVMgr` calls `/v1/gameconfig/parameter` through the original URL/signature
+builder and remote-JSON consumer. That builder consumes
+`UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
+explicitly overrides the baseline SDK configuration from these native fields;
+launcher values and baseline SDK values therefore cannot be substituted without
+proving ownership. The actual regional settings producer, exact signature
+dataflow and dynamic-chain deserializer remain open. No request using guessed
+client material, community key, Lua VM or original game execution is made.
+
+## Passive Android relocation metadata
+
+The authenticated native owner's settings-function registration uses packed
+`SHT_ANDROID_RELA` / `APS2` metadata. No maintained toolkit APS2 parser was found;
+the existing other-game helper covers ordinary RELA only. The new neutral
+`publisher_android_relocations.py` validates the complete bounded section and
+returns only specifically selected offsets/addends, never a full pointer map.
+It applies or executes no relocation or original code and proves no CMS setting
+or regional client identity by itself.
+
+Group/additive state follows AOSP's
+[original relocation iterator](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker_reloc_iterators.h).
+An explicitly enabled source dialect also accepts exactly bounded, ten-byte
+zero-extended 64-bit delta words, consistent with AOSP's
+[word-width decoder](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker_sleb128.h).
+Only offset/addend deltas can use that option; count, flag, info and initial
+offset framing stays strict. Integers wider than the word, malformed LEBs,
+arithmetic overflow/underflow, excess groups/matches and trailing bytes fail.
+
+Thirty-nine authored cases cover every group-flag combination, cross-group
+state, signed/zero-extended equivalence, sparse selection, truncation, malformed
+integers and resource bounds. A source-hash-bound offline replay validates the
+entire original 11,274,727-byte section twice: 1,868,734 records and 66,808 groups
+per pass. Sparse results locate the reflected `GetX6PackageSettings` name in its
+original registration metadata. No native method body or original code is read
+or executed by that format proof. The source is the previously authenticated CN
+module; this does not establish Global settings, settings values or a complete
+fresh native preparation. Further owner-specific semantic work remains separate.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
@@ -483,8 +629,10 @@ Sounds with no on-screen subtitle do not block subtitle coverage.
    voice locales. Global anonymous manifest-pointer discovery is implemented;
    the original native wrapper owner/decoder is now evidenced, and its
    address-independent reader has passed original-source replay. Independent
-   mainland SDK acquisition, automatic authenticated native-owner acquisition
-   and downstream current resource inventories remain open.
+   mainland SDK acquisition and downstream current resource inventories remain
+   open. Automatic native-owner acquisition now has a canonical quoted stage;
+   a fresh end-to-end original-source run and actual Android runtime/device
+   acceptance remain open.
 2. Implement bounded manifest-based text-only versus text-plus-audio selection,
    size planning and download/deletion through the shared game-data manager on PC
    and fully independent Android. Preserve history, recordings and user settings
