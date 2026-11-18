@@ -95,6 +95,67 @@ def download(service):
     return service.download('zzz', {'plan_id': value['plan_id'], 'revision': value['revision']})
 
 
+def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once(tmp_path):
+    from dataclasses import replace
+
+    class StagedProvider(Provider):
+        def plan(self, request, ctx):
+            self.stage = ctx.stage_handle is None
+            plan = super().plan(request, ctx)
+            return replace(plan, stage='bootstrap') if self.stage else plan
+
+        def download(self, plan, ctx):
+            if not self.stage:
+                second_stage.set()
+                assert finish_stage.wait(5)
+            return super().download(plan, ctx)
+
+    second_stage, finish_stage = threading.Event(), threading.Event()
+    provider = StagedProvider()
+    activations = []
+    service = GameDataService(tmp_path, {'zzz': provider}, on_activate=lambda ctx, _: activations.append(ctx.request.json()))
+    try:
+        first = service.start('zzz', REQUEST)['game']
+        assert first['state'] == 'downloading' and first['job']['total_bytes'] is None
+        assert second_stage.wait(5)
+        active = row(service)
+        assert active['job']['id'] == first['job']['id']
+        assert active['job']['downloaded_bytes'] == 2 * 4352 + 1000
+        assert active['job']['total_bytes'] == 2 * 4352 + 1000 + 8192
+        assert active['has_checkpoint'] and not active['can_activate']
+        assert not activations
+        assert service.start('zzz', REQUEST)['game']['job']['id'] == first['job']['id']
+        with pytest.raises(GameDataError, match='current game download'):
+            service.start('zzz', {**REQUEST, 'content_mode': 'text'})
+        finish_stage.set()
+        complete = finish(service)
+        assert complete['state'] == 'ready' and complete['job']['status'] == 'complete'
+        assert complete['job']['downloaded_bytes'] == complete['job']['total_bytes'] == 2 * (4352 + 1000)
+        assert complete['last_download_bytes'] == complete['job']['total_bytes']
+        assert complete['installed_request'] == REQUEST
+        assert provider.downloads == 2 and activations == [REQUEST]
+    finally:
+        finish_stage.set()
+        service.close()
+
+
+def test_automatic_download_stops_repeated_or_unavailable_stage(tmp_path):
+    provider = Provider(); provider.stage = True
+    service = GameDataService(tmp_path, {'zzz': provider})
+    try:
+        service.start('zzz', REQUEST)
+        stalled = finish(service)
+        assert stalled['job']['status'] == 'failed' and stalled['has_checkpoint']
+        assert 'could not advance' in stalled['message'] and provider.downloads == 1
+        provider.unknown = True
+        service.start('zzz', REQUEST)
+        unavailable = finish(service)
+        assert unavailable['job']['status'] == 'failed' and provider.downloads == 1
+        assert not unavailable['can_activate']
+    finally:
+        service.close()
+
+
 @pytest.mark.parametrize('changed', [
     {'content_mode': 'text-audio'}, {'source_locale': 'ja'},
     {'target_locales': ['ko']}, {'region': 'cn'},

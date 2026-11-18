@@ -5,7 +5,7 @@ import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} fro
 import {desktopApiBase} from '../lib/desktop-endpoints';
 import {useNativeAccountGeneration} from '../lib/native-account-context';
 import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
-import {validateGameDataList, validateGameDataRow, formatGameBytes, canDownloadGame} from '../lib/game-data-client.mjs';
+import {validateGameDataList, validateGameDataRow, formatGameBytes} from '../lib/game-data-client.mjs';
 import catalog from '../public/mobile-capture/games-data.json';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import './game-data-settings.css';
@@ -13,9 +13,10 @@ import './game-data-settings.css';
 export type GameDataRow = {id: string; title: string; state: string; revision: string | null; installed_revision: string | null; can_activate: boolean; region: string; content_mode: 'text' | 'text-audio';
  installed_request?: null | {region:string; source_locale:string; target_locales:string[]; content_mode:'text'|'text-audio'};
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
+ last_download_bytes?: number | null;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
  job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; message: string};
- can_plan: boolean; can_download: boolean; can_delete: boolean; message: string};
+ can_plan: boolean; can_download: boolean; can_delete: boolean; has_checkpoint?: boolean; message: string};
 
 export function GameDataSettings({game, targetLanguage, online, account, onChanged, onGames, children, buttonLabel = 'Settings', pollClosed = true}: {
  game: string; targetLanguage: string; online: boolean; account: string; onChanged: () => void;
@@ -82,14 +83,13 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [online, generation, open, pollClosed]);
 
- async function mutate(action: 'plan' | 'download' | 'delete' | 'activate') {
+ async function mutate(action: 'start' | 'delete' | 'activate') {
   if (!row || mutationPending.current) return;
   const owner = ++epoch.current; mutationPending.current = true; setPending(true); setError('');
   try {
    const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
    const value = await request(`/${encodeURIComponent(game)}/${action === 'delete' ? 'data' : action}`, action === 'delete' ? 'DELETE' : 'POST',
-    action === 'plan' ? selection : action === 'download' ? {plan_id: row.plan_id, revision: row.revision}
-      : {revision: action === 'activate' ? row.installed_revision : row.revision});
+    action === 'start' ? selection : {revision: action === 'activate' ? row.installed_revision : row.revision});
    const updated = validateGameDataRow(value.game) as GameDataRow;
    if (updated.id !== game) throw Error('Game changed. Refresh Settings.');
    if (!live.current || owner !== epoch.current) return;
@@ -100,14 +100,20 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   } finally {if (live.current && owner === epoch.current) {mutationPending.current = false; setPending(false);}}
  }
 
- const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
  const busy = pending || row?.state === 'downloading' || row?.state === 'planning';
- const needsNextQuote = row?.job?.status === 'needs_plan';
+ const job = row?.job;
+ const size = job ? job.total_bytes : row?.last_download_bytes;
+ const downloaded = job?.status === 'complete' || !job && row?.last_download_bytes != null;
+ const totalKnown = size !== null && size !== undefined;
+ const transferPercent = job && totalKnown && size > 0 && job.downloaded_bytes < size &&
+  ['transfer', 'downloading', 'download'].includes(job.phase) ? job.downloaded_bytes / size * 100 : undefined;
+ const message = !job && row?.has_checkpoint && row.state === 'not_downloaded'
+  ? 'Tap Download to resume from saved game files.' : row?.message || job?.message;
  return <>
   <Button variant="outline" onClick={() => setOpen(true)}>{buttonLabel}</Button>
   <Dialog open={open} onOpenChange={setOpen}><DialogContent className="setup-dialog game-data-settings"><DialogHeader>
    <DialogTitle>{row?.title || info?.name || game} settings</DialogTitle>
-   <DialogDescription>Choose text only or text with the available original audio, then check the download size.</DialogDescription>
+   <DialogDescription>Choose the languages and whether to include original audio.</DialogDescription>
   </DialogHeader>
   {row ? <>
    <label>Game data<select aria-label="Game data content" value={contentMode} disabled={busy} onChange={event => setContentMode(event.target.value as 'text' | 'text-audio')}>
@@ -122,23 +128,21 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    <fieldset><legend>Translations</legend>{targetChoices.filter(code => code !== source).map(code => <label key={code}>
     <input type="checkbox" disabled={busy} checked={targets.includes(code)} onChange={event => setTargets(previous => event.target.checked ? [...previous, code] : previous.filter(value => value !== code))}/>{languageName(code, 'en')}
    </label>)}</fieldset>
-   <dl><dt>Downloaded data</dt><dd>{formatGameBytes(row.installed_bytes)}</dd>
+   <dl>
     {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
-    <dt>{row.download_is_upper_bound && !needsNextQuote ? 'Download size, up to' : 'Download size'}</dt>
-    <dd>{needsNextQuote ? 'Check next stage' : formatGameBytes(row.download_bytes)}</dd>
-    <dt>Additional storage needed</dt><dd>{needsNextQuote ? 'Check next stage' : formatGameBytes(row.required_disk_bytes)}</dd>
-    {row.retained_bytes > 0 && <><dt>Saved recordings kept with history</dt><dd>{formatGameBytes(row.retained_bytes)}</dd></>}
+    <dt>{downloaded ? 'Download size' : 'Estimated download size'}</dt>
+    <dd>{totalKnown ? formatGameBytes(size) : busy ? 'Calculating…' : 'Available after starting'}</dd>
    </dl>
+   {(busy || downloaded) && <progress className="game-data-progress" aria-label="Game data download progress"
+    value={downloaded && !busy ? 100 : transferPercent} max={100} />}
    <div className="toolkit-setup-actions">
     <Button variant="outline" disabled={!online || busy || !row.can_activate} onClick={() => void mutate('activate')}>Use downloaded data</Button>
-    <Button variant="outline" disabled={!online || busy || !row.can_plan || !source} onClick={() => void mutate('plan')}>Check download size</Button>
-    <Button disabled={!online || busy || !canDownloadGame(row, selection)} onClick={() => void mutate('download')}>{row.installed_bytes > 0 && row.state !== 'not_downloaded' ? 'Update' : 'Download'}</Button>
+    <Button disabled={!online || busy || !row.can_plan || !source} onClick={() => void mutate('start')}>Download</Button>
     <Button variant="outline" disabled={!online || busy || !row.can_delete} onClick={() => setConfirmDelete(true)}>Delete downloaded data</Button>
    </div>
    {confirmDelete && <div role="alert"><p>Delete downloaded game data? History, favorites and saved recordings stay.</p>
     <Button variant="outline" onClick={() => setConfirmDelete(false)}>Keep data</Button><Button onClick={() => void mutate('delete')}>Confirm delete</Button></div>}
-   {row.job && <p role="status">{row.job.message} · {formatGameBytes(row.job.downloaded_bytes)} / {formatGameBytes(row.job.total_bytes)}</p>}
-   {row.message && row.message !== row.job?.message && <p role="status">{row.message}</p>}
+   {message && <p role={row.state === 'error' ? 'alert' : 'status'}>{message}</p>}
   </> : <p>Game data information is unavailable.</p>}
   {error && <p role="alert">{error}</p>}
   {children}

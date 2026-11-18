@@ -6,7 +6,7 @@ import {authoredLibraryIdentity, inspectAuthoredLibrary} from './android-authore
 import {createAuthoredRecoveryObservation, recoveryRoute} from './android-authored-recovery-observation.mjs';
 
 const paths = new Set(['/api/snapshot', '/api/platform', '/api/library/import', '/api/settings',
- '/api/capture/receiver', '/api/capture/frame', '/api/game-data', '/api/game-data/zzz/plan', '/api/game-data/zzz/download',
+ '/api/capture/receiver', '/api/capture/frame', '/api/game-data', '/api/game-data/zzz/start',
  '/api/lexirise/accounts', '/api/lexirise/accounts/select', '/api/lexirise/accounts/recover']);
 const states = new Set(['receiver_frame_stale', 'receiver_document_changed', 'receiver_document_retired',
  'receiver_revision_stale', 'receiver_generation_changed', 'receiver_dimensions_changed', 'receiver_owned',

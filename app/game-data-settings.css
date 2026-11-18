@@ -4,4 +4,5 @@
 .game-data-settings fieldset label {display: inline-flex; align-items: center; gap: .35rem;}
 .game-data-settings dl {display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem;}
 .game-data-settings dd {margin: 0; overflow-wrap: anywhere;}
+.game-data-settings .game-data-progress {width: 100%; accent-color: var(--primary);}
 .game-data-settings .toolkit-setup-actions {display: flex; flex-wrap: wrap; gap: .5rem;}

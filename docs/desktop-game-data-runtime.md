@@ -1,10 +1,12 @@
 # Desktop publisher preparation
 
 The desktop API uses the same bounded game-data service and request contract as
-the Android host. Settings can plan either **Text only** or **Text + audio** for a
-selected region, source language and translation languages. The plan reports
-download and required disk bytes before consent; unknown sizes cannot download.
-Bootstrap results remain preparation stages requiring another explicit estimate.
+the Android host. In Settings, choose **Text only** or **Text + audio**, the
+region and languages, then select **Download**. One job discovers and runs the
+required stages. Settings shows progress, an estimate that can change as the
+remaining files become known, and the actual bytes transferred at completion.
+Each stage still needs a bounded plan and sufficient free space before it can
+transfer files. Retrying reuses verified files and saved preparation stages.
 The requested selection is separate from the accepted downloaded selection:
 changing mode, source, targets or region needs a new preparation even when the
 publisher revision is unchanged. The old selection remains usable. A completed
@@ -14,13 +16,15 @@ The live-service desktop Settings dialog uses the same game-data component as
 the Android host. Its selected download mode is independent of account features;
 an optional reading account is not required to download or use game data.
 
-The local routes are `GET /api/game-data`, `POST /api/game-data/{game}/plan`,
-`POST /api/game-data/{game}/download`, `POST /api/game-data/{game}/activate` and
+The local routes are `GET /api/game-data`, `POST /api/game-data/{game}/start`,
+`POST /api/game-data/{game}/activate` and
 `DELETE /api/game-data/{game}/data`. Writes require the existing `setup` action
 header and local-origin checks. Account headers are checked before profile I/O;
 the generation also invalidates an A-to-B-to-A account transition. No account lock
 is held while invoking service methods. Existing runtime admission and request
-drain middleware cover these routes, including DELETE preflights.
+drain middleware cover these routes, including DELETE preflights. The previous
+`/plan` and `/download` routes remain available to clients that approve
+individual stages.
 
 Validated snapshots activate the existing desktop matcher. The host
 binds the publisher generation and complete request hash before publishing the

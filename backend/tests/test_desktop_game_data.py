@@ -53,10 +53,11 @@ def test_desktop_text_download_binds_real_matcher_offline_activation_and_delete(
     client, host, provider, runtime = desktop
     retained = tmp_path / 'saved-history.wav'
     retained.write_bytes(b'authored retained recording outside publisher cache')
-    plan = prepare(client)
-    assert plan['download_bytes'] == 2048 and plan['installed_bytes'] == 0
+    started = client.post('/api/game-data/zzz/start', json=TEXT, headers=HEADERS)
+    assert started.status_code == 202 and started.json()['game']['job']['phase'] == 'planning'
     row = finish(host.service)
     assert row['state'] == 'ready', row
+    assert row['job']['status'] == 'complete' and row['job']['total_bytes'] == row['last_download_bytes']
     assert host.capture_ready('zzz') is True
     assert host.selected_languages()['zzz'] == {'source_locale': 'en', 'source_language': 'en'}
     index = runtime.capture.textmaps

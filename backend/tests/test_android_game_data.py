@@ -82,7 +82,11 @@ def test_http_direct_download_capture_original_delete_and_restart_preserve_histo
         assert all(row['state'] == 'unsupported' for row in value['games'][1:])
         assert not host.session.index and provider.downloads == 0
         assert action(host, 'POST', '/zzz/plan', {key: value for key, value in REQUEST.items() if key != 'content_mode'})[0] == 400
-        install(host)
+        status, started = action(host, 'POST', '/zzz/start', REQUEST)
+        assert status == 202 and started['game']['job']['phase'] == 'planning'
+        prepared = finished(host)
+        assert prepared['state'] == 'ready' and prepared['job']['status'] == 'complete'
+        assert prepared['job']['downloaded_bytes'] == prepared['last_download_bytes']
         assert host.session.libraries.current() is None  # No backup ZIP or PC path.
         generation = host.session.start()
         assert host.session.observe(generation, 1, [TEXT], now=1) == []

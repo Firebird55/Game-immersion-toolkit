@@ -1872,6 +1872,12 @@ def publisher_download(game: str, payload: PublisherDownload, request: Request,
     return publisher_operation(request, 'download', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
 
 
+@app.post('/api/game-data/{game}/start', status_code=202)
+def publisher_start(game: str, payload: PublisherLanguages, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'start', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
 @app.post('/api/game-data/{game}/activate')
 def publisher_activate(game: str, payload: PublisherRevision, request: Request,
         x_proxy_transcript: str = Header(default='')):

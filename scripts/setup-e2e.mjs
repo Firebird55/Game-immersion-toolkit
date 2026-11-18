@@ -40,16 +40,13 @@ try{
     if(path==='/api/snapshot')value={context:fixtureContext,status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
     else if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
     else if(path==='/api/game-data'&&method==='GET')value={schema:'game-data-v1',games:[publisher]};
-    else if(path==='/api/game-data/zzz/plan'&&method==='POST'){
+    else if(path==='/api/game-data/zzz/start'&&method==='POST'){
      assert.equal(request.headers()['x-toolkit-account-generation'],'0');
-     publisher={...publisher,...body,revision:'authored-publisher-v2',plan_id:'a'.repeat(32),
-      download_bytes:body.content_mode==='text-audio'?8192:2048,required_disk_bytes:16384,can_download:true};value={game:publisher};
-    }
-    else if(path==='/api/game-data/zzz/download'&&method==='POST'){
-     assert.equal(body.plan_id,publisher.plan_id);
-     publisher={...publisher,state:'ready',installed_revision:publisher.revision,installed_bytes:publisher.download_bytes,
-      installed_request:{region:publisher.region,source_locale:publisher.source_locale,target_locales:publisher.target_locales,content_mode:publisher.content_mode},
-      deletable_bytes:publisher.download_bytes,can_download:false,can_delete:true,can_activate:true,message:'Original game data ready.'};value={game:publisher};
+     const bytes=body.content_mode==='text-audio'?8192:2048;
+     const message='Original game data ready.';
+     publisher={...publisher,...body,state:'ready',revision:'authored-publisher-v2',installed_revision:'authored-publisher-v2',
+      installed_bytes:bytes,installed_request:body,deletable_bytes:bytes,can_delete:true,can_activate:true,message,
+      job:{id:'authored-job',status:'complete',phase:'ready',downloaded_bytes:bytes,total_bytes:bytes,message}};value={game:publisher};status=202;
     }
     else if(path==='/api/game-data/zzz/activate'&&method==='POST'){
      assert.equal(body.revision,publisher.installed_revision);value={game:publisher};
@@ -57,7 +54,7 @@ try{
     else if(path==='/api/game-data/zzz/data'&&method==='DELETE'){
      assert.equal(body.revision,publisher.revision);
      publisher={...publisher,state:'not_downloaded',revision:null,installed_revision:null,installed_request:null,plan_id:null,
-      installed_bytes:0,deletable_bytes:0,retained_bytes:256,can_activate:false,can_delete:false,message:'History and saved recordings kept.'};value={game:publisher};
+      installed_bytes:0,deletable_bytes:0,retained_bytes:256,can_activate:false,can_delete:false,job:null,message:'History and saved recordings kept.'};value={game:publisher};
     }
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
     else if(/^\/api\/setup\/games\/[^/]+\/automatic-mobile-export$/.test(path)&&method==='GET')value={enabled:false,paused:false,destination:'',languages:{},jobs:{},locales:[{locale:'ja',name:'Japanese',voice_label:'Not detected — install this voice language in the game/launcher'}],translations:['en'],browseActive:false,browsedDestination:'',browseMessage:''};
@@ -209,12 +206,11 @@ try{
    const gameData=page.getByRole('dialog',{name:'Zenless Zone Zero settings',exact:true});
    await gameData.getByLabel('Game data content',{exact:true}).waitFor();
    assert.equal(await gameData.getByLabel('Game data content',{exact:true}).inputValue(),'text');
-   assert(await gameData.getByRole('button',{name:'Download',exact:true}).isDisabled(),'Unknown sizes must not permit a download');
+   assert(await gameData.getByRole('button',{name:'Download',exact:true}).isEnabled());
    assert.equal(writes.length,publisherWritesBefore,'Opening settings must not acquire assets');
    await gameData.getByLabel('Game data content',{exact:true}).selectOption('text-audio');
-   await gameData.getByRole('button',{name:'Check download size',exact:true}).click();
-   await gameData.getByText('8.0 KiB',{exact:true}).waitFor();
    await gameData.getByRole('button',{name:'Download',exact:true}).click();
+   await gameData.getByText('8.0 KiB',{exact:true}).waitFor();
    await gameData.locator('dd').filter({hasText:'Text + audio'}).waitFor();
    await gameData.getByRole('button',{name:'Use downloaded data',exact:true}).click();
    await gameData.getByRole('button',{name:'Delete downloaded data',exact:true}).click();
@@ -222,7 +218,7 @@ try{
    await gameData.getByText('History and saved recordings kept.',{exact:true}).waitFor();
    assert.equal(publisher.retained_bytes,256);
    assert.deepEqual(writes.slice(publisherWritesBefore).map(row=>row.path),[
-    '/api/game-data/zzz/plan','/api/game-data/zzz/download','/api/game-data/zzz/activate','/api/game-data/zzz/data']);
+    '/api/game-data/zzz/start','/api/game-data/zzz/activate','/api/game-data/zzz/data']);
    assert.equal(writes[publisherWritesBefore].body.content_mode,'text-audio');
    assert(await gameData.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Game download settings overflow horizontally');
    assert.deepEqual(unexpected,[],'Every setup API route must be explicitly mocked');

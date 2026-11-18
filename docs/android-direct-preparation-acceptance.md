@@ -1,7 +1,7 @@
 # Direct game preparation acceptance
 
-The Android runtime probe follows **Settings → Check download size →
-Download/Update**, including Text only followed by Text + audio. Private-library
+The Android runtime probe follows **Settings → Download**, including Text only
+followed by Text + audio. Private-library
 onboarding, the Reading chooser and the Stop screen button are retired. Pasting
 a viewer link starts capture; clearing it releases the receiver. Browser history
 migration is a separate JSON flow under Settings, preserving old recordings.

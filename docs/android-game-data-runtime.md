@@ -9,8 +9,10 @@ UI controls or a downloaded bootstrap archive do not establish readiness.
 Every request binds region, study/source locale, requested translations and
 `content_mode` (`text` or `text-audio`). A revision identifies an immutable
 publisher generation, including manifest/source identity, rather than a marketing
-version alone. Planning permits bounded metadata; unknown transfer or disk sizes
-disable Download. Text-only requests reject audio transfers before connection.
+version alone. Selecting **Download** starts one job for the chosen contents.
+The job checks each stage's transfer bound and disk needs, reports progress and
+refines the download size as it discovers the required files. Text-only requests
+reject audio transfers before connection.
 Text + audio readiness requires every playable binding's original to be verified
 and locally materialized. Local MP3/WAV conversion may finish later.
 
@@ -27,8 +29,9 @@ responding. This prevents a delayed A request from starting work in B's director
 The lock order at publication is service lock followed by session/account lock;
 provider I/O and decoding never run under the OCR/session lock.
 
-Routes are `GET /api/game-data`, `POST /api/game-data/{game}/plan`,
-`POST /api/game-data/{game}/download`, and `DELETE /api/game-data/{game}/data`.
+The app uses `GET /api/game-data`, `POST /api/game-data/{game}/start`, and
+`DELETE /api/game-data/{game}/data`. Older clients can still use per-stage
+`/plan` and `/download` requests.
 `POST /api/game-data/{game}/activate` with `{revision: installed_revision}`
 explicitly selects an already downloaded source, without a transfer. The row's
 `installed_revision` and `can_activate` describe its working downloaded source;
@@ -48,9 +51,9 @@ different profile or falling back silently to an old backup library.
 
 Incomplete bootstrap/archive descriptors live in `stage.json`, separately from
 the last ready `current.json`. They never deactivate a working source. Planning
-the same region/locales/mode exposes the private `ctx.stage_handle` for a further
-explicit estimate; providers must still verify its publisher generation before
-reuse. A failed continuation leaves the ready source and completed stage intact.
+the same region/locales/mode exposes the private `ctx.stage_handle` for the next
+stage. Providers still verify its publisher generation before reuse. A failed
+continuation leaves the ready source and completed stage intact.
 
 Explicit activation orders competing selections; a slower earlier restoration
 cannot win later. A background download can finish its verified cache without

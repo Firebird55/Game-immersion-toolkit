@@ -29,21 +29,16 @@ export async function prepareAuthoredGameData(page, until, {bothModes = false} =
  let downloaded;
  for (const mode of bothModes ? ['text', 'text-audio'] : ['text-audio']) {
   await content.selectOption(mode);
-  await settings.getByRole('button', {name: 'Check download size', exact: true}).click();
-  const quote = await until(async () => {
-   const row = await state();
-   return row?.content_mode === mode && row.can_download && row.download_bytes > 0 ? row : null;
-  }, `authored ${mode} size before preparation`);
-  assert.ok(quote.required_disk_bytes >= quote.download_bytes);
-  const download = settings.getByRole('button', {name: /^(Download|Update)$/});
-  await until(() => download.isEnabled(), 'quoted authored download button');
+  const download = settings.getByRole('button', {name: 'Download', exact: true});
+  await until(() => download.isEnabled(), 'authored download button');
   await download.click();
   downloaded = await until(async () => {
    const row = await state();
    if (row?.job?.status === 'failed') throw Error('Authored direct game preparation failed');
-   return row?.state === 'ready' && row.installed_request?.content_mode === mode ? row : null;
+   return row?.state === 'ready' && row.job?.status === 'complete' && row.installed_request?.content_mode === mode ? row : null;
   }, `authored ${mode} direct preparation`);
   assert.ok(downloaded.installed_bytes > 0);
+  assert.equal(downloaded.job.total_bytes, downloaded.job.downloaded_bytes);
   assert.equal(downloaded.installed_request.source_locale, 'en');
  }
  await settings.getByRole('button', {name: 'Close', exact: true}).click();

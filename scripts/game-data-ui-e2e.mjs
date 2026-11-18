@@ -36,26 +36,23 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   const {origin,library,cookie} = JSON.parse(item.value);
   browser = await engine.launch({headless:true}); const page = await browser.newPage({viewport:{width:390,height:844}});
   await page.context().addCookies([{name:'toolkit_session',value:cookie,url:origin,httpOnly:true,sameSite:'Strict'}]);
-  let row=initial(), plans=0, transfers=0, deletes=0, frames=0, textOnlyLine=false, unverifiedLine=false, audioRequests=0, activations=0;
+  let row=initial(), transfers=0, deletes=0, frames=0, textOnlyLine=false, unverifiedLine=false, audioRequests=0, activations=0;
   page.on('request',request=>{if(/^\/api\/lines\/[0-9]+\/audio$/.test(new URL(request.url()).pathname))audioRequests++;});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route(origin+'/api/game-data**',async route=>{
    const request=route.request(),path=new URL(request.url()).pathname,body=request.postDataJSON();
    assert.equal(request.headers()['x-toolkit-account-generation'],'0');
-   if(request.method()==='POST'&&path.endsWith('/plan')){
-    plans++;assert.deepEqual(body,{region:'global',source_locale:'ja',target_locales:['en'],content_mode:plans===1?'text':'text-audio'});
-    row={...row,...body,revision:'authored-revision',plan_id:'authored-plan-'+body.content_mode,download_bytes:body.content_mode==='text'?4096:8192,
-     download_is_upper_bound:true,required_disk_bytes:16384,can_download:true,message:'Authored size checked.'};
-   }else if(request.method()==='POST'&&path.endsWith('/download')){
-    transfers++;assert.deepEqual(body,{plan_id:'authored-plan-text-audio',revision:'authored-revision'});
-    row={...row,state:'downloading',can_download:false,job:{id:'authored-job',status:'running',phase:'download',downloaded_bytes:1024,total_bytes:8192,message:'Authored transfer in progress.'}};
+   if(request.method()==='POST'&&path.endsWith('/start')){
+    transfers++;assert.deepEqual(body,{region:'global',source_locale:'ja',target_locales:['en'],content_mode:'text-audio'});
+    row={...row,...body,revision:'authored-revision',state:'downloading',can_plan:false,message:'Checking game files…',
+     job:{id:'authored-job',status:'running',phase:'planning',downloaded_bytes:0,total_bytes:null,message:'Checking game files…'}};
    }else if(request.method()==='DELETE'){
     deletes++;assert.deepEqual(body,{revision:'authored-revision'});row={...initial(),revision:'authored-revision',retained_bytes:4096};
    }else if(request.method()==='POST'&&path.endsWith('/activate')){
     activations++;assert.equal(path,'/api/game-data/zzz/activate');
     assert.deepEqual(body,{revision:'authored-installed'});
    }else assert.equal(request.method(),'GET');
-   await route.fulfill({status:request.method()==='POST'&&path.endsWith('/download')?202:200,contentType:'application/json',
+   await route.fulfill({status:request.method()==='POST'&&path.endsWith('/start')?202:200,contentType:'application/json',
     body:JSON.stringify(request.method()==='GET'?{schema:'game-data-v1',games:[row]}:{game:row,freed_bytes:8192})});
   });
   await page.route('https://vdo.ninja/**', route=>route.fulfill({contentType:'text/html',body:sender}));
@@ -85,36 +82,35 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   assert.equal(await page.getByRole('button',{name:'Stop screen',exact:true}).count(),0);
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   const panel=page.getByRole('dialog',{name:'Zenless Zone Zero settings',exact:true});
-  await panel.getByText('Unknown',{exact:true}).first().waitFor();
+  await panel.getByText('Available after starting',{exact:true}).waitFor();
   const layout=await panel.evaluate(element=>{const r=element.getBoundingClientRect();return {
    fits:element.scrollWidth<=element.clientWidth+1,inside:r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1};});
   assert.deepEqual(layout,{fits:true,inside:true});
-  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
-  assert.equal(plans,0);assert.equal(transfers,0);
+  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isEnabled(),true);
+  assert.equal(await panel.getByRole('button',{name:'Check download size',exact:true}).count(),0);
+  assert.equal(transfers,0);
   assert.equal(await panel.getByLabel('Game data content',{exact:true}).inputValue(),'text');
-  await panel.getByRole('button',{name:'Check download size',exact:true}).click();
-  await panel.getByText('4.0 KiB',{exact:true}).waitFor();assert.equal(plans,1);assert.equal(transfers,0);
   await panel.getByLabel('Game data content',{exact:true}).selectOption('text-audio');
-  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
-  await panel.getByRole('button',{name:'Check download size',exact:true}).click();
-  await panel.getByText('8.0 KiB',{exact:true}).waitFor();
-  await panel.getByText('Download size, up to',{exact:true}).waitFor();
-  await panel.getByText('16.0 KiB',{exact:true}).waitFor();assert.equal(plans,2);assert.equal(transfers,0);
   await panel.getByRole('button',{name:'Download',exact:true}).click();
-  await panel.getByText(/Authored transfer in progress/).waitFor();assert.equal(transfers,1);
-  const nextStageMessage = 'Initial ZZZ files verified. Check the download size again to continue preparing dialogue.';
-  row={...row,state:'not_downloaded',installed_bytes:4096,message:nextStageMessage,
-   job:{...row.job,status:'needs_plan',phase:'estimate',downloaded_bytes:8192,message:nextStageMessage}};
-  await panel.getByText('Check next stage',{exact:true}).first().waitFor();
-  assert.equal(await panel.getByText(nextStageMessage,{exact:false}).count(),1);
+  await panel.getByText('Calculating…',{exact:true}).waitFor();
+  const bar=panel.getByRole('progressbar',{name:'Game data download progress'});
+  assert.equal(await bar.getAttribute('value'),null);
+  row={...row,message:'Downloading game files…',job:{...row.job,phase:'transfer',downloaded_bytes:2048,total_bytes:8192}};
+  await panel.getByText('8.0 KiB',{exact:true}).waitFor();
+  assert.equal(await bar.getAttribute('value'),'25');
+  row={...row,message:'Reading the ZZZ dialogue catalogue…',job:{...row.job,phase:'catalogue',downloaded_bytes:4096,total_bytes:8192}};
+  await panel.getByText('Reading the ZZZ dialogue catalogue…',{exact:true}).waitFor();
+  assert.equal(await bar.getAttribute('value'),null);
   assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
-  assert.equal(await panel.getByRole('button',{name:'Check download size',exact:true}).isEnabled(),true);
-  row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,retained_bytes:4096,job:null,can_delete:true,message:'Authored data ready.'};
+  row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,can_delete:true,can_plan:true,message:'Authored data ready.',
+   job:{...row.job,status:'complete',phase:'ready',downloaded_bytes:7168,total_bytes:7168}};
+  await panel.getByText('7.0 KiB',{exact:true}).waitFor();
+  assert.equal(await bar.getAttribute('value'),'100');assert.equal(transfers,1);
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).waitFor({state:'visible'});
   await until(async()=>!(await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).isDisabled()),'download completion polling');
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).click();assert.equal(deletes,0);
   await panel.getByRole('button',{name:'Confirm delete',exact:true}).click();
-  await panel.getByText('4.0 KiB',{exact:true}).waitFor();assert.equal(deletes,1);
+  await panel.getByText('Available after starting',{exact:true}).waitFor();assert.equal(deletes,1);
   await page.keyboard.press('Escape');
   textOnlyLine=true;
   await page.locator('.current-line .current-chinese').getByText('A verified text-only caption remains readable.',{exact:true}).waitFor();

@@ -673,7 +673,7 @@ class AndroidHost:
                             if scope is not None:
                                 scope.check()
                             self._json(payload, status);return
-                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|activate|data)', path)
+                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|start|activate|data)', path)
                 if path == '/api/game-data' or game_route:
                     if path == '/api/game-data' and self.command != 'GET':
                         self._json({'detail': 'Method unavailable'}, 405);return
@@ -692,10 +692,10 @@ class AndroidHost:
                         game, action = game_route.groups()
                         if game not in host.publisher_games:
                             raise GameDataError('game_runtime_unavailable', 'This game is unavailable on Android.', 409)
-                        operation = {'plan': host.game_data.plan, 'download': host.game_data.download,
+                        operation = {'plan': host.game_data.plan, 'download': host.game_data.download, 'start': host.game_data.start,
                             'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
                         payload = operation(game, value, expected_owner=owner)
-                        status = 202 if action == 'download' else 200
+                        status = 202 if action in {'download', 'start'} else 200
                     else:
                         payload, status = host.game_data.snapshot(expected_owner=owner, games=host.publisher_games), 200
                     with session.lock:

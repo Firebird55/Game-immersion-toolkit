@@ -99,7 +99,7 @@ try{
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Game data',exact:true}).click();
-  await page.getByRole('button',{name:'Check download size',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Download',exact:true}).waitFor();
   assert.equal(await page.getByRole('combobox',{name:'Game data content',exact:true}).inputValue(),'text');
   assert(await page.getByRole('button',{name:'Download',exact:true}).isDisabled(),'Unknown size cannot authorize a download');
   await page.keyboard.press('Escape');
