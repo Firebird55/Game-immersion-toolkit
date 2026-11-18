@@ -16,7 +16,6 @@ from urllib.error import URLError
 from urllib.parse import parse_qsl, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from .game_tools import _atomic_file
 from .preparation_errors import PreparationFailure
 from .xxhash64 import xxhash64, xxhash64_stream
 
@@ -93,11 +92,9 @@ def _settings(region='global', build=None, *, cache_dir=None):
     return values, keys
 
 
-def _gateway_reply(envelope, candidates):
+def _gateway_reply(envelope, candidates, *, crypto=None, cancelled=None):
     """Join official ciphertext to exactly one original native key candidate."""
     from .hoyo_dispatch_metadata import _json
-    from Crypto.Cipher import PKCS1_v1_5
-    from Crypto.PublicKey import RSA
     check(isinstance(envelope, dict) and isinstance(envelope.get('content'), str)
           and isinstance(envelope.get('sign'), str))
     encrypted = base64.b64decode(envelope['content'], validate=True)
@@ -109,22 +106,32 @@ def _gateway_reply(envelope, candidates):
         if len(encrypted) % width:
             continue
         try:
-            key = RSA.construct((numbers.n, numbers.e, numbers.d, numbers.p, numbers.q), consistency_check=True)
-            cipher = PKCS1_v1_5.new(key)
-            chunks = [cipher.decrypt(encrypted[pos:pos + width], b'')
-                      for pos in range(0, len(encrypted), width)]
-            if not all(chunks):
-                continue
-            reply = _json(b''.join(chunks))
-            if isinstance(reply, dict) and type(reply.get('retcode')) is int:
-                results.append((reply, candidate))
+            if crypto is None:
+                from Crypto.Cipher import PKCS1_v1_5
+                from Crypto.PublicKey import RSA
+                key = RSA.construct((numbers.n, numbers.e, numbers.d, numbers.p, numbers.q), consistency_check=True)
+                cipher = PKCS1_v1_5.new(key)
+            chunks = []
+            for pos in range(0, len(encrypted), width):
+                if cancelled is not None:
+                    cancelled()
+                block = encrypted[pos:pos + width]
+                plain = (cipher.decrypt(block, b'') if crypto is None
+                         else crypto.rsa_decrypt_pkcs1(numbers, block))
+                if not plain:
+                    break
+                chunks.append(plain)
+            else:
+                reply = _json(b''.join(chunks))
+                if isinstance(reply, dict) and type(reply.get('retcode')) is int:
+                    results.append((reply, candidate))
         except (ValueError, UnicodeError):
             continue
     check(len(results) <= 1)
     return results[0] if results else None
 
 
-def _negotiate(values, build, *, request=None):
+def _negotiate(values, build, *, request=None, crypto=None, cancelled=None):
     """Discover accepted numeric protocol identities from official responses.
 
     Native source establishes the field names and RSA key data. These accepted
@@ -187,7 +194,7 @@ def _negotiate(values, build, *, request=None):
                 check(isinstance(envelope, dict))
                 if envelope.get('retcode') == 74:
                     continue  # Publisher's observed unsupported RSA identity.
-                result = _gateway_reply(envelope, values['gateway_keys'])
+                result = _gateway_reply(envelope, values['gateway_keys'], crypto=crypto, cancelled=cancelled)
                 if result is None:
                     continue
                 reply, candidate = result
@@ -307,6 +314,7 @@ def index(directory, build, name):
         if xxhash64(raw) == int(spec['hash']):
             return raw
     raw = _index_bytes(build, name)
+    from .game_tools import _atomic_file
     _atomic_file(path, raw)
     return raw
 

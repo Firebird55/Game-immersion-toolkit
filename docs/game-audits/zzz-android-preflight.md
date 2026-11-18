@@ -34,6 +34,27 @@ the host with no writes to original files. This is retained original-source
 evidence for the bootstrap reader. Live discovery and playback still require
 their existing acceptance checks.
 
+The Android source path can now use the app's attested publisher RSA primitive
+for the original gateway response. Normal planning resolves the update roots
+and index specifications and checks the original base revision against the
+publisher's XXH64 before reporting the current source generation. All requests
+use the existing bounded preparation transport. A missing gateway capability
+leaves the earlier bootstrap state visible. No catalogue sizes are inferred
+from this metadata, and the plan still requires the Android catalogue reader.
+
+A host test runs the actual provider with the Android cryptography adapter
+calling an authored Java-side stand-in. It supplies a complete multi-block
+envelope, observes each admitted block and rejects a changed base revision
+without replacing the earlier bootstrap receipt. APK runtime and live Android
+gateway acceptance are still pending.
+
+The portable catalogue operation also reproduced one real Global 3.3.0
+presentation stage offline. Frozen reader 24 and the portable operation
+produced identical 2,773-byte output from the authenticated catalogue and root
+range. Its 42 timeline configs, one video config and 43 ranges matched the
+ordinary stage receipt. Full Global catalogue and Android runtime validation
+are separate.
+
 The later PC provider now continues through five explicit source stages to a
 ready **text-only** library when its verified compiler-free Node reader is
 available. A current Global Japanese run retained 289,967 original records and

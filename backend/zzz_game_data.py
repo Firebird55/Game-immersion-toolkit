@@ -130,6 +130,7 @@ class ZzzGameDataProvider:
         if platform not in PLATFORMS:
             raise GameDataError('unsupported_game_data_platform', 'This game data platform is unsupported.')
         self.platform, self.transport_factory = platform, transport_factory
+        self.native = native
         self.reader_resolver = reader_resolver
         self.codec_layout = codec_layout
         self._audio_verification = {}
@@ -146,6 +147,15 @@ class ZzzGameDataProvider:
         if self.platform == 'android':return None
         from .zzz_owned_audio import available_codecs
         return available_codecs(layout=self.codec_layout)
+
+    def _android_gateway(self):
+        if self.platform != 'android':
+            return None
+        from .publisher_crypto import create_publisher_crypto
+        try:
+            return create_publisher_crypto(platform='android', native=self.native.publisherCrypto())
+        except (AttributeError, ImportError, ValueError, RuntimeError):
+            return None
 
     def _verification(self, ctx):
         key = str(Path(ctx.cache_directory).absolute()), ctx.request.region
@@ -197,6 +207,17 @@ class ZzzGameDataProvider:
                     from . import zzz_pc_stages
                     options = {'codecs': self._codecs()} if request.content_mode == 'text-audio' else {}
                     return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory, **options)
+                crypto = self._android_gateway()
+                if crypto is not None:
+                    from . import zzz_pc_sources
+                    current = zzz_pc_sources.discover(ctx, build, cache, transport_factory=self.transport_factory,
+                                                      crypto=crypto)
+                    handle['hotfix'] = current['hotfix']
+                    handle['revision'] = _revision(current)
+                    ctx.check()
+                    return GameDataPlan(handle['revision'], None, None, handle=handle, runtime_available=False,
+                        stage='catalogue-runtime',
+                        message='Current ZZZ update metadata verified. Dialogue preparation still needs a supported reader.')
                 ctx.check()
                 return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
                     stage='catalogue-runtime', message='Official ZZZ bootstrap verified. Dialogue preparation is not available on this device yet.')

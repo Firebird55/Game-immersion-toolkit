@@ -15,7 +15,7 @@ regional evidence remains in the audit reports.
 It does not require cataloguing every sound without subtitles or cutting every
 film utterance at word boundaries. No release is requested.
 
-## Earlier per-game update policy · November 17, 2026
+## Per-game update policy · November 17, 2026
 
 This split records the earlier agreed maintenance approaches. The current
 scope above governs acceptance. The implementation notes below describe the
