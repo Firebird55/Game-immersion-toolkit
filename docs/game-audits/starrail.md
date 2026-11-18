@@ -960,6 +960,93 @@ construction and voice-choice augmentation. The adapter needs a generation-bound
 metadata census that can stream original declaration candidates and load their
 required records on demand. It needs to preserve these discovery paths.
 
+The standalone declaration census now streams complete type declarations
+through one authenticated session. It checks that field and method intervals
+tile their owned regions before validating every MethodDef owner and pointer.
+Null slots remain associated with their MethodDef identities. The compact RVA
+index preserves all aliases and can find the next distinct managed entry. A
+method table without a uniquely identified consumed endpoint remains unresolved.
+The current census limits are 100,000 type definitions and 1,000,000 method
+definitions. The caller receives a resource-limit result when either bound is
+exceeded. Authored fixtures cover shuffled identity and address assignments,
+missing or competing ownership, and cancellation or source changes before
+publication. [Declaration census](../../backend/starrail_declaration_census.py)
+
+The bounded original declaration probe read all 82,343 Global 4.6 and 85,219
+Global 4.7 TypeDef records. In the same generations, the 142 and 143 nonempty
+image ranges tile the first 82,341 and 85,217 definitions respectively, without
+internal gaps or overlap. The final two definitions in each file lack an
+established image owner. The census reports unresolved ownership before
+publishing a result. The pinned dump writer starts its root enumeration from
+the original image ranges and traverses authored nested references separately.
+The metadata cache still loads every TypeDef. [Pinned image enumeration](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Output/DumpWriter.cs#L29-L39)
+· [Pinned declaration cache](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/MetadataCache.cs#L23-L28)
+
+A separate narrow read found that both trailing declarations in each file
+have empty names and namespaces, zero field, method and nested counts, and
+absent parent, declaring type and generic container indexes. Their image
+ownership stays unresolved. They contribute zero entries to the field and
+method intervals.
+
+The MethodStart and MethodCount words tile 748,286 Global 4.6 and 776,172
+Global 4.7 method slots without gaps or overlap. The nominal 26-byte declaration
+spans are 19,455,436 and 20,180,472 bytes. The next consumed header role is
+`EventsOffset`, with 1,413,176 and 1,459,396 unassigned bytes between it and
+the declared method ends. The physical method endpoint remains unresolved.
+Both probes verified the publisher hashes and input fences. The MethodDef
+records and native pointer slots still require original-input verification.
+
+The pinned method reader uses a TypeDef-owned MethodDef index for both its
+26-byte metadata row and its eight-byte native pointer slot. Code registration
+provides the pointer table address. The native endpoint probe found both
+declared spans in file-backed PE data, with no independently registered table
+starting at either candidate end. The nearest following consumed start,
+`TypesRva`, is respectively 1,142,640 and 1,187,584 bytes later. An independent
+native slot count or a consumed boundary at the candidate end is still
+required. [Pinned method reader](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Definitions/Il2CppMethodDefinition.cs)
+· [Pinned code registration](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/CodeRegistration.cs)
+
+The standalone image-scoped lookup checks an explicit TypeDef root and any
+authored nested path within its image. It validates the owner's MethodDef
+window and compares the encoded owner in each selected record. The result
+binds the original source hashes to method names, flags and signature indices.
+Authored fixtures cover shuffled identities, nested ownership, cancellation
+and source changes. This lookup can return declarations when the complete
+census is unresolved. Native slot and extent discovery still requires the
+complete census.
+[Image-scoped lookup](../../backend/starrail_declaration_census.py)
+
+A bounded Global 4.6 and 4.7 probe selected one root from each generation's
+original image ranges. It verified the encoded owners and decoded three
+MethodDefs per generation, with three and zero ParamDef rows respectively.
+The probe authenticated all three inputs in each generation and checked the
+source fences before publication. It read 16,660 and 16,746 selected bytes
+including bootstrap, with zero native pointer slot reads. Nested scopes have
+authored-fixture coverage. Independent signature parity and the complete
+method census remain open.
+
+The opt-in catalogue shadow query accepts up to 16 explicit original image
+roots. It matches a private static parameterless void constructor, a public or
+private static `string[]` field, and one distinct dictionary row declaration.
+It verifies MethodDef ownership and complete field intervals before joining the
+field types and offsets. Readonly static arrays qualify. Competing same-name row
+declarations retain their TypeDef identities and make the candidate unresolved.
+The result includes constructor, field and row identities. Authored fixtures
+cover relocated identities, changed names, modifier differences and ambiguous
+ownership. Production table discovery still uses the existing index for
+candidate selection, literal binding and native verification.
+[Catalogue shadow query](../../backend/starrail_table_candidates.py)
+
+The first Global candidate comparison tied both retained Windows controls to
+their historical helper and to the same retained source files as the portable
+query. The Global 4.6 control passed its output checksum and file fences. Its
+dictionary-field anchors exceeded the four-offset limit, so the probe stopped
+before reading selected control blocks or original payloads. A follow-up
+required the constructor, static string array and dictionary shapes to appear
+in the same complete TypeDef block. The verified 4.6 control still produced
+more than four matching offsets. Both attempts stopped before the scoped
+catalogue comparison.
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and

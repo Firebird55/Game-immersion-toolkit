@@ -15,12 +15,16 @@ from backend.tests.test_publisher_transport import Response
 
 
 class Fixture(Build):
+    def __init__(self,*args,archive_options=None,**kwargs):
+        self.archive_options=archive_options or {}
+        super().__init__(*args,**kwargs)
+
     def settings_payload(self,numbered):return b'authored settings'+bytes([numbered])
 
     def generation(self,numbered):
         super().generation(numbered)
         pak,_=archive_fixture(revision=numbered,mount='../../../X6Game/Config/',
-            specs=[('DefaultX6PackageSettings.ini',self.settings_payload(numbered),True)])
+            specs=[('DefaultX6PackageSettings.ini',self.settings_payload(numbered),True)],**self.archive_options)
         self.files=dict(zip(('pak','sig','ucas','udirhash','utoc'),(pak,b'authored-signature',b'ucas',b'hash',b'utoc')))
         self.basename='Default_Ini_'+self.version+'_P'
         rows=[];body=bytearray()
@@ -61,10 +65,11 @@ class Fixture(Build):
                 return value
         return Stream(data,headers=headers,url=request.full_url)
 
-    def build_source(self):return self.download(self.manifest_plan()).restore_handle
+    def build_source(self,*,legacy_native=True):
+        return self.download(self.manifest_plan(legacy_native=legacy_native)).restore_handle
 
-    def configuration_plan(self):
-        self.context('plan').stage_handle=self.build_source()
+    def configuration_plan(self,*,legacy_native=True):
+        self.context('plan').stage_handle=self.build_source(legacy_native=legacy_native)
         return self.provider.plan(self.request,self.ctx)
 
     def replace_pak(self,raw):
@@ -104,6 +109,29 @@ def test_whole_owned_config_carrier_cost_and_files_are_verified_without_profile_
     assert '1 settings members' in gate.message and 'Oodle' in gate.message
     with pytest.raises(GameDataError) as error:fixture.provider.restore(result.restore_handle,fixture.context('restore'))
     assert error.value.code=='publisher_configuration_index_reader_unresolved' and len(fixture.calls)==before
+
+
+@pytest.mark.parametrize(('index_encrypted','member_encrypted'),[(True,True),(False,True),(False,False)])
+def test_cold_global_only_needs_native_source_for_encrypted_selected_configuration(
+        tmp_path,apk_fixture,monkeypatch,index_encrypted,member_encrypted):
+    from backend import infinity_nikki_settings_stage
+    monkeypatch.setattr(infinity_nikki_settings_stage,'compression',lambda *_:None)
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch,
+        archive_options={'encrypted':member_encrypted,'index_encrypted':index_encrypted})
+    fixture.plain_build()
+    verified=fixture.download(fixture.configuration_plan(legacy_native=False))
+    assert not any(url in (fixture.url,configuration.build._foundation().HOMEPAGE) for url,_ in fixture.calls)
+    before=len(fixture.calls)
+    fixture.context('plan').stage_handle=verified.restore_handle
+    if index_encrypted or member_encrypted:
+        with pytest.raises(GameDataError) as error:
+            fixture.provider.plan(fixture.request,fixture.ctx)
+        assert error.value.code=='publisher_configuration_native_owner_unresolved'
+    else:
+        gate=fixture.provider.plan(fixture.request,fixture.ctx)
+        assert gate.stage=='global-configuration-source' and not gate.runtime_available
+        assert '1 settings members' in gate.message
+    assert len(fixture.calls)==before
 
 
 @pytest.mark.parametrize('failure',['etag','corrupt','cancel','consent','file-hash'])

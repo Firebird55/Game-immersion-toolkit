@@ -3,6 +3,7 @@ from dataclasses import replace
 import hashlib
 import json
 import struct
+import time
 from urllib.parse import parse_qs
 
 import pytest
@@ -11,7 +12,9 @@ from backend import infinity_nikki_build_stage as build
 from backend import infinity_nikki_chunks as chunks
 from backend import infinity_nikki_native as native
 from backend import infinity_nikki_release as release
+from backend.game_data import GameDataService
 from backend.game_data_protocol import GameDataError,PreparationStage,SnapshotSource
+from backend.game_data_providers import create_game_data_providers
 from backend.tests.test_infinity_nikki_sdk_stage import Fixture as Launcher,apk_fixture
 from backend.tests.test_infinity_nikki_release import sdk_fixture,encoded_config,sdk_response,fixture_cipher
 from backend.tests.test_infinity_nikki_chunks import fixture as manifest_fixture,ROOT
@@ -100,10 +103,15 @@ class Fixture(Launcher):
                 return result
         return Stream(raw,headers=headers,url=url)
 
-    def source_stage(self):return self.download(self.launcher_plan()).restore_handle
+    def source_stage(self,*,legacy_native=True):
+        return self.download(self.launcher_plan(legacy_native=legacy_native)).restore_handle
 
-    def manifest_plan(self):
-        previous=self.source_stage()
+    def plain_build(self):
+        self.wrapped=json.dumps({'DefaultVersion':self.version,'FastPatchVersion':self.patch,
+            'Region':'1','Channel':'3','Role':'0'}).encode()
+
+    def manifest_plan(self,*,legacy_native=True):
+        previous=self.source_stage(legacy_native=legacy_native)
         self.context('plan').stage_handle=previous
         return self.provider.plan(self.request,self.ctx)
 
@@ -145,13 +153,100 @@ def test_new_normal_generation_comes_from_fresh_sdk_build_and_manifest_fields(tm
 
 def test_original_plain_build_json_needs_no_wrapper_parameter_or_native_decode(tmp_path,apk_fixture,monkeypatch):
     fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
-    previous=fixture.source_stage()
-    fields={'DefaultVersion':fixture.version,'FastPatchVersion':fixture.patch,'Region':'1','Channel':'3','Role':'0'}
-    fixture.wrapped=json.dumps(fields).encode()
+    previous=fixture.source_stage(legacy_native=False)
+    fixture.plain_build()
     monkeypatch.setattr(native,'extract_wrapper_material',lambda *a,**kw:pytest.fail('A plain document must not acquire a wrapper key.'))
     fixture.context('plan').stage_handle=previous
     plan=fixture.provider.plan(fixture.request,fixture.ctx)
     assert isinstance(fixture.download(plan),PreparationStage)
+    assert not any(url in (fixture.url,build._foundation().HOMEPAGE) for url,_ in fixture.calls)
+
+
+def test_registered_service_retries_global_manifest_generation_and_keeps_progress_offline(tmp_path,apk_fixture,monkeypatch):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
+    fixture.plain_build()
+    game='infinitynikki'
+    request=fixture.request.json()
+    native_source=build._foundation()
+    def transport(ctx,*,hosts):
+        assert native_source.APK_HOST not in hosts
+        fixture.ctx=ctx
+        return fixture.transport(ctx,hosts=hosts)
+    providers=create_game_data_providers(platform='windows')
+    providers[game].transport_factory=transport
+    def snapshot(service):
+        return next(row for row in service.snapshot()['games'] if row['id']==game)
+    def submit(service,row):
+        assert row['can_download'] and not row['can_activate']
+        service.download(game,{'plan_id':row['plan_id'],'revision':row['revision']})
+        deadline=time.monotonic()+5
+        while (result:=snapshot(service))['job']['status'] in {'queued','running'} and time.monotonic()<deadline:
+            time.sleep(.01)
+        return result
+    def plan(service):
+        return service.plan(game,request)['game']
+    root=tmp_path/'data'
+    service=GameDataService(root,providers)
+    pointer=root/game/'stage.json'
+    try:
+        assert snapshot(service)['can_plan'] and snapshot(service)['state']=='not_downloaded'
+        launcher=plan(service)
+        assert launcher['revision'].startswith('global-launcher-')
+        assert submit(service,launcher)['job']['status']=='needs_plan'
+        retained=pointer.read_bytes()
+        fixture.reply_error=True
+        with pytest.raises(GameDataError):
+            plan(service)
+        assert pointer.read_bytes()==retained and fixture.body_urls==[]
+        fixture.reply_error=False
+        manifest=plan(service)
+        fixture.bad_manifest=True
+        assert submit(service,manifest)['job']['status']=='failed'
+        assert pointer.read_bytes()==retained and service.restore(game) is None
+        fixture.bad_manifest=False
+        fixture.generation(1)
+        fixture.plain_build()
+        revised=plan(service)
+        assert revised['revision']!=manifest['revision']
+        assert submit(service,revised)['job']['status']=='needs_plan'
+        assert pointer.read_bytes()!=retained and not (root/game/'current.json').exists()
+    finally:
+        service.close()
+    before=len(fixture.calls)
+    reopened=GameDataService(root,providers)
+    try:
+        assert snapshot(reopened)['revision']==revised['revision']
+        assert snapshot(reopened)['state']=='not_downloaded' and not snapshot(reopened)['can_activate']
+        assert reopened.restore(game) is None
+        with pytest.raises(GameDataError) as error:
+            plan(reopened)
+        assert error.value.code=='publisher_configuration_precedence_unresolved'
+        assert len(fixture.calls)==before
+    finally:
+        reopened.close()
+
+
+def test_cold_wrapped_build_reports_exact_source_requirement_without_contacting_mainland(tmp_path,apk_fixture,monkeypatch):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
+    previous=fixture.source_stage(legacy_native=False)
+    fixture.context('plan').stage_handle=previous
+    with pytest.raises(GameDataError) as error:
+        fixture.provider.plan(fixture.request,fixture.ctx)
+    assert error.value.code=='publisher_wrapper_owner_unresolved'
+    assert not any(url in (fixture.url,build._foundation().HOMEPAGE) for url,_ in fixture.calls)
+    assert fixture.body_urls==[]
+
+
+def test_plain_build_cannot_bypass_a_damaged_legacy_native_parent(tmp_path,apk_fixture,monkeypatch):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
+    previous=fixture.source_stage()
+    fixture.plain_build()
+    next(fixture.ctx.cache_directory.rglob('*.so')).write_bytes(b'invalid historical owner')
+    before=len(fixture.calls)
+    fixture.context('plan').stage_handle=previous
+    with pytest.raises(GameDataError) as error:
+        fixture.provider.plan(fixture.request,fixture.ctx)
+    assert error.value.code=='publisher_source_unverified' and len(fixture.calls)==before
 
 
 @pytest.mark.parametrize('raw',[b'{"DefaultVersion":"3400","DefaultVersion":"3400","FastPatchVersion":"1"}',
@@ -159,7 +254,7 @@ def test_original_plain_build_json_needs_no_wrapper_parameter_or_native_decode(t
     b'{"DefaultVersion":"3400","FastPatchVersion":"1","extra":1e400}',
     b'{"DefaultVersion":"3401","FastPatchVersion":"1"}',b'{"DefaultVersion":3400,"FastPatchVersion":"1"}',b'{"broken":'])
 def test_plain_build_ambiguity_invalid_json_or_pointer_mismatch_stops_before_manifest_quote(tmp_path,apk_fixture,monkeypatch,raw):
-    fixture=Fixture(tmp_path,apk_fixture,monkeypatch);previous=fixture.source_stage()
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch);previous=fixture.source_stage(legacy_native=False)
     fixture.wrapped=raw
     fixture.context('plan').stage_handle=previous
     with pytest.raises(GameDataError):fixture.provider.plan(fixture.request,fixture.ctx)

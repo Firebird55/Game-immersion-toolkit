@@ -24,6 +24,9 @@ Publisher discovery research for [Reverse: 1999](reverse1999.md) and
 [Infinity Nikki](infinity-nikki.md) now has separate source and language reports.
 Their original key/content acquisition, bindings and capture acceptance remain
 open; discovery and bootstrap stages carry their own limited readiness states.
+Infinity Nikki now checks its signed Global launcher and plain BuildVersion
+before any native-owner requirement. The current limits and test evidence are
+in the [Global planning audit](infinity-nikki.md#cold-global-planning-through-the-game-data-manager).
 
 The November 18 [NTE source follow-up](nte.md#staged-original-text--audio-preparation--november-18-2026)
 adds explicitly quoted bank/recording stages and offline original-audio receipts.
