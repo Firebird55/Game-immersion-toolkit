@@ -152,8 +152,7 @@
     "endfield": "The reviewed factory requires the separate Windows decoder/hash runtime before any transfer.",
     "genshin": "Only the explicit profile component is packaged; the game-data factory and remaining source/runtime stages are excluded.",
     "infinitynikki": "The actual game-data factory and full source/runtime closure are not packaged.",
-    "starrail": "The actual game-data factory and full source/runtime closure are not packaged.",
-    "zzz": "The current bootstrap imports unverified Android crypto and compression dependencies."
+    "starrail": "The actual game-data factory and full source/runtime closure are not packaged."
   },
   "files": {
     "backend/genshin_android_runtime.py": {
@@ -289,8 +288,8 @@
       "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
     },
     "backend/sophon_assets.py": {
-      "sha256_lf": "64befcb85bd84c351b11ec28b52af4095a99c83caee66c1e1729a8426b069f5d",
-      "source_commit": "8be26e32d3a8992147d140d1ade3d45b2f7dbcd6"
+      "sha256_lf": "6e571f3780fdefb40cfb2b08cea716094c6e896d74eb65cbf4b7213a2a78077c",
+      "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
     },
     "backend/wuthering_bootstrap_source.py": {
       "sha256_lf": "affc7dd2527bb06a8ad088c5932da465d578fdd5dd216f715c2fc746780f4ce7",

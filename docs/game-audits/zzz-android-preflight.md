@@ -197,6 +197,14 @@ inside the operation module graph and supplies a synthetic MHY1 adapter.
 Android decoding, memory limits and current original preparation require
 separate evidence under the new frozen reader identity.
 
+The shared text preparation composes authored caption grouping, translation
+selection, retained voice evidence and the atomic snapshot writer without
+importing desktop game tools. A closed-package host test writes an authored
+Japanese text-only snapshot with networking disabled and the original voice
+reference retained. This checks the Python import and publication path.
+Executing the publisher operation and decoding original audio on Android
+still require the packaged application reader and target acceptance.
+
 The official Windows data route can remain a data source on Android: its
 `StandaloneWindows64` inventory and Wwise packages describe data, and no game
 code needs to execute. Changing these paths to guessed Android equivalents
