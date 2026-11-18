@@ -336,8 +336,8 @@
       "source_commit": "79bd0829fa5ed720a90583cb2ace419396de21d9"
     },
     "backend/wuwa_game_data.py": {
-      "sha256_lf": "3ec128b80ab5f333abc5d4031c88f471839571a408031a727c55f814da2fb133",
-      "source_commit": "0bcc145e0226b211b18539a371f5b222fbda14f1"
+      "sha256_lf": "14e8d15cab73b2bab7aad3c30e96c9f2d444d8c302653cbbf59e945ef3b8debf",
+      "source_commit": "3c9935c55820eafe51ff697b16ea274eeb87d0d8"
     },
     "backend/wwise_tables.py": {
       "sha256_lf": "15befbf2ff0c4d85ba90d14426a4b9f453fc5f2def46355fdd21df2a5ccf869d",
