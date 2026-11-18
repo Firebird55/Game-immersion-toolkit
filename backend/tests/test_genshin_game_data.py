@@ -230,6 +230,28 @@ def test_ordinary_profile_stage_is_quoted_accounted_private_retained_and_never_r
     assert retry.stage == 'original-channel-profile' and retry.download_bytes == 0
 
 
+@pytest.mark.parametrize('module', ['genshin_blb_body', 'raw_lz4'])
+def test_profile_code_change_cannot_reopen_a_stale_receipt(tmp_path, monkeypatch, module):
+    source, ctx, _, plan, _ = profile_fixture(tmp_path, monkeypatch)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
+    result = source.download(plan, ctx)
+    ctx.stage_handle = result.restore_handle
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    assert source.plan(ctx.request, ctx).stage == 'original-content-reader'
+
+    saved = next((ctx.cache_directory / 'genshin-original/global/channel-profiles').glob('*.json'))
+    receipt = saved.read_bytes()
+    spec = importlib.util.find_spec('backend.' + module)
+    code = spec.loader.get_code(spec.name)
+    monkeypatch.setattr(spec.loader, 'get_code',
+        lambda _: code.replace(co_consts=(*code.co_consts, 'changed parser')))
+
+    retry = source.plan(ctx.request, ctx)
+    assert retry.stage == 'original-channel-profile' and retry.download_bytes == 0
+    assert retry.handle['profile_owner'] != plan.handle['profile_owner']
+    assert saved.read_bytes() == receipt
+
+
 @pytest.mark.parametrize('failure', ['decoder', 'cancel', 'method-receipt', 'size', 'ledger', 'native-source', 'whole-profile'])
 def test_profile_stage_failure_preserves_prior_stage_and_library_and_requotes_cached_retry(tmp_path, monkeypatch, failure):
     source, ctx, calls, plan, _ = profile_fixture(tmp_path, monkeypatch, profile_wrong_whole=failure == 'whole-profile')
@@ -491,7 +513,39 @@ def test_native_decoder_failure_still_gates_before_any_publisher_transfer(tmp_pa
     assert result.download_bytes is None and not calls and ctx.consumed == 0
 
 
-def test_runtime_prepares_whole_typed_profile_with_portable_software_and_no_managed_execution(tmp_path, monkeypatch):
+def authored_android_decoder():
+    from backend.android_x64_decoder import PackagedX64Decoder, SOURCE_SHA256
+    from backend.android_x64_fixtures import CASES, REGISTER_NAMES
+
+    cases = {(bytes.fromhex(case['hex']), case['address']): case['instructions'] for case in CASES}
+    def disassemble(data, address, count):
+        assert count == 0
+        return json.dumps(cases[data, address & (2**64 - 1)])
+    proof = {'schema': 'toolkit-x64-capi-v1', 'version': '5.0.7', 'source_sha256': SOURCE_SHA256,
+             'abi': 'arm64-v8a', 'pointer_bits': 64, 'api_major': 5, 'api_minor': 0,
+             'apk_entry_verified': True, 'licenses_verified': True, 'system_fallback': False,
+             'original_client_execution': False, 'library_sha256': 'a' * 64, 'manifest_sha256': 'b' * 64,
+             'register_names': list(REGISTER_NAMES)}
+    decoder = PackagedX64Decoder(SimpleNamespace(disassembleX64=disassemble), proof)
+    decoder.verify_contract()
+    return decoder
+
+
+def test_android_profile_runtime_rejects_uninstalled_decoder_without_windows_fallback(monkeypatch):
+    from backend import genshin_native_x64
+
+    authored = authored_android_decoder()
+    monkeypatch.setattr(genshin_native_x64, 'decoder', lambda: pytest.fail('Windows decoder fallback'))
+    for candidate in (None, authored.proof(), authored):
+        with pytest.raises(ValueError, match='verified Android decoder is unavailable'):
+            provider.AndroidGenshinRuntime(candidate)
+    with pytest.raises(ValueError):
+        genshin_native_x64.install_android_decoder(authored)
+
+
+@pytest.mark.parametrize('host', ['windows', 'android'])
+def test_runtime_prepares_whole_typed_profile_without_desktop_imports(tmp_path, monkeypatch, host):
+    import builtins
     import struct
     from collections import Counter
     from backend import genshin_native_x64, genshin_blb_native, genshin_blb, prebuilt_readers
@@ -514,12 +568,36 @@ def test_runtime_prepares_whole_typed_profile_with_portable_software_and_no_mana
     candidates = [genshin_blb_native.Candidate(parameter_json(parameters(1)), ('a' * 64,)),
                   genshin_blb_native.Candidate(parameter_json(p), ('b' * 64,))]
     monkeypatch.setattr(genshin_blb_native, 'discover_candidates', lambda image: candidates)
-    runtime = provider.GenshinRuntime(SimpleNamespace(mode='bundle'))
+    original_import = builtins.__import__
+    def guarded(name, globals=None, locals=None, fromlist=(), level=0):
+        blocked = {'genshin_blb', 'prebuilt_readers', 'runtime_bundle', 'game_tools', 'witcher_narrative', 'capstone'}
+        if blocked.intersection((*name.split('.'), *(fromlist or ()))):
+            pytest.fail(f'Desktop reader imported while preparing the profile: {name}')
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, '__import__', guarded)
+    if host == 'android':
+        decoder = authored_android_decoder()
+        def installed_boundary(candidate):
+            assert candidate is decoder
+        # Exercise the Python path after the installation boundary. This
+        # authored runner cannot satisfy actual FrameOcr installation.
+        monkeypatch.setattr(genshin_native_x64, 'require_android_decoder', installed_boundary)
+        runtime = provider.AndroidGenshinRuntime(decoder)
+    else:
+        runtime = provider.GenshinRuntime(SimpleNamespace(mode='bundle'))
     prior = tmp_path / 'accepted-library'; prior.write_bytes(b'previous complete library')
     prepared = runtime.channel_profile(b'authored executable', original, original_receipt, contract(),
         directory=tmp_path, check_cancel=lambda: None)
     assert json.loads(prepared.payload) == profile()
-    assert prepared.proof['helper_identity'] == runtime.validate().identity
+    if host == 'android':
+        provenance = prepared.proof['runtime_provenance']
+        assert runtime.identity == prepared.proof['helper_identity']
+        assert runtime.identity == hashlib.sha256(provider._canonical(provenance)).hexdigest()
+        assert provenance['decoder'] == decoder.proof()
+        assert provenance['decoder']['authored_contract_cases'] == 15
+    else:
+        assert prepared.proof['helper_identity'] == runtime.validate().identity
     assert prepared.proof['original_codec_candidates_tested'] == 2
     assert prepared.proof['complete_named_object_map'] and prepared.proof['strict_payload_eof']
     assert prepared.proof['profile_only'] and not prepared.proof['complete_dispatch_bootstrap']
@@ -529,4 +607,8 @@ def test_runtime_prepares_whole_typed_profile_with_portable_software_and_no_mana
     with pytest.raises(ValueError):
         runtime.channel_profile(b'authored executable', original, original_receipt, contract(),
             directory=tmp_path, check_cancel=lambda: None)
+    if host == 'android':
+        monkeypatch.setitem(decoder._proof, 'library_sha256', 'c' * 64)
+        with pytest.raises(ValueError, match='Android Genshin runtime changed'):
+            _ = runtime.identity
     assert prior.read_bytes() == b'previous complete library'

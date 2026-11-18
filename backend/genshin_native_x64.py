@@ -41,6 +41,16 @@ def install_android_decoder(provider):
     decoder.cache_clear()
 
 
+def require_android_decoder(provider):
+    """Verify the host's installed provider before using an Android-only route."""
+    from .android_x64_decoder import PackagedX64Decoder
+    _check(type(provider) is PackagedX64Decoder and provider.verified and _android_decoder is provider,
+           'The verified Android decoder is unavailable.')
+    _check(not os.environ.get('LIBCAPSTONE_PATH'), 'An overridden native decoder path is unsupported.')
+    provider.require_android()
+    _check(decoder() is provider, 'The Android decoder changed during original-data preparation.')
+
+
 def _check(condition, reason='Unsupported, ambiguous or incomplete original-native input'):
     if not condition:
         raise ValueError(str(reason))

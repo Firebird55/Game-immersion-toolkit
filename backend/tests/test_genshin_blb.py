@@ -6,7 +6,7 @@ import struct
 
 import pytest
 
-from backend import genshin_blb as blb
+from backend import genshin_blb as blb, genshin_blb_body
 
 
 def source():
@@ -57,20 +57,39 @@ def test_decoded_single_body_has_exact_size_and_eof_without_lz4_dependency(tmp_p
         blb.unpack(source, target)
 
 
-@pytest.mark.parametrize('change', ['node-count', 'node-offset', 'node-size', 'table-bounds', 'output-bound', 'truncated', 'trailing'])
+@pytest.mark.parametrize('change', ['node-count', 'node-offset', 'node-size', 'table-bounds', 'output-bound', 'truncated', 'trailing', 'invalid-lz4'])
 def test_incomplete_or_oversized_decompression_cannot_replace_previous_body(tmp_path, change):
     source, target = tmp_path / 'decoded', tmp_path / 'body'
-    raw = bytearray(decoded())
+    raw = bytearray(decoded(compressed=change == 'invalid-lz4'))
     if change == 'node-count': struct.pack_into('<i', raw, 28 + 28, 2)
     elif change == 'node-offset': struct.pack_into('<i', raw, 28 + 64, 1)
     elif change == 'node-size': struct.pack_into('<i', raw, 28 + 68, 4)
     elif change == 'table-bounds': struct.pack_into('<q', raw, 28 + 32, 500)
     elif change == 'output-bound': struct.pack_into('<I', raw, 28 + 4, 1000)
     elif change == 'truncated': raw = raw[:-1]
+    elif change == 'invalid-lz4': raw[-6] = 0xf0
     else: raw += b'garbage'
     source.write_bytes(raw)
     with pytest.raises(ValueError):
         blb.unpack(source, target)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize('limit', ['package', 'body'])
+def test_portable_body_applies_the_callers_tighter_profile_limits(tmp_path, limit):
+    source, target = tmp_path / 'decoded', tmp_path / 'body'
+    raw = decoded(compressed=True)
+    source.write_bytes(raw)
+    max_package, max_body = len(raw), len(b'hello')
+    if limit == 'package':
+        max_package -= 1
+    else:
+        max_body -= 1
+    with pytest.raises(ValueError):
+        genshin_blb_body.unpack(source, target, max_package=max_package, max_body=max_body)
+    assert not target.exists()
+    blb.unpack(source, target)
+    assert target.read_bytes() == b'hello'
 
 
 def test_prebuilt_path_never_consults_sdk_or_downloads(tmp_path, monkeypatch):

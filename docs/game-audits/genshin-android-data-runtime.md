@@ -261,6 +261,20 @@ dialogue library remain retained. The installed-bundle and verified native x64
 decoder gate still precedes large publisher downloads. This Windows integration
 does not enable the Android factory or establish APK runtime delivery.
 
+Profile preparation now unpacks the decoded body through a standard-library
+module with explicit package and output limits. It shares the bounded raw LZ4
+decoder with the Witcher reader. The profile receipt fingerprints both modules,
+and the desktop original-text body cache includes their code digests. Existing
+source downloads and accepted libraries are retained.
+
+The explicit Android profile adapter accepts the decoder instance already
+installed by the Android host from its verified FrameOcr provider. Its profile
+receipt binds APK-entry and license verification, ABI, native source, library
+and manifest digests, the 15-case decoder contract, and the portable codec and
+reader implementation. This evidence attests the decoder entry in the installed
+APK. The ordinary Android provider remains gated pending device validation of
+the full profile path and the remaining original source stages.
+
 This acceptance is expressly **profile only**. Its receipt marks full catalog,
 selected-shard, response-signature and override acceptance false. Final original
 Source activation must still validate its complete catalog and selected text
@@ -282,7 +296,5 @@ The inspected `UseDispatchData` body reads six configuration fields and does not
 write the seed, which does not exclude other replacement paths. The other
 original dialogue bindings, Subtitle
 acquisition, selected-dub materialization and full ordinary update acceptance
-still need their complete source route. Android retains its earlier runtime
-gate; a PC static decoder does not supply its BLB closure. This does not
-replace the accepted dialogue library with the TextMap/Readable subset or promote
-community bindings to official provenance.
+still need their complete source route. The accepted dialogue library remains
+available as the original-source work continues.

@@ -15,6 +15,7 @@ from . import genshin_blb as blb, genshin_hotfix as hotfix
 from . import sophon_assets as sophon
 from .game_tools import _atomic_file
 from .genshin_native_x64 import Image
+from .genshin_reader_identity import implementation_identity
 from .genshin_blb_native import discover_candidates
 from .genshin_official_text import OriginalTables
 from .genshin_original_containers import DataObjects, DesignCatalog
@@ -126,7 +127,9 @@ class Source:
         original = self.publisher / 'genshin-packages' / row['md5']
         check(original.stat().st_size == row['bytes'] and digest(original, 'md5') == row['md5'])
         owner = {'package': row, 'helper_identity': self.helper.identity,
-                 'codec_sha256': self.parameter_receipt['parameters_sha256']}
+                 'codec_sha256': self.parameter_receipt['parameters_sha256'],
+                 'body_software': implementation_identity(('genshin_blb', 'genshin_blb_body', 'raw_lz4',
+                     'genshin_original_containers', 'hoyo_bootstrap_assets'))}
         stem = identity(owner)
         home = self.directory / 'bodies'; home.mkdir(exist_ok=True)
         body, metadata = home / stem, home / (stem + '.json')
