@@ -320,8 +320,8 @@
       "source_commit": "0de5adc1b345113d553031f823de3d35da157625"
     },
     "backend/zzz_dialogue_records.py": {
-      "sha256_lf": "db121ddc9920e20994d57945efb2f78a1b7df528ecf71a8d34f2198f93f50b34",
-      "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
+      "sha256_lf": "290650875bdd8fa0d061bfccf95848c77c17709f577d9525bd8c914d8ea15ea9",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_game_data.py": {
       "sha256_lf": "ec719083652d155136d1a0aab84825019faa01ec56cab4e7adc474620a738dcf",
