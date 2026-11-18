@@ -42,6 +42,7 @@ $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build
 . (Join-Path $PSScriptRoot 'android-signing.ps1')
 if($Variant -ne 'debug' -and ($env:GITHUB_ACTIONS -eq 'true' -or -not $SigningIdentityRoot -or $VersionCode -lt 1)) {throw 'Owner builds require a protected local identity and explicit increasing version code on the owner host.'}
 if($Variant -eq 'debug' -and $SigningIdentityRoot){throw 'CI/debug candidates cannot use the owner signing identity.'}
+if($Variant -eq 'release' -and (-not $ZzzCatalogueAssets -or -not $ZzzWemSources)){throw 'The Android release requires the verified ZZZ catalogue and Wwise audio software.'}
 if($VersionCode -eq 0){$VersionCode=1}
 if($VersionCode -lt 1 -or $VersionCode -gt 2100000000){throw 'Invalid Android version code.'}
 $SdkRoot=Resolve-AndroidSupplierPath $SdkRoot 'Android SDK' @("platforms/android-$($policy.compile_sdk)/android.jar","build-tools/$($policy.build_tools)/aapt2.exe","build-tools/$($policy.build_tools)/zipalign.exe")

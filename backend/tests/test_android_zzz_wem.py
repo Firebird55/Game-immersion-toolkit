@@ -79,6 +79,40 @@ def test_missing_or_changed_android_capability_has_no_desktop_fallback(monkeypat
     assert error.value.code == 'zzz_audio_runtime_missing'
 
 
+def test_android_download_passes_the_installed_codec_and_gateway_to_original_audio(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    from backend import zzz_pc_audio, zzz_pc_stages
+    from backend.game_data_protocol import GameDataPlan, GameDataRequest
+    from backend.sophon_assets import descriptor
+    from backend.zzz_game_data import ZzzGameDataProvider
+
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda name: AuthoredJava))
+    native = SimpleNamespace(zzzWemCodec=lambda: AuthoredJava(accepted_proof()))
+    provider = ZzzGameDataProvider(platform='android', native=native)
+    reader = SimpleNamespace(identity='authored-android-catalogue')
+    crypto = object()
+    monkeypatch.setattr(provider, '_reader', lambda: reader)
+    monkeypatch.setattr(provider, '_android_gateway', lambda: crypto)
+    selection = GameDataRequest('global', 'en', content_mode='text-audio')
+    build = {'channel': 'zzz-global', 'version': '3.3.0', 'build': 'authored-audio'}
+    revision = descriptor(build)[0]
+    handle = {'schema': zzz_pc_stages.SCHEMA, 'mode': 'audio-recordings', 'request': selection.json(),
+              'reader': reader.identity, 'revision': revision, 'build': build}
+    plan = GameDataPlan(revision, 0, 0, handle=handle, runtime_available=True, stage=handle['mode'])
+    ctx = SimpleNamespace(request=selection, cache_directory=tmp_path, transfer_lock=nullcontext())
+    accepted = object()
+
+    def download(context, planned, selected_reader, codec, **options):
+        assert context is ctx and planned is plan and selected_reader is reader
+        assert codec.identity == SCHEMA + ':' + '2' * 64
+        assert options['crypto'] is crypto
+        assert options['verify_current'] is zzz_pc_stages._verify_current
+        return accepted
+
+    monkeypatch.setattr(zzz_pc_audio, 'download', download)
+    assert provider.download(plan, ctx) is accepted
+
+
 def apk_audit():
     spec = importlib.util.spec_from_file_location('authored_zzz_wem_apk_audit', ROOT / 'scripts/verify-android-apk.py')
     module = importlib.util.module_from_spec(spec)

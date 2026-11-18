@@ -241,7 +241,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('suppliers', 'ndk', 'ndk-archive', 'output', 'verify'):
         parser.add_argument('--' + name, type=Path)
+    parser.add_argument('--download', action='store_true')
     args = parser.parse_args()
+    if args.download:
+        if not args.suppliers or args.verify:
+            parser.error('Use --download with a private supplier directory')
+        _no_links(args.suppliers.absolute())
+        args.suppliers.mkdir(parents=True, exist_ok=True)
+        acquire = module('build-audio-runtime').acquire
+        for pin in source_policy():
+            acquire(pin, args.suppliers)
+        if not any((args.ndk, args.ndk_archive, args.output)):
+            sys.exit(0)
     if args.verify and not any((args.suppliers, args.ndk, args.ndk_archive, args.output)):
         result = verify_bundle(args.verify)
     elif not args.verify and all((args.suppliers, args.ndk, args.ndk_archive, args.output)):

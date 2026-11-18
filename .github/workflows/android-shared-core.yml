@@ -152,7 +152,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/build-android-zstandard.py --work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --ndk-root $ndk --ndk-archive output/android-dependencies/android-ndk-r27d-windows.zip --python-archives output/android-dependencies
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/prepare-android-runtime-wheels.py --base-wheelhouse output/android-base-wheelhouse --zstandard-work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --output output/android-wheelhouse
+          python scripts/prepare-android-runtime-wheels.py --base-wheelhouse output/android-base-wheelhouse --zstandard-work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --output output/android-wheelhouse --download
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build the same maintained desktop reader
         run: npm run desktop:build -- --output-root output/android-frontend
@@ -168,6 +168,11 @@ jobs:
         with:
           name: android-zzz-catalogue-software
           path: output/android-zzz-catalogue
+      - name: Verify Android ZZZ audio software inputs
+        run: |
+          python scripts/build-android-zzz-wem.py --suppliers output/android-zzz-wem-sources --download
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q backend/tests/test_android_zzz_wem.py backend/tests/test_zzz_wav_codec.py backend/tests/test_zzz_pc_audio.py
       - name: Construct signed debug candidate without a release identity
         run: |
           # Both versions use one temporary debug identity within this run.
@@ -175,7 +180,7 @@ jobs:
           $build = Join-Path $pwd 'output/android-build'
           $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
           foreach ($code in @(1, 2)) {
-            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -PublisherCryptoSourceArchive (Join-Path $pwd 'output/android-crypto-source/pycryptodome-3.24.1.tar.gz') -PublisherHashSourceArchive (Join-Path $pwd 'output/android-hash-source/xxhash-4.1.0.tar.gz') -ZzzCatalogueAssets (Join-Path $pwd 'output/android-zzz-catalogue') -VersionCode $code -DownloadGradle -DownloadDecoderSource
+            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -PublisherCryptoSourceArchive (Join-Path $pwd 'output/android-crypto-source/pycryptodome-3.24.1.tar.gz') -PublisherHashSourceArchive (Join-Path $pwd 'output/android-hash-source/xxhash-4.1.0.tar.gz') -ZzzCatalogueAssets (Join-Path $pwd 'output/android-zzz-catalogue') -ZzzWemSources (Join-Path $pwd 'output/android-zzz-wem-sources') -VersionCode $code -DownloadGradle -DownloadDecoderSource
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
             New-Item -ItemType Directory -Path $target -Force | Out-Null

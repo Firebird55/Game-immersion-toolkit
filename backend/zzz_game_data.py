@@ -1,9 +1,4 @@
-"""Accounted official ZZZ bootstrap and PC text preparation stages.
-
-The original publisher sources are data. Source stages never pretend that
-archives are a prepared dialogue library. PC text uses a verified frozen
-reader; Android and complete selected-dub materialization remain explicit gates.
-"""
+"""Accounted official ZZZ bootstrap and verified text and audio preparation."""
 from __future__ import annotations
 
 import hashlib
@@ -149,7 +144,12 @@ class ZzzGameDataProvider:
         except PreparationFailure:return None
 
     def _codecs(self):
-        if self.platform == 'android':return None
+        if self.platform == 'android':
+            from .android_zzz_wem import create_android_zzz_codecs
+            try:
+                return create_android_zzz_codecs(self.native)
+            except GameDataError:
+                return None
         from .zzz_owned_audio import available_codecs
         return available_codecs(layout=self.codec_layout)
 
@@ -288,8 +288,6 @@ class ZzzGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
-        if self.platform == 'android' and isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-audio-v1':
-            raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
         if isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-audio-v1':
             from . import zzz_pc_audio
             return zzz_pc_audio.restore(ctx, handle, self._codecs(), transport_factory=self.transport_factory,

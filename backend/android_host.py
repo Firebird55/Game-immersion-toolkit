@@ -117,8 +117,10 @@ class AndroidHost:
                 pass
         self.game_restore_lock = threading.RLock()
         self.game_restored = weakref.WeakKeyDictionary()
+        self.publisher_games = ('zzz',) if game_data_providers is None else tuple(GAME_TITLES)
         providers = (create_game_data_providers(platform='android', native=native)
             if game_data_providers is None else game_data_providers)
+        providers = {game: providers[game] for game in self.publisher_games if game in providers}
         self.game_data = GameDataService(self._game_root, providers, owner_guard=self._game_owner,
             on_activate=self._activate_game_data, retained_bytes=self._retained_game_bytes)
         self.server = ThreadingHTTPServer(('127.0.0.1', port), self._handler())
@@ -309,6 +311,7 @@ class AndroidHost:
     def platform(self):
         recovery = self.account_sessions.status().get('recovery') if self.account_sessions else None
         return {'platform': 'android', 'library_import': recovery is None,
+            'publisher_games': self.publisher_games,
             'history_migration': recovery is None,
             'capture_source': 'unavailable' if recovery else 'remote-stream' if self.native else 'authored-observations',
             'message': recovery['message'] if recovery else 'Manage original game data in Settings on this device.',
@@ -677,12 +680,14 @@ class AndroidHost:
                     # Blocking provider I/O cannot hold the OCR/account lock.
                     if game_route:
                         game, action = game_route.groups()
+                        if game not in host.publisher_games:
+                            raise GameDataError('game_runtime_unavailable', 'This game is unavailable on Android.', 409)
                         operation = {'plan': host.game_data.plan, 'download': host.game_data.download,
                             'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
                         payload = operation(game, value, expected_owner=owner)
                         status = 202 if action == 'download' else 200
                     else:
-                        payload, status = host.game_data.snapshot(expected_owner=owner), 200
+                        payload, status = host.game_data.snapshot(expected_owner=owner, games=host.publisher_games), 200
                     with session.lock:
                         host.guard_account(str(generation), session=session)
                         if owner != host._game_owner():

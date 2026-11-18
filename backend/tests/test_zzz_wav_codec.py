@@ -101,8 +101,17 @@ def test_failed_decode_preserves_retained_wav(tmp_path, mode):
     assert pcm.closed and list(tmp_path.iterdir()) == [output] and output.read_bytes() == b'previous recording'
 
 
+def test_original_timed_cue_preserves_exact_source_samples_across_chunks(tmp_path):
+    raw = wem()
+    with wave.open(str(ZzzWavCodec('fixture', lambda _, format_: AuthoredPcm(format_)).resolve(
+            raw, {'start_ms': 87, 'end_ms': 117}, tmp_path/'cue', cancelled=lambda: False)), 'rb') as result:
+        frames = (117 * 44100 + 999) // 1000 - (87 * 44100 + 999) // 1000
+        assert result.getnframes() == frames
+        assert result.readframes(frames) == struct.pack('<h', 1234) * (frames * 2)
+
+
 @pytest.mark.parametrize('audio', [
-    {'start_ms':0, 'end_ms':1000}, {'gain_db':1}, {'gain_db':float('nan')}, {'channel_mix':[[1,0],[0,1]]},
+    {'start_ms':0, 'end_ms':1000}, {'start_ms':0}, {'start_ms':20, 'end_ms':20}, {'gain_db':1}, {'gain_db':float('nan')}, {'channel_mix':[[1,0],[0,1]]},
 ])
 def test_unverified_transforms_cannot_be_replaced_with_raw_audio(tmp_path, audio):
     codec = ZzzWavCodec('fixture', lambda *args: pytest.fail('Unverified transform reached native code'))

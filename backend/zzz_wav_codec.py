@@ -65,9 +65,24 @@ def inspect_wem(raw: bytes) -> WemFormat:
     return WemFormat(channels, rate, frames)
 
 
-def _unsupported_transform(audio):
-    return ('start_ms' in audio or 'end_ms' in audio or audio.get('channel_mix') is not None
-            or type(audio.get('gain_db', 0)) not in (int, float) or audio.get('gain_db', 0) != 0)
+def _clip_frames(audio, original):
+    error = GameDataError('zzz_audio_transform_unavailable', 'This original recording needs an unavailable audio transform.', 409)
+    if (not isinstance(audio, Mapping) or audio.get('channel_mix') is not None
+            or type(audio.get('gain_db', 0)) not in (int, float) or audio.get('gain_db', 0) != 0):
+        raise error
+    if 'start_ms' not in audio and 'end_ms' not in audio:
+        return 0, original.frames
+    start, end = audio.get('start_ms'), audio.get('end_ms')
+    if (type(start) is not int or type(end) is not int or not 0 <= start < end
+            or end * original.rate > original.frames * 1000 + original.rate):
+        raise error
+    # Include exactly the source samples whose timestamps are in the authored
+    # half-open interval. Allow the stated 1-ms precision at the file end.
+    first = (start * original.rate + 999) // 1000
+    last = min((end * original.rate + 999) // 1000, original.frames)
+    if first >= last:
+        raise error
+    return first, last
 
 
 class ZzzWavCodec:
@@ -88,10 +103,8 @@ class ZzzWavCodec:
 
         check()
         original = inspect_wem(raw)
-        # The current sentence and whole-context sources both have unchanged
-        # samples. Timed, gained or remixed bindings need their own verified path.
-        if not isinstance(audio, Mapping) or _unsupported_transform(audio):
-            raise GameDataError('zzz_audio_transform_unavailable', 'This original recording needs an unavailable audio transform.', 409)
+        first, last = _clip_frames(audio, original)
+        frame_bytes = 2 * original.channels
         destination = Path(destination).absolute().with_suffix('.wav')
         _no_links(destination)
         if not destination.parent.is_dir():
@@ -105,23 +118,25 @@ class ZzzWavCodec:
                 if pcm.format != original:
                     raise _invalid()
                 with wave.open(str(pending), 'wb') as wav:
-                    wav.setparams((original.channels, 2, original.rate, original.frames, 'NONE', 'not compressed'))
-                    remaining = original.frames
-                    while remaining:
+                    wav.setparams((original.channels, 2, original.rate, last - first, 'NONE', 'not compressed'))
+                    position = 0
+                    while position < original.frames:
                         check()
-                        count = min(PCM_CHUNK, remaining)
+                        count = min(PCM_CHUNK, original.frames - position)
                         chunk = pcm.read_frames(count)
                         check()
-                        if not isinstance(chunk, bytes) or len(chunk) != count * original.channels * 2:
+                        if not isinstance(chunk, bytes) or len(chunk) != count * frame_bytes:
                             raise _invalid()
-                        wav.writeframesraw(chunk)
-                        remaining -= count
+                        low, high = max(first, position), min(last, position + count)
+                        if low < high:
+                            wav.writeframesraw(chunk[(low - position) * frame_bytes:(high - position) * frame_bytes])
+                        position += count
                     if pcm.read_frames(1) != b'':
                         raise _invalid()
                     check()
             finally:
                 pcm.close()
-            if pending.stat().st_size != 44 + original.frames * original.channels * 2:
+            if pending.stat().st_size != 44 + (last - first) * frame_bytes:
                 raise _invalid()
             check()
             _no_links(destination)

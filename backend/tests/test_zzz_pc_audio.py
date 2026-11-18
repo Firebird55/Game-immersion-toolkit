@@ -87,7 +87,7 @@ class FixtureProvider:
 
     def download(self, plan, ctx):
         if plan.handle['mode'] == 'fixture-catalogue':return audio.save_candidate(ctx, plan.handle, self.content, self.reader)
-        def verify(*args):
+        def verify(*args, **kwargs):
             if self.move_pointer:raise GameDataError('zzz_publisher_changed', 'The publisher changed; previous data is kept.', 409)
         return audio.download(ctx, plan, self.reader, self.codecs, transport_factory=self.transport,
                               verify_current=verify, verification=self.verification)

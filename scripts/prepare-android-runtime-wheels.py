@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 import shutil
 import sys
+import tarfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,11 +41,32 @@ def policy():
     extension = read(ROOT / 'packaging/android/python-runtime-extensions.json')
     if (extension.get('schema') != 'toolkit-android-runtime-extensions-v1'
             or extension.get('base_policy') != 'packaging/android/python-dependencies.json'
-            or extension.get('requirements') != ['zstandard==0.25.0']
+            or extension.get('requirements') != ['zstandard==0.25.0', 'flatbuffers==25.12.19']
             or extension.get('extensions') != {'zstandard': {'recipe': 'packaging/android/zstandard-native.json',
                 'builder': 'scripts/build-android-zstandard.py', 'receipt': 'zstandard-build-receipt.json'}}):
         raise ValueError('Review the native runtime extension policy before adding software')
     return extension, read(ROOT / extension['base_policy'])
+
+
+def flatbuffers_inputs(directory, pin, *, download):
+    """Verify the original wheel and recover the license missing from it."""
+    directory = Path(directory).absolute()
+    _no_links(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    acquire = load('build-android-python-dependencies').acquire
+    wheel = acquire(directory, pin['wheel'], download=download)
+    policy = read(ROOT / 'packaging/desktop/native-notices.json')
+    source, = [row for row in policy['components'] if row['name'] == 'flatbuffers' and row['version'] == '25.12.19']
+    archive = acquire(directory, {'artifact': source['archive'], 'source': source['url'],
+                                  'sha256': source['sha256']}, download=download)
+    with tarfile.open(archive, 'r:gz') as supplier:
+        license_entry = supplier.getmember(source['root'] + '/LICENSE')
+        if not license_entry.isfile() or not 0 < license_entry.size <= 16 * 1024:
+            raise ValueError('Invalid original FlatBuffers license')
+        license_text = supplier.extractfile(license_entry).read()
+    if hashlib.sha256(license_text).hexdigest() != pin['license_sha256']:
+        raise ValueError('The original FlatBuffers license changed')
+    return wheel, license_text
 
 
 def check_files(directory, receipt):
@@ -135,7 +157,12 @@ def verify(directory):
     native = verify_zstandard(directory, read(directory / 'zstandard-build-receipt.json'), pins)
     if native.get('ndk_inventory_sha256') != base.get('ndk_compiler_inventory_sha256'):
         raise ValueError('The native cohorts used different original compiler inventories')
-    expected_files = {**base['files'], **{row['wheel']:row['wheel_sha256'] for row in native['abis'].values()}}
+    flatbuffers = extension['flatbuffers']
+    wheel = flatbuffers['wheel']['source'].rsplit('/', 1)[-1]
+    if sha(directory / 'flatbuffers-LICENSE') != flatbuffers['license_sha256']:
+        raise ValueError('The original FlatBuffers license changed')
+    expected_files = {**base['files'], **{row['wheel']:row['wheel_sha256'] for row in native['abis'].values()},
+                      wheel: flatbuffers['wheel']['sha256']}
     if receipt['files'] != expected_files: raise ValueError('The composed software inventory changed')
     check_files(directory, receipt)
     expected_lock = '\n'.join(pins['runtime_requirements'] + extension['requirements']) + '\n'
@@ -144,7 +171,7 @@ def verify(directory):
     return receipt
 
 
-def compose(base, zstandard_work, source_archive, output):
+def compose(base, zstandard_work, source_archive, output, *, flatbuffers_directory=None, download=False):
     base, zstandard_work, source_archive, output = (Path(p).absolute() for p in (base, zstandard_work, source_archive, output))
     for path in (base, zstandard_work, source_archive, output): _no_links(path)
     if output.exists(): raise ValueError('Choose a new runtime wheelhouse; never overwrite a reviewed cohort')
@@ -159,6 +186,8 @@ def compose(base, zstandard_work, source_archive, output):
     zstd = load('build-android-zstandard');unpacker = load('build-android-data-decoders')
     source = unpacker.source_tree(source_archive, zstandard_work / 'source', read(ROOT / 'packaging/android/zstandard-native.json'))
     zstd.verify_wheels(zstandard_work, source, native)
+    wheel, license_text = flatbuffers_inputs(flatbuffers_directory or output.parent / 'android-flatbuffers-inputs',
+                                             extension['flatbuffers'], download=download)
     output.mkdir(parents=True, exist_ok=False)
     # The output is new and private; a failed publication never touches either
     # original cohort. Re-run into another fresh directory after any failure.
@@ -166,6 +195,8 @@ def compose(base, zstandard_work, source_archive, output):
     for row in native['abis'].values(): shutil.copyfile(zstandard_work / 'wheelhouse' / row['wheel'], output / row['wheel'])
     shutil.copyfile(base / 'python-wheels-receipt.json', output / 'python-base-wheels-receipt.json')
     shutil.copyfile(zstandard_work / 'wheelhouse/zstandard-build-receipt.json', output / 'zstandard-build-receipt.json')
+    shutil.copyfile(wheel, output / wheel.name)
+    (output / 'flatbuffers-LICENSE').write_bytes(license_text)
     receipt = {'schema':'toolkit-android-runtime-wheels-v2', 'policy_sha256':sha(ROOT / extension['base_policy']),
         'extension_policy_sha256':sha(ROOT / 'packaging/android/python-runtime-extensions.json'),
         'base_receipt_sha256':sha(output / 'python-base-wheels-receipt.json'),
@@ -182,11 +213,14 @@ if __name__ == '__main__':
     parser.add_argument('--verify',type=Path)
     for name in ('base-wheelhouse','zstandard-work-dir','source-archive','output'):
         parser.add_argument('--'+name,type=Path)
+    parser.add_argument('--flatbuffers-inputs', type=Path)
+    parser.add_argument('--download', action='store_true')
     args = parser.parse_args()
     if args.verify:
         result = verify(args.verify)
     elif all((args.base_wheelhouse,args.zstandard_work_dir,args.source_archive,args.output)):
-        result = compose(args.base_wheelhouse,args.zstandard_work_dir,args.source_archive,args.output)
+        result = compose(args.base_wheelhouse, args.zstandard_work_dir, args.source_archive, args.output,
+                         flatbuffers_directory=args.flatbuffers_inputs, download=args.download)
     else: parser.error('Supply --verify or all four original cohort/output arguments')
     print(json.dumps({'schema':result['schema'],'wheels':len(result['files']),
         'target_runtime_acceptance':result['target_runtime_acceptance']}))

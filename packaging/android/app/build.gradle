@@ -55,7 +55,8 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'android_accounts.py', 'android_account_api.py', 'accounts.py', 'lexirise.py', 'lexirise_settings.py',
     'reading.py', 'runtime_readers.py', 'grammar.py', 'protected_storage.py', 'export_lock.py', 'atomic_files.py',
     'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_authored_game_data.py', 'android_account_recovery.py',
-    'native_frame_admission.py', 'browser_history_migration.py']
+    'native_frame_admission.py', 'browser_history_migration.py', 'zzz_cinema_context.py',
+    'zzz_cinema_occurrences.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
     'publisher_transport.py', 'publisher_crypto.py', 'source_recordings.py', 'private_data_paths.py', 'android_publisher_hash.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
 publisherPolicy.files.each { name, receipt ->
@@ -162,6 +163,7 @@ tasks.register('prepareToolkitReader') {
     inputs.file(genshinNotice)
     inputs.file(publisherPolicyFile)
     inputs.file(new File(wheelhouse, 'zstandard-build-receipt.json'))
+    inputs.file(new File(wheelhouse, 'flatbuffers-LICENSE'))
     inputs.file(new File(repository, 'packaging/android/python-runtime-extensions.json'))
     inputs.file(new File(repository, 'packaging/android/zstandard-authored-vectors.json'))
     portableSources.each { inputs.file(new File(repository, 'backend/' + it)) }
@@ -225,6 +227,7 @@ tasks.register('prepareToolkitReader') {
         copy { from genshinNotice; into new File(output, 'genshin-profile-licenses') }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
         copy { from new File(wheelhouse, 'zstandard-build-receipt.json'); into output }
+        copy { from new File(wheelhouse, 'flatbuffers-LICENSE'); into new File(output, 'python-licenses') }
         copy { from new File(repository, 'packaging/android/python-runtime-extensions.json'); into output }
         copy { from new File(repository, 'packaging/android/zstandard-authored-vectors.json'); into output }
         // AAPT drops _next directories and expands .gz assets. One opaque

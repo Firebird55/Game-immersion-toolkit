@@ -271,7 +271,7 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
         if handle['mode'].startswith('audio-'):
             from . import zzz_pc_audio
             return zzz_pc_audio.download(ctx, planned, reader, codecs,
-                transport_factory=transport_factory, verify_current=_verify_current, verification=verification)
+                transport_factory=transport_factory, verify_current=_verify_current, verification=verification, crypto=crypto)
     sources = Sources(ctx, handle['build'], transport_factory=transport_factory)
     if handle['mode'] == 'indexes':
         assets = [sources.index_file(name) for name in ('design', 'catalog')]

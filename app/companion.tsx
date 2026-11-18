@@ -440,8 +440,9 @@ function CompanionClient() {
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
   const explicitGame = useRef<string | null>(null);
-  const archivedHistory = !LIVE_GAME_IDS.includes(selectedGame);
-  const archivedGames = Object.entries(GAME_NAMES).filter(([game]) => !LIVE_GAME_IDS.includes(game));
+  const liveGameIds = nativeHost.android ? nativeHost.capabilities?.publisher_games ?? ['zzz'] : LIVE_GAME_IDS;
+  const archivedHistory = !liveGameIds.includes(selectedGame);
+  const archivedGames = Object.entries(GAME_NAMES).filter(([game]) => !liveGameIds.includes(game));
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -483,7 +484,7 @@ function CompanionClient() {
     () => accountScope.current.generation === requestOwner), [requestGeneration, requestOwner]);
   const readingMode: ReadingMode = lexirise.configured ? 'lexirise' : 'plain';
   const pickerMode: ReadingMode = accountStatePending ? 'lexirise' : readingMode;
-  const gamePicker = useTargetLanguage(pickerMode, lexirise.account, lexirise.configured, requestGeneration, accountStatePending);
+  const gamePicker = useTargetLanguage(pickerMode, lexirise.account, lexirise.configured, requestGeneration, accountStatePending, liveGameIds);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState<{language: import('@firebird55/lexirise-components').StudyLanguage; account: string} | null>(null);
@@ -1046,7 +1047,7 @@ function CompanionClient() {
           explicitGame.current = game;
           setSelectedGame(game as GameId); setHistoryPage(0);
           if (game !== 'zzz') setSetupChannel('dialogue');
-          if (LIVE_GAME_IDS.includes(game)) void gameSelection.select(game);
+          if (liveGameIds.includes(game)) void gameSelection.select(game);
           else gameSelection.cancel();
         }} />
 
@@ -1182,7 +1183,7 @@ function CompanionClient() {
           </Button>}
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          {!archivedHistory && LIVE_GAME_IDS.includes(selectedGame) &&
+          {!archivedHistory &&
               <NativeAccountContext.Provider value={publisherGeneration}>
                 <GameDataSettings key={`${pollOwner.current?.context?.runtime_id}:${publisherGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`}
                   online={online} game={selectedGame} targetLanguage={gamePicker.target}
@@ -1214,7 +1215,7 @@ function CompanionClient() {
             <select aria-label="Archived game history" value={archivedHistory ? selectedGame : ''} onChange={event => {
               const active = status?.capture.active_game;
               const game = archivedGames.some(([id]) => id === event.target.value) ? event.target.value as GameId
-                : active && LIVE_GAME_IDS.includes(active) ? active : 'zzz';
+                : active && liveGameIds.includes(active) ? active : 'zzz';
               explicitGame.current = game; gameSelection.cancel(); setSelectedGame(game);
               setHistoryPage(0); changeTranscriptTab('history', true);
             }}><option value="">Active games</option>{archivedGames.map(([game,title]) => <option key={game} value={game}>{title} (archived)</option>)}</select>

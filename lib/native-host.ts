@@ -13,6 +13,7 @@ export type NativeCapabilities = {
   message: string;
   receiver_protocol?: string;
   max_frame_bytes?: number;
+  publisher_games?: string[];
 };
 
 export function useNativeHost() {

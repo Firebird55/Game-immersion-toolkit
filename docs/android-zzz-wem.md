@@ -29,12 +29,14 @@ The recipe uses the source pins in [audio-runtime.json](../packaging/codecs/audi
 python scripts/build-android-zzz-wem.py --suppliers <retained-audio-sources> --ndk <verified-ndk> --ndk-archive <retained-ndk-archive> --output <fresh-private-directory>
 ```
 
-The optional bundle records both ABI binaries, their C and JNI exports and
+The bundle records both ABI binaries, their C and JNI exports and
 the three complete original notices. The standalone recipe can recheck an
 existing bundle with `--verify <bundle-directory>`.
 
 Supply `build-android-app.ps1 -ZzzWemSources <retained-audio-sources>` to
-include it in a candidate. The APK audit checks the exact asset and ABI
+include it in a candidate. The release build requires this input and the pinned
+Android catalogue assets. The verified offline wheelhouse includes FlatBuffers
+and its original license for reading the publisher's FlexBuffers audio index. The APK audit checks the exact asset and ABI
 namespace, the original notices, the actual ELF headers, the native
 dependencies, and the manifest hashes. The app's Java decoder checks the
 actual installed ABI member before loading it by its exact APK path. The
@@ -48,12 +50,12 @@ identities leave this capability unavailable.
 engine metadata with the authenticated WEM header, accepts up to 64 MiB of
 source, requests at most 4,096 frames per read, and checks exact completion
 and the 128 MiB WAV limit. It preserves native sample rate, channel count
-and frame count for a complete sentence or whole context. Its 120-second
-deadline and cancellation checks run between bounded native calls.
-Cancellation, decode failure, and incompatible metadata discard the pending
-file and keep any previously retained recording. Explicit time windows,
-gain and channel remixes require a verified transform. The prepared-library
-recording store and Android reader already accept PCM WAV.
+and frame count for a complete sentence or whole context. A timed cue keeps
+the source samples within its authored window. Its 120-second deadline and
+cancellation checks run between bounded native calls. Cancellation, decode
+failure and incompatible metadata discard the pending file and keep any
+previously retained recording. Gain and channel remixes remain unavailable.
+The prepared-library recording store and Android reader accept PCM WAV.
 
 The local checks exercise the PCM handoff with authored data and verify that
 changed bounds, late failure and cancellation leave existing audio intact.
