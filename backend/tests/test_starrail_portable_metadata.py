@@ -556,7 +556,12 @@ def _census_sources(tmp_path, *, shuffled=False, defect=None):
         struct.pack_into('<I', native, 0x640 + 0x158, 532747583 + method_end)
         method_end += 26
     struct.pack_into('<I', native, 0x640 + 0x30, 587858498 + method_end)
-    for role, raw in [('native', native), ('metadata', data)]:
+    outputs = [('native', native), ('metadata', data)]
+    if defect == 'image_tail':
+        startup = bytearray(sources['startup'].path.read_bytes())
+        startup[0x24] ^= 3  # The authored image covers one of the two TypeDefs.
+        outputs.append(('startup', startup))
+    for role, raw in outputs:
         path = sources[role].path
         path.write_bytes(raw)
         sources[role] = OriginalInput(path, len(raw), hashlib.md5(raw).hexdigest())
@@ -600,6 +605,11 @@ def test_census_rejects_incomplete_or_foreign_owned_records(tmp_path, defect, re
 def test_census_reports_an_unproved_method_endpoint(tmp_path, defect):
     with pytest.raises(census.CensusUnresolved, match='method table endpoint'):
         census.read_census(_census_sources(tmp_path, defect=defect))
+
+
+def test_census_does_not_invent_an_owner_for_trailing_declarations(tmp_path):
+    with pytest.raises(census.CensusUnresolved, match='type image ownership'):
+        census.read_census(_census_sources(tmp_path, defect='image_tail'))
 
 
 @pytest.mark.parametrize(('limit', 'resource', 'count'), [

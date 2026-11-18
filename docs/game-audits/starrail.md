@@ -972,6 +972,15 @@ exceeded. Authored fixtures cover shuffled identity and address assignments,
 missing or competing ownership, and cancellation or source changes before
 publication. [Declaration census](../../backend/starrail_declaration_census.py)
 
+The bounded original declaration probe read all 82,343 Global 4.6 and 85,219
+Global 4.7 TypeDef records. In the same generations, the 142 and 143 nonempty
+image ranges tile the first 82,341 and 85,217 definitions respectively, without
+internal gaps or overlap. The final two definitions in each file lack an
+established image owner. The census reports unresolved ownership before
+publishing a result. The separate complete field-range evidence remains valid.
+Method endpoint and MethodDef slot verification await a source-owned treatment
+of the trailing declarations. All publisher hashes and file fences passed.
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and

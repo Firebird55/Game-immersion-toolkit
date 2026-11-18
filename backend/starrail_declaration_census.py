@@ -114,6 +114,13 @@ def _owner_at(ranges, item, component):
 def _declarations(records):
     count = records.definition_count
     _limit('type definitions', count, _MAX_DECLARATIONS)
+    end = 0
+    for first, stop, _, _ in records.images:
+        if first != end:
+            raise CensusUnresolved('type image ownership')
+        end = stop
+    if end != count:
+        raise CensusUnresolved('type image ownership')
     packed = bytearray(count * _DECLARATION.size)
     fields = []
     methods = []
