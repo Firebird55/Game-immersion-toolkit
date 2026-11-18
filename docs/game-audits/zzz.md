@@ -29,7 +29,7 @@ caption, locale, authored clock and event set. Among the 986 previously guarded
 Japanese records, **193 now have a unique authored event candidate**, **747 have
 conflicting events**, **42 still lack a supported unique event**, and the same
 **four older CS records** remain outside the explicit tracks. These are source
-states, not 193 newly verified recordings or an active-story denominator.
+states, not 193 independently spoken captions or an active-story denominator.
 
 The two unique C055 lines join their exact original Japanese registry, event
 banks and complete media identities. The November 18 follow-up acquired six
@@ -45,11 +45,11 @@ Japanese sources decode through the owned codec closure into **72-second film
 contexts**, with nonzero PCM verified independently from each resulting MP3.
 A separate process retains both saved MP3 hashes with no provider or network
 lookup. The seven shared captions remain ambiguous between the two authored
-variants. This is a targeted nine-record source/decoder control; it does not
-replace the existing prepared library, certify the other 191 event candidates,
-or claim a new full-library normal-worker Ready result.
+variants. This targeted nine-record control was followed by the complete normal
+preparation and fresh restart below. It does not establish that every exported
+caption belongs to active released story content.
 
-## November 18, 2026 · Normal reader 23 rebuild and explicit remaining bank stage
+## November 18, 2026 · Normal reader 23 Audio Ready and retained-source recovery
 
 A separate ordinary `GameDataService` preparation used the maintained,
 compiler-free reader 23 and the authenticated current original cache. Source
@@ -60,24 +60,40 @@ accepted library was retained throughout.
 The text-only request completed all five source stages and final ordinary
 publisher revalidation, reached Text Ready, and retained **all 289,967 records**,
 their source texts, translation maps and OCR texts. The subsequent Text + audio
-request completed its five catalogue stages, then stopped at the first nonzero
-original download estimate: **26 bank-metadata carrier chunks, 36,193,836
-compressed bytes / 37,677,562 expanded bytes**. The selected metadata ranges
-total 4,550,192 bytes, including already cached ranges; the transport quote counts
-each entire missing carrier, including co-resident data. Later bank or media
-stages may have further estimates. This run acquired no new original game or
-software bytes and does not claim a new full-library Audio Ready result.
+request completed its five catalogue stages and presented explicit bank and
+recording estimates before either transfer. It acquired exactly **26 missing
+bank-metadata carriers and 31 missing complete-media carriers**: **72,607,565
+compressed bytes / 74,361,888 expanded bytes**. Every entire carrier, including
+co-resident data, is counted and authenticated. This is additional acquisition
+against the existing verified current cache after the targeted C055 check;
+there are no new whole PCK, other-dub or software downloads.
 
-Both requests used **72 actual official metadata responses / 1,674,924 bytes**
-and retained the same original publisher generation. Every adopted original
-file, previous source snapshot and saved recording was hash-checked afterward.
-A fresh process restored the new text source with network forbidden, reopened
-the older managed audio source after text selection, and decoded the same
-sentence and separate C330 B/G contexts with exactly their previous MP3 hashes.
-Already saved MP3s also replayed without provider lookup. The previously
-accepted **77,702 original-audio bindings remain available in their retained
-source**; the two targeted C055 controls above remain separately qualified
-until the complete reader 23 audio preparation finishes.
+A transient-file error in the private storage monitor cancelled the first
+preparation after its download. Text Ready and every authenticated carrier were
+retained. With that monitor corrected, an ordinary cache-only retry reused all
+31 media carriers, transferred **zero new game bytes**, revalidated the current
+publisher pointer and published **Audio Ready: 289,967 records and 77,895 locally
+admitted original-audio rows**. Every previous **77,702 binding** remains;
+**193 additional original film-context bindings** are now materialized. These
+are complete contextual recordings, not a claim that each caption has a
+separate spoken utterance.
+
+The full sequence used **108 actual official metadata responses / 2,512,386
+bytes**, including the interrupted attempt and retry, with the same publisher
+generation throughout. Every adopted original file, previous source snapshot
+and saved recording was hash-checked afterward. A fresh process restored the
+complete new Audio Ready source with network forbidden and replayed three old
+and two new saved MP3s with their exact hashes and no provider lookup. Both C055
+contexts also decoded through the normal full-source recording service with
+the same hashes as their targeted controls. Exact Japanese text observations
+match their distinct IDs unambiguously in the complete multilingual index;
+this is a text-matcher control, not screenshot or OCR-region acceptance.
+
+The earlier Text Ready snapshot and older managed audio source remain
+restorable. **All seven shared C055 captions remain unavailable because their
+player-specific contexts conflict.** This closes the admitted reader 23 source
+acquisition and restart check for current Global Japanese; other layouts,
+ambiguous player ownership, other full-dub trials and Android remain separate.
 
 ## November 17, 2026 · Canonical Japanese audio materialization and offline acceptance
 
