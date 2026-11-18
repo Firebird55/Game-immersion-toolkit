@@ -205,7 +205,7 @@ def plan_candidate(ctx, current, handle, reader, *, transport_factory, final_met
         message='Download the selected complete original recordings and their required bank containers. Previously prepared data is kept.')
 
 
-def download(ctx, planned, reader, codecs, *, transport_factory, verify_current, verification=None):
+def download(ctx, planned, reader, codecs, *, transport_factory, verify_current, verification=None, crypto=None):
     handle = planned.handle
     if (codecs is None or handle.get('request') != ctx.request.json() or ctx.request.content_mode != 'text-audio'
             or handle.get('revision') != planned.revision or handle.get('reader') != reader.identity
@@ -235,7 +235,7 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     if mode != 'audio-recordings' or ranges != document['ranges'] or not sources.ranges_available(files, ranges):
         raise GameDataError('zzz_audio_stage_changed', 'Complete selected originals are not available. Check their size again.', 409)
     # A successful index with only remote recording addresses is never Ready.
-    verify_current(ctx, handle['build'], planned.revision, transport_factory)
+    verify_current(ctx, handle['build'], planned.revision, transport_factory, crypto=crypto)
     destination = _safe(ctx.directory / 'textmap.json')
     write_payload('zzz', payload, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check, reader_revision=LANGUAGE_INDEX_VERSION)
     with destination.open('rb') as stream:snapshot_sha = hashlib.file_digest(stream, 'sha256').hexdigest()

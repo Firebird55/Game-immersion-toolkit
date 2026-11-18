@@ -29,6 +29,11 @@ def cohort(tmp_path, monkeypatch):
     extension, original_pins = owned.policy();pins = copy.deepcopy(original_pins)
     pins['wheels'] = {'base.whl':{'sha256':digest(b'authored base wheel')}}
     pins['runtime_requirements'] = ['authored-base==1']
+    wheel = extension['flatbuffers']['wheel']
+    wheel['sha256'] = digest(b'authored flatbuffers wheel')
+    (tmp_path / wheel['source'].rsplit('/', 1)[-1]).write_bytes(b'authored flatbuffers wheel')
+    extension['flatbuffers']['license_sha256'] = digest(b'authored flatbuffers license')
+    (tmp_path / 'flatbuffers-LICENSE').write_bytes(b'authored flatbuffers license')
     monkeypatch.setattr(owned, 'policy', lambda:(extension,pins))
     base = {'schema':'toolkit-android-python-wheels-v1', 'policy_sha256':owned.sha(ROOT / extension['base_policy']),
         'python':pins['python'], 'ndk_revision':pins['ndk_revision'], 'native':{abi:{'python_target_sha256':pin['sha256']} for abi,pin in pins['targets'].items()},
@@ -63,7 +68,7 @@ def cohort(tmp_path, monkeypatch):
             'zstandard_receipt_sha256':owned.sha(tmp_path / 'zstandard-build-receipt.json'),
             'files':{path.name:owned.sha(path) for path in tmp_path.glob('*.whl')}}
         (tmp_path / 'python-wheels-receipt.json').write_text(json.dumps(combined))
-    (tmp_path / 'requirements-android.lock.txt').write_bytes(b'authored-base==1\nzstandard==0.25.0\n')
+    (tmp_path / 'requirements-android.lock.txt').write_bytes(('\n'.join(pins['runtime_requirements'] + extension['requirements']) + '\n').encode())
     publish()
     return owned,tmp_path,native,pins,publish
 

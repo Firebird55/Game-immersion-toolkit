@@ -332,10 +332,10 @@ class GameDataService:
                 'Check the download size to begin.' if game in self.providers else
                 'This game’s original-data reader is unavailable on this device.')}
 
-    def snapshot(self, *, expected_owner=None):
+    def snapshot(self, *, expected_owner=None, games=GAME_TITLES):
         root, owner = self._scope(expected_owner)
         with self.lock:
-            result = {'schema': 'game-data-v1', 'games': [self._row(root, owner, game) for game in GAME_TITLES]}
+            result = {'schema': 'game-data-v1', 'games': [self._row(root, owner, game) for game in games]}
             if owner != self._owner():
                 raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
             return result
