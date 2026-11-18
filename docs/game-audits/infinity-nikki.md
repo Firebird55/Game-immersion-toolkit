@@ -777,6 +777,18 @@ unresolved. All evidence retains the CN/common source qualification; no CMS
 response, GUID/group serialization, dynamic-index decryption or Global service
 equivalence is accepted by establishing this input-decoding contract.
 
+Two further fixed object branches consume 292 unique instruction bytes and a
+1,325-byte receipt. A separate producer/return probe consumes 352 instruction
+bytes and a 1,187-byte receipt. The final return confirms that the name-owned
+descriptor's field at offset 0x28 supplies the service-instance pointer. No
+runtime object or its vtable is read. The missing-record helper initializes a
+new descriptor with that field zero and passes the descriptor and original name
+to another helper; it is not evidence of the service implementation's actual
+constructor. Further descriptor helpers, reference-control paths and indirect cleanup
+targets are not followed. The original outer instance-load branch remains a
+separate exact source quote. There are no additional literal reads, downloads,
+client execution, CMS requests, dynamic-key trials or keychain-schema claims.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
