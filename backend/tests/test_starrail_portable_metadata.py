@@ -18,7 +18,7 @@ _HEADER = bytes.fromhex(
     '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a06f767'
     'c175b7620000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
     '000000000000000000000000c0fbf026add05b01030721100000000000000000f79453250000000012129e32acbf5f0c'
-    'c29e7d27000000004f1dc11f000000000000000014515c7f000000000000000000000000000000000000000000000000'
+    'c29e7d27000000004f1dc11f0000000000000000385b5c7f000000000000000000000000000000000000000000000000'
     '9d1b241b000000000000000000000000000000000000000000000000000000000000000000000000131a9b725e050837'
     '00000000925ebc7200000000000000000000000000000000359a2f040000000000000000000000000000000000000000'
     '000000000000000000000000ffdda5580dd7c7560000000000000000d0c538620000000000000000'
@@ -100,7 +100,7 @@ def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, exc
         payload[at:at + len(data)] = data
     if excess_parameters:
         payload[0x25a + 0x18] ^= 0x40
-    startup = b'\0' * 0x20 + _IMAGE + b'\0' * 0x38
+    startup = b'\0' * 0x20 + _IMAGE + b'\0' * (0x240 - 0x20 - len(_IMAGE))
     values = {'native': native, 'metadata': _HEADER + payload, 'startup': startup}
     sources = {}
     for role, value in values.items():
@@ -112,6 +112,8 @@ def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, exc
 
 def test_selected_records_join_original_owners_and_decode_cross_chunk_registration(tmp_path):
     # The header declares one trailing type byte and three trailing image bytes.
+    # The startup generic-class offset is inside the global field row's numeric
+    # range. The separate source coordinates keep that global row readable.
     selected = read_required(_sources(tmp_path, seam=True), type_indices=(0,), method_indices=(1,), literal_indices=(0, 1))
 
     assert selected['types'] == {0: {

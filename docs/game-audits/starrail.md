@@ -831,31 +831,35 @@ An offline Windows probe verified all three source identities against retained
 publisher receipts for Global 4.6 and 4.7. Both headers declare three trailing
 type bytes and two trailing image bytes. The pinned codec counts complete
 records and the portable reader leaves the trailing bytes outside those rows.
-The 4.6 and 4.7 probes read 18,326 and 18,406 selected bytes after separately
-streaming 650,775,340 and 675,093,264 bytes for whole-input verification. Both
-generations retained their original input files.
+The final 4.6 and 4.7 probes read 18,478 and 18,558 selected bytes after
+separately streaming 650,775,340 and 675,093,264 bytes for whole-input
+verification. The original input files passed their before and after identity
+checks in both generations.
 
 Each generation located the three native registrations and decoded 12 sampled
 type definitions and nine methods. Eight methods had executable entry pointers
-and the selected methods supplied four parameters. Four of eight selected
-fields fit the current bounded table window and seven of eight selected
-literals decoded as UTF-8. The remaining fields failed a table ownership check
-and the remaining literal is unavailable as strict UTF-8 text in each generation.
+and the selected methods supplied four parameters. All eight selected fields
+and seven of eight selected literal texts decoded in each generation.
 
 A fresh offline C# control used the authenticated locator offsets and read
 selected original spans. It used the pinned header and literal implementations
 and independently applied the frozen scalar record descriptions. In each
 generation it matched all 12 selected type records, nine method records,
-four field records within the portable window and eight literal byte sequences.
+eight field records and eight literal byte sequences.
 The single malformed UTF-8 sequence is identical in both decoders. The pinned
-C# string conversion uses replacement characters for that sequence.
+C# string conversion uses replacement characters for that sequence, and the
+portable reader reports a typed UTF-8 failure.
 
-The C# control also decoded the four fields outside the window in each
-generation. `GenericClassOffset` supplies the portable window's current upper
-bound for fields. The exact field and generic-class storage relationship still
-needs a source ownership check. Runtime type resolution, generic and nested
-joins, defaults and the required native-index projection remain open. The
-Android provider gate continues to require that projection and device evidence.
+The first portable window excluded four fields in each generation because it
+used `GenericClassOffset` as a global-metadata bound. The pinned generic-class
+reader addresses startup metadata using that offset. The corrected reader
+validates it in the startup file separately and keeps the global field bounds.
+The authored fixture shares the numeric range between both files and verifies
+the field record can still be read. [Pinned generic-class accessor](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Runtime/Il2CppType.cs#L98-L112)
+
+Runtime type resolution, generic and nested joins, defaults and the required
+native-index projection remain open. The Android provider gate continues to
+require that projection and device evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
 

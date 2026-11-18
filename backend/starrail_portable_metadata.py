@@ -32,8 +32,8 @@ _MAX_SELECTED_PARAMETERS = 65536
 _MAX_LITERAL = 64 * 1024
 _LIMITS = {'native': 1024**3, 'metadata': 512 * 1024**2, 'startup': 64 * 1024**2}
 
-# Header fields retain the decoded header's own coordinate system. Every item
-# except the image table is relative to the global payload after its prefix.
+# Image and generic-class offsets refer to startup metadata. The global
+# table envelopes use the global payload coordinates after its file prefix.
 _OFFSETS = {
     'literal_data': (0x08, -149860775),
     'attribute_ranges': (0x18, -422736276),
@@ -224,6 +224,10 @@ def _header(image, metadata, startup, cancelled):
                     raw = _integer(data, position)
                     offsets[name] = (raw + operand) & _MASK32 if operand < 0 else raw ^ operand
                 image_at = offsets.pop('images')
+                # Il2CppType.ComputeName reads generic-class rows from
+                # StartupMetadata. Its offset cannot delimit a global table.
+                generic_class_at = offsets.pop('generic_classes')
+                _require(generic_class_at <= startup.size, 'startup generic-class offset')
                 payload = metadata.size - _HEADER_SIZE
                 _require(all(offset <= payload for offset in offsets.values()), 'header offsets')
                 type_size = _integer(data, 0x1a8) ^ 0x729b1a9e
