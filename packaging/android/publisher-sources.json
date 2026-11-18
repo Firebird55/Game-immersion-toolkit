@@ -155,6 +155,10 @@
     "starrail": "The actual game-data factory and full source/runtime closure are not packaged."
   },
   "files": {
+    "backend/android_zzz_catalogue.py": {
+      "sha256_lf": "667fb8fc2e9662b3bf035c70593dba2d5125b3232db60524938c732912608dbb",
+      "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
+    },
     "backend/genshin_android_runtime.py": {
       "sha256_lf": "33d635a79d46c7be2bb1214b6e051d45a4fe15f4642dca96779fac4648737954",
       "source_commit": "6d539c67dc9696fff838611ca946ee8acda01d33"
@@ -230,6 +234,10 @@
     "backend/hoyo_zzz_bootstrap.py": {
       "sha256_lf": "6500b7e8726eb4a0d72bf7fa1ac11392e8f1838e1c610f23f7d8a7cc5d21e0fe",
       "source_commit": "21c930e7844beb7d23892d0eb87cb1db0c9e2e11"
+    },
+    "backend/language_snapshot.py": {
+      "sha256_lf": "0815d18f8b1ca5de17e3430a44ff4d1e028067ce1ab6834fa4a077c9b9b24446",
+      "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
     },
     "backend/nte_game_data.py": {
       "sha256_lf": "556bda0939eccdfac70b4856359624956a8deb29ea8dfcc2f2885e6c9f507cb0",
@@ -311,9 +319,13 @@
       "sha256_lf": "bdde27c3176f28b3314aaaf8e3745b84e1def1a31b38a28c9671217fef3e74db",
       "source_commit": "0de5adc1b345113d553031f823de3d35da157625"
     },
+    "backend/zzz_dialogue_records.py": {
+      "sha256_lf": "db121ddc9920e20994d57945efb2f78a1b7df528ecf71a8d34f2198f93f50b34",
+      "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
+    },
     "backend/zzz_game_data.py": {
-      "sha256_lf": "a22c91241ddfb3bb84583b1b5d1e78eff0a6994ffa2de1774cf3b410f2b2cf60",
-      "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
+      "sha256_lf": "ec719083652d155136d1a0aab84825019faa01ec56cab4e7adc474620a738dcf",
+      "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
     },
     "backend/zzz_hotfix.py": {
       "sha256_lf": "42e5ab33725a86abc38873bcec38547b4ee1d1aeaf787c8004271bbe03aff0cd",
@@ -326,6 +338,14 @@
     "backend/zzz_pc_sources.py": {
       "sha256_lf": "df822e980354f832dc8e3ce0f9370f08f6ca3642251fdfb64307b6fad8c8ee48",
       "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
+    },
+    "backend/zzz_pc_stages.py": {
+      "sha256_lf": "e9546fa6dbe91d00b1b5830e791ceece56b34f638e65749885d5db7af887464b",
+      "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
+    },
+    "backend/zzz_scene_sources.py": {
+      "sha256_lf": "d41d04424241c81e029dd90d77454430467980cff777e3557ee81c5942000302",
+      "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
     }
   },
   "forbidden_stage_imports": [
@@ -334,7 +354,9 @@
     "backend.runtime_bundle",
     "backend.publisher_http",
     "backend.prebuilt_node_reader",
-    "backend.zzz_pc_stages",
+    "backend.game_assets",
+    "backend.zzz_assets",
+    "backend.zzz_publisher",
     "backend.zzz_pc_audio",
     "Crypto",
     "brotli",
@@ -411,24 +433,31 @@
       "dependencies": [
         "python-stdlib",
         "zstandard==0.25.0",
-        "toolkit-publisher-crypto-v1"
+        "toolkit-publisher-crypto-v1",
+        "toolkit-android-zzz-catalogue-v1"
       ],
       "download_runtime": true,
       "factory": "backend.zzz_game_data:create_provider",
       "modules": [
+        "android_zzz_catalogue",
         "hoyo_dispatch_metadata",
         "hoyo_zzz_bootstrap",
+        "language_snapshot",
         "xxhash64",
+        "zzz_dialogue_records",
         "zzz_game_data",
         "zzz_hotfix",
         "zzz_native_key_data",
-        "zzz_pc_sources"
+        "zzz_pc_sources",
+        "zzz_pc_stages",
+        "zzz_scene_sources"
       ],
       "snapshot_runtime": false,
       "stages": [
         "official-manifest",
         "official-bootstrap",
-        "gateway-discovery"
+        "gateway-discovery",
+        "text-catalogue"
       ]
     }
   },

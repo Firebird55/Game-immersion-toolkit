@@ -339,6 +339,14 @@ state; no full-download button should advertise an invented amount.
 
 ## Required acceptance before reporting Android readiness
 
+The Android provider selects the shared text stages when the original gateway
+cryptography and installed catalogue worker both verify. Each source leaf in
+the worker transaction is bound to a digest, and a text-only result still
+requires the final current publisher check before activation. A finished
+text-only snapshot can reopen offline. Text + audio remains gated on the
+Android original-audio decoder. The APK and real source preparation need
+device evidence separately.
+
 Run the real publisher provider on Android with an empty app cache, no desktop
 import, no game installation and community requests blocked after immutable
 initial input. Exercise the Global edition's four official spoken dubs and

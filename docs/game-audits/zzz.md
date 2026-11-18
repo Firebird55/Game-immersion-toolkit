@@ -1,5 +1,29 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · Global 20574360 text update
+
+The normal Windows game-data provider discovered official Global design and
+resource revision 20574360 within launcher version 3.3.0. The original launcher
+bootstrap was verified against its own checksums using retained publisher
+objects. The updater reached the live HoYoPlay and gateway routes. It acquired
+no community settings, installation files or protected key cache.
+
+The first stage reused 22 earlier verified design owners and required
+46,690,322 bytes for five changed files. An interruption after 65,536 original
+bytes left the old active pointer, snapshot and five saved recordings intact.
+The normal retry authenticated all five files. The remaining catalogue
+operations used verified local payloads and performed a live original-source
+check before publishing Text Ready.
+
+The retained 20245314 snapshot contains 289,967 rows. The new snapshot
+contains 289,961, including 19 added rows with all three selected languages,
+25 removed rows, and 450 Japanese changes on shared IDs. English and
+Simplified Chinese values on shared IDs stayed identical. A fresh
+network-denied process verified the new snapshot and reopened the five
+earlier saved recordings. The new snapshot retained 82,031 authored voice
+references and did not acquire new voice bytes in this text-only run.
+The update trial still needs new original audio and changed-key evidence.
+
 ## November 18, 2026 · Ordinary reader 24 preparation and fresh offline restore
 
 A new, closed reader 24 resource inventory was explicitly built from the
