@@ -1112,6 +1112,25 @@ canonicalization, other transport interceptors, absent-login handling and
 the response envelope still require proof. No live endpoint is requested,
 no unsigned fallback is enabled and no preparation-ready state is introduced.
 
+The next source phase reads only the previously bounded 388-byte byte-array
+helper, 97 AArch64 instructions. Primary NDK declarations identify its JNI
+byte-pointer and array-length calls. The opaque cached context string controls
+comparisons that select a static data pointer. The helper passes a stack
+state and zero to one direct call target, then passes the original input
+bytes and their length to a second target. It calls that same target again
+with the selected pointer and exactly 32 bytes. Finally it allocates a
+33-byte output buffer, passes the state and output pointer to a third target
+and returns the buffer. The outer wrapper's typed JNI conversion was already
+proved separately.
+
+This proves argument flow, not the calculation performed inside those three
+call targets or a named signature algorithm. At this phase boundary their
+extents have not received formal ownership checks. No selector/suffix data, other native body, context-helper
+body, context/account/device value or key material is read or printed in
+this phase; there is no execution or network request. The unresolved context
+input is still the cached value supplied by the separate Java-context helper,
+not a value obtained from a development phone or game installation.
+
 ### Community key candidate: research only
 
 The original author repository
