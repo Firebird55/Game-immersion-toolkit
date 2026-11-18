@@ -47,6 +47,27 @@ def install(host, *, mode='text-audio'):
     assert finished(host)['state'] == 'ready'
 
 
+def test_android_release_lists_zzz_and_preserves_other_existing_downloads(tmp_path):
+    frontend = tmp_path / 'reader'
+    frontend.mkdir()
+    (frontend / 'index.html').write_text('<head></head>')
+    host = AndroidHost(tmp_path / 'application', frontend)
+    try:
+        previous = host.game_data._scope()[0] / 'genshin/cache/retained.bin'
+        previous.parent.mkdir(parents=True)
+        previous.write_bytes(b'existing private game data')
+        status, capabilities = request(host, 'GET', '/api/platform')
+        assert status == 200 and capabilities['publisher_games'] == ['zzz']
+        assert capabilities['history_migration'] and capabilities['library_import']
+        status, data = request(host, 'GET', '/api/game-data', headers=headers(host))
+        assert status == 200 and [row['id'] for row in data['games']] == ['zzz']
+        status, result = action(host, 'POST', '/genshin/plan', REQUEST)
+        assert status == 409 and result['code'] == 'game_runtime_unavailable'
+        assert previous.read_bytes() == b'existing private game data'
+    finally:
+        host.close()
+
+
 def test_http_direct_download_capture_original_delete_and_restart_preserve_history(tmp_path):
     _, payload = fixture_library(tmp_path / 'authored')
     raw = (tmp_path / 'authored/tone.wav').read_bytes()
