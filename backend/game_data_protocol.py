@@ -213,6 +213,7 @@ class PreparationContext(Protocol):
     transfer_lock: Any
     # Same-request previously consented bootstrap continuation, local only.
     stage_handle: dict | None
+    stage_directory: Path | None
 
     def check(self) -> None: ...
     def cancelled(self) -> bool: ...

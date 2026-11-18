@@ -2,9 +2,9 @@
 
 Status checked **2026-11-18**. Tracked in
 [#144](https://github.com/Firebird55/Game-immersion-toolkit/issues/144).
-This is provider research and tested public launcher discovery, **not a playable
-toolkit adapter**. The game must remain unavailable for preparation until its
-original text/voice pipeline and standalone Android path work.
+Active preparation work targets the Global release. Mainland source research
+below records earlier investigations. The Global bootstrap stage leaves both
+content modes unready until the original dialogue pipeline works.
 
 ## Official releases and languages
 
@@ -14,14 +14,15 @@ supplies the page version and game ID for the publisher's read-only website
 version query. That query returns the original installer URL. Discovery reads
 the current script each time; it does not freeze a game version or installer.
 
-The [publisher Steam listing](https://store.steampowered.com/app/3092660/1999/)
-lists English, Japanese, Korean and Simplified Chinese voice support. Traditional
-Chinese has interface/subtitles and shares Mandarin recordings; it is not a
-fifth independently recorded dub. The publisher's original client archive also
-contains `CH`, `EN`, `GT`, `JP` and `KO` bootstrap locale files. This confirms
-containers, not complete translation/recording extraction. German, French and
-Thai named resource containers also exist in the current archive; file names
-alone do not establish complete officially supported translations.
+The publisher's Steam listing marks Full Audio for English, Japanese,
+Korean, Simplified Chinese and Traditional Chinese. In the verified Global
+archive indexes, `CH`, `EN`, `GT`, `JP` and `KO` identify bootstrap text files.
+Those indexes contain 1,821 BNK entries under the `en` base audio namespace.
+The observed optional voice selectors are `jp`, `kr` and `zh`. The separate
+`GT` text files establish additional text coverage. The original runtime
+binding between the Traditional Chinese text choice and the `zh` voice pack
+remains unverified. German, French and Thai resource filenames also appear in
+these archives, with their coverage still open. [Publisher Steam listing](https://store.steampowered.com/app/3092660/Reverse_1999/).
 
 The [mainland publisher site](https://re.bluepoch.com/) advertises a different
 release, 4.1. Its own
@@ -78,8 +79,8 @@ part 0, supplies the complete first LZMA2 resource folder: 16,385,558 compressed
 bytes and 61,658,292 expanded bytes. Its decoded files pass their header-sourced
 CRCs. The selected original `resources.assets` is 613,192 bytes, with observed
 SHA256 `ca87f392cca30daf2b8e43f7c69226778522d7d0c1b5d4c5f7e3e908b9d3827a`.
-This is still a partial archive read, not verification against the publisher's
-whole-archive MD5 or an independently located resource-catalog hash.
+The initial observation came from a partial archive read. Later complete
+archive verification independently confirms this member's provenance.
 
 `backend/reverse1999_bootstrap.py` now parses the evidenced stripped-type-tree
 Unity serialized-file version 22 using only the standard library. Structural
@@ -88,8 +89,9 @@ inspection of that original resource finds 1,445 objects, including build ID
 embedded appversion is `0.0.1`; it must not replace the public launcher 3.9.0
 identity. Reading these fields dynamically avoids freezing a voice branch.
 The production consumption API requires an independently verified resource
-SHA256 and release revision. That independent hash locator remains open, so
-current research inspection does not enable production preparation.
+SHA256 and release revision. The complete publisher archive identity, original
+7z member CRC and selected Unity revision now establish that chain for the
+Global bootstrap stage.
 The serialization layout was cross-checked against the format reader author's
 [serialized-file implementation](https://github.com/K0lb3/UnityPy/blob/master/UnityPy/files/SerializedFile.py)
 and [object table implementation](https://github.com/K0lb3/UnityPy/blob/master/UnityPy/files/ObjectReader.py),
@@ -111,6 +113,45 @@ patch query returned `0.0.0`; it is not accepted as the live version. Its comple
 public bootstrap, response ownership and ordinary update behavior still need
 verification. Account login, a running game or captured user credentials must
 not become prerequisites.
+
+### Verified Global bootstrap download
+
+The normal Global Plan path reads bounded 7z header ranges to confirm that
+part 0 contains the supported `resources.assets` member. An unrecognized
+layout leaves the plan at discovery. The Android runtime can discover the
+Global release with its packaged readers. Archive preparation requires an
+available LZMA decoder. A recognized layout quotes the full
+480,904,396-byte archive for the retained Global generation as a separate
+bootstrap stage, with the selected member and staging overhead as disk use.
+The user approves that stage before any archive asset transfer.
+
+Download streams the archive through the shared publisher transport, verifies
+the complete publisher MD5, and rechecks the member location, CRC and revision
+against the same archive. It retains only `resources.assets` in the staged
+result. The Unity reader keeps GameConfig opaque. A valid cached stage for the
+same archive skips another archive download. Failed transfers and checksum
+checks preserve previous data. The bootstrap has its own staging receipt, so
+an existing Ready selection remains installed while a new one is prepared.
+The new selection stays unready in both modes, with no dialogue snapshot or
+original voice source.
+
+The live verification used previously retained data. Four current launcher
+responses used 7,935 metadata bytes and matched the Global 3.9.0 release
+and resource 111.0.1065. One strict HTTP 206 response supplied the exact
+444,790,181-byte missing interval. Replaying 36,114,215 retained bytes
+completed the 480,904,396-byte archive and matched the publisher MD5.
+The first folder decoded to 61,658,292 bytes. The selected 613,192-byte
+member matched its original CRC and previously observed SHA256. The reader
+confirmed build 73 and voice branch 109. The run created no new raw archive
+or member copy on disk. A cold production run quotes the complete part size.
+
+The verified member contains a 2,176-byte serialized `SLFramework.GameConfigAsset`
+payload. Its script reference resolves through `globalgamemanagers.assets` to
+`Assembly-CSharp`. The retained launcher config identifies its update hosts,
+and the retained SDK config identifies the Steam app and subchannel. The
+in-game GameConfig decoder and hotfix catalog remain open. The next source
+boundary is the original GameConfig consumer or an official base-text catalog
+that resolves the same Global resource revision.
 
 ## Original optional voice inventories
 
@@ -140,9 +181,10 @@ sizes and update orders, and keeps the base voice separately unresolved.
 These packs contain localized audio **and videos**. The numbers describe their
 complete archives, not a dialogue selection or final decoded-audio disk use.
 English is the Global default/base voice and was absent from the optional
-response; it must not be classified as unvoiced or substituted with another dub.
-The returned completeness flag stays false when a requested base voice is still
-unresolved. Korean includes ordered cumulative archive layers; preparation must
+response. The original launcher archives index its base `en` bank files. Their
+effective hotfix layers and authored event bindings remain open. The returned
+completeness flag stays false when a requested base voice is still unresolved.
+Korean includes ordered cumulative archive layers; preparation must
 apply the publisher's update order and validate the resulting current files.
 The ordinary discovery call returned source fingerprint
 `29576336dc4c4ee3feeff003ee96780f1d4d32055cd07d346a225efe01ba4574`.
@@ -1556,7 +1598,8 @@ needed before proposing exact ZIP-index and key-consumer member acquisitions.
 `create_provider(platform=..., native=...)`; `reverse1999_provider.py` implements
 its conservative publisher-discovery stage. The ordinary factory uses the shared
 `PublisherTransport` with explicit original hosts, bounded GET/JSON POST metadata
-and context byte accounting. Tests inject that transport's opener explicitly;
+and context byte accounting. It offers the Global bootstrap stage only when
+the archive member can be quoted. Tests inject that transport's opener explicitly;
 no global monkeypatch or unaccounted default network client is needed. Transport
 network failures can use the existing original publisher backup; consent and
 semantic failures cannot silently switch sources. Android, Windows, Linux and
@@ -1572,16 +1615,13 @@ bytes stay unknown; text-and-audio bytes also remain unknown while the original
 text/base path is incomplete. Full-client inventory numbers are kept solely as
 private source evidence and never become the selected download estimate.
 
-The stage has `runtime_available = false` and cannot return a snapshot or mark
-the game Ready. Mainland planning does not fetch Global data. Unknown estimates,
-unsupported source preparation and failed freshness checks keep existing data.
-Integration checks use the committed shared content-mode request and the real
-`GameDataService`/`PublisherTransport`: both modes expose unknown selected sizes,
-keep source-only handles private and refuse download/activation without creating
-a dialogue snapshot. No fake prepared game or successful source proof is used.
-This is an honest shared-protocol adapter for the proven discovery stage, not
-independent content preparation. Root integration owns shared registry and
-transport changes.
+The archive quote applies only to the explicitly named bootstrap stage. The
+original text, shared data and audio estimates remain unknown. Mainland
+planning fetches no Global data. Integration checks exercise the real
+`GameDataService` and `PublisherTransport` from Plan through Download. They
+confirm preparation without activation for both content modes, local reuse,
+and preservation of the previous bootstrap after a corrupt retry. A prepared
+bootstrap does not make the dialogue reader Ready.
 
 ## Finite dialogue coverage boundary
 
@@ -1606,7 +1646,7 @@ must use authored scene/step context where available.
 
 ## Remaining implementation and acceptance
 
-- Complete original bootstrap/key/hash discovery and mandatory Global/mainland
+- Complete original GameConfig decoder provenance and mandatory Global
   hotfix/base inventories. Global Japanese, Mandarin and Korean optional
   inventories are now publicly queryable without a local voice pack.
 - Read the original selected metadata, translations, story layouts and audio
@@ -1623,7 +1663,7 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-The 85 owned synthetic fixtures currently exercise public metadata decoding,
+Owned synthetic fixtures exercise public metadata decoding,
 ordinary-version and voice-branch refresh, announcement-insensitive launcher
 fingerprints, original archive ownership and totals, bootstrap boundaries,
 mandatory/optional voice distinctions, update order, malformed/oversized data,
