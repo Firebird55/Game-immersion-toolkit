@@ -815,9 +815,9 @@ the two relevant private configuration fields: one constructor and two public
 configuration methods. Only those positive writers are then inspected. The
 constructor creates an empty interceptor list; `c.n(Retrofit, Retrofit)` and
 `c.A(Retrofit)` only store externally supplied instances. They do not supply a
-base URL. The next concrete ownership question is **who supplies those
-Retrofit instances and registers the original interceptors**. No anonymous
-request succeeds merely because a non-user relative path exists.
+base URL. The next original-source pass below traces their concrete callers
+and first actual builder. No anonymous request succeeds merely because a
+non-user relative path exists.
 
 The separately approved writer locator validates exactly 4,942 instruction
 bytes and 344 try-table bytes in those 30 owned methods, with full formal
@@ -829,6 +829,43 @@ instruction bytes, 192 try-table bytes, 40 handler bytes and 37,087 metered
 metadata bytes. Previous failed or superseded interpretations remain recorded;
 no earlier overrun is recast as a pass. No origin request, game/client execution,
 Ready state or fallback activation occurs.
+
+### Original initialization callers and first Retrofit builder
+
+The exact configuration-method caller pass finds `common.net.g.c`, which
+forwards the two supplied Retrofit instances and registers a concretely named
+`common.net.b` interceptor. Its only ordinary caller is the original `g.b`
+wrapper. The latter has three original call owners: `other.basic.impl.c$a.a`,
+`InitHelper.doLiteTask` and `TapOtherExportBisServiceImpl.initTapApi`. These
+remain separate initialization paths; no lite or exported-service path is
+promoted to the active normal path on the strength of its name.
+
+All three exact caller bodies obtain **both** Retrofit arguments from the same
+`other.basic.impl.application.c.e()` method. That actual maker constructs a
+`Retrofit.Builder`, supplies `baseUrl` from the original common-library domain
+provider, adds a Gson converter, supplies an OkHttp client from its own `c()`
+helper and calls `build`. This closes the chain from the detail request to a
+real original builder, rather than stopping at parameter-forwarding wrappers.
+The OkHttp/helper and interceptor header production remain separately unread.
+
+The exact base-URL getter reads its own static string. Its necessary original
+static initializer fills that string through
+`BaseAppContext -> IAppConfiguration.getUriConfig() ->
+IUriConfig.getDomain("DOMAIN_MAIN")`. It supplies no demonstrated literal
+hostname or verified default. The precise remaining host source is the actual
+registered `IUriConfig` implementation and its authored domain configuration.
+A broad search for URLs or the selector string is not substituted for that
+ownership chain. No accountless detail request is attempted.
+
+The cumulative semantic phase closes at eight bodies / 1,392 instruction
+bytes, 56 try-table bytes, eleven handler bytes and 27,452 metered metadata
+bytes. Its two verification allocations remain separate and explicit: the
+first finishes at 128,450,214 bytes within 128 MiB; the later approved
+second-carrier pass reads 12,061,025 bytes within 16 MiB, reusing the already
+verified immutable `classes3.dex` in memory. The latter formal pass closes both
+positive carriers in 4.063 seconds. All later method reads reuse verified RAM
+and numeric owner/invoke indices; the counters are not reset to conceal prior
+reads. No new origin bytes, game/client execution, fallback or Ready state.
 
 ### Community key candidate: research only
 
