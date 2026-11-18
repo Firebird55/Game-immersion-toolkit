@@ -71,7 +71,11 @@ a successful partial download remains an unfinished preparation.
 Only acquired banks enter a zero-transfer local pass. The existing Wwise 154
 parser, authored event aliases, language/bank identifiers and protagonist switch
 rules establish playable references. Wrong bank versions or event/dub owners
-fail before media selection. The original media-name inventory is index-only;
+fail before media selection. A malformed header or changed Wwise version keeps
+the unsupported-format gate. A valid Wwise 154 bank with a mismatched event or
+language ID instead reports unverified voice ownership; this alone does not
+prove a format change. Both failures retain the previous library and prevent a
+new recording-selection receipt. The original media-name inventory is index-only;
 this pass never reads WEM bodies. An immutable receipt binds canonical prepared
 rows and their exact needed media members to the source, reader and audio-codec
 identities. That receipt supplies the following bounded WEM quotes.

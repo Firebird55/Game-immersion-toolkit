@@ -20,6 +20,18 @@ FINAL = 'nte-original-audio-finalize-v1'
 MAX_MEMBERS = 100000
 
 
+def _validate_bank_header(raw, event_id, language_id):
+    if (len(raw) < 20 or raw[:4] != b'BKHD'
+            or not 12 <= struct.unpack_from('<I', raw, 4)[0] <= len(raw)-8
+            or struct.unpack_from('<I', raw, 8)[0] != 154):
+        raise GameDataError('unsupported_game_format',
+            'An original NTE voice bank has an unsupported format.', 409)
+    if struct.unpack_from('<II', raw, 12) != (event_id, language_id):
+        raise GameDataError('nte_voice_binding_unverified',
+            'An original NTE voice bank does not match its declared event or voice language. '
+            'Check the game download; your previous library is retained.', 409)
+
+
 def _failure():
     return GameDataError('nte_audio_plan_changed',
         'The original NTE audio preparation information changed. Check its size again; your previous library is retained.', 409)
@@ -270,10 +282,7 @@ def download_bindings(approved, ctx, reader):
                     raw_size += row['raw_bytes']; stored_size += row['stored_bytes']; stop += 1
                 for member, raw in zip(members[at:stop], archive.read_many([row['path'] for row in members[at:stop]])):
                     ctx.check(); filename = Path(member['path']).name; event = Path(filename).stem
-                    if (len(raw) < 20 or raw[:4] != b'BKHD' or not 12 <= struct.unpack_from('<I', raw, 4)[0] <= len(raw)-8
-                            or struct.unpack_from('<III', raw, 8) !=
-                            (154, assets.wwise_hash(event), assets.wwise_hash(language))):
-                        raise GameDataError('unsupported_game_format', 'An original NTE voice bank has an unsupported format or mismatched event/language owner.', 409)
+                    _validate_bank_header(raw, assets.wwise_hash(event), assets.wwise_hash(language))
                     if filename.casefold() in seen: raise _failure()
                     seen.add(filename.casefold()); _atomic_file(bank_dir/filename, raw)
                 at = stop

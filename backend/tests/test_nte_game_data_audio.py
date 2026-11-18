@@ -5,6 +5,7 @@ download or real native playback is claimed by these service fixtures.
 """
 import json
 from pathlib import Path
+import struct
 import sys
 
 import pytest
@@ -133,18 +134,42 @@ def test_unknown_voice_evidence_stays_unknown_and_never_requires_an_unrelated_we
     finally: service.close()
 
 
-@pytest.mark.parametrize('change', [{'version': 155}, {'bank_id': 998877}, {'language': 998877}])
-def test_original_banks_with_changed_format_or_wrong_event_dub_owner_fail_before_media_selection(tmp_path, monkeypatch, change):
+@pytest.mark.parametrize('change,expected_message', [({'version': 155}, 'unsupported format'),
+    ({'bank_id': 998877}, 'declared event or voice language'),
+    ({'language': 998877}, 'declared event or voice language')])
+def test_original_banks_with_changed_format_or_wrong_event_dub_owner_fail_before_media_selection(tmp_path, monkeypatch, change, expected_message):
     original, request = fixture(tmp_path, monkeypatch, bank_changes=change)
     service = original.service()
     try:
         plan, _ = advance(service, original, request, lambda row: row.stage == 'process-audio-bindings')
         previous = (original.root/'nte/stage.json').read_bytes()
         job = download(service, plan, original)
-        assert job['status'] == 'failed' and 'format' in job['message']
+        assert job['status'] == 'failed' and expected_message in job['message']
         assert (original.root/'nte/stage.json').read_bytes() == previous
         assert not (original.root/'nte/current.json').exists()
+        assert not list((original.root/'nte/cache/tools/nte-publisher/game-data-audio/bindings').glob('*.json'))
     finally: service.close()
+
+
+@pytest.mark.parametrize('version,event,language,expected', [(154,12,34,None),
+    (155,12,34,'unsupported_game_format'), (155,99,77,'unsupported_game_format'),
+    (154,99,34,'nte_voice_binding_unverified'), (154,12,77,'nte_voice_binding_unverified')])
+def test_bank_header_distinguishes_schema_from_owner_evidence(version, event, language, expected):
+    raw = b'BKHD'+struct.pack('<IIII',12,version,event,language)
+    if expected is None: audio._validate_bank_header(raw,12,34)
+    else:
+        with pytest.raises(GameDataError) as caught: audio._validate_bank_header(raw,12,34)
+        assert caught.value.code == expected
+
+
+@pytest.mark.parametrize('damage', ['short', 'marker', 'short-chunk', 'long-chunk'])
+def test_malformed_bank_shape_keeps_the_format_gate(damage):
+    raw = b'BKHD'+struct.pack('<IIII',12,154,12,34)
+    if damage == 'short': raw = raw[:19]
+    elif damage == 'marker': raw = b'NOPE'+raw[4:]
+    else: raw = raw[:4]+struct.pack('<I',8 if damage == 'short-chunk' else len(raw))+raw[8:]
+    with pytest.raises(GameDataError) as caught: audio._validate_bank_header(raw,12,34)
+    assert caught.value.code == 'unsupported_game_format'
 
 
 def test_audio_source_rejects_final_pointer_change_interruption_and_codec_switch_without_losing_old_ready(tmp_path, monkeypatch):
