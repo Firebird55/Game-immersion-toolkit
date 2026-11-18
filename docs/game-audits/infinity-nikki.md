@@ -762,6 +762,21 @@ distinct input-validation and service-discovery observations, not a proven
 keychain serializer, GUID binding or concrete module implementation. The next
 exact continuations are quoted separately and not followed automatically.
 
+The next fixed-window control-flow probe follows reachable branches within the
+approved ranges, including paths beyond early returns. It consumes 644 unique
+instruction bytes and 1,185 receipt bytes. The separately approved mode-zero
+lookup table is exactly 128 original bytes with a 1,111-byte source receipt.
+Together these establish standard Base64 alphabet mapping, four-to-three byte
+packing, two/three-character tails, removal of trailing padding, and zero return
+for invalid ASCII mappings or a remaining length congruent to one modulo four.
+Non-ASCII units fail; empty stripped input succeeds. No canonical padding-bit
+test appears in the complete core. No decoder or keychain parser is implemented
+from this evidence. The lookup fallback loads a pointer from its name-owned
+descriptor, but the concrete implementation and original construction remain
+unresolved. All evidence retains the CN/common source qualification; no CMS
+response, GUID/group serialization, dynamic-index decryption or Global service
+equivalence is accepted by establishing this input-decoding contract.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
