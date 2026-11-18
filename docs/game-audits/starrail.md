@@ -996,6 +996,16 @@ the declared method ends. The physical method endpoint remains unresolved.
 Both probes verified the publisher hashes and input fences. The MethodDef
 records and native pointer slots still require original-input verification.
 
+The pinned method reader uses a TypeDef-owned MethodDef index for both its
+26-byte metadata row and its eight-byte native pointer slot. Code registration
+provides the pointer table address. The native endpoint probe found both
+declared spans in file-backed PE data, with no independently registered table
+starting at either candidate end. The nearest following consumed start,
+`TypesRva`, is respectively 1,142,640 and 1,187,584 bytes later. An independent
+native slot count or a consumed boundary at the candidate end is still
+required. [Pinned method reader](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Definitions/Il2CppMethodDefinition.cs)
+· [Pinned code registration](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/CodeRegistration.cs)
+
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
   original resource literals, then searches for constructor, static array and
