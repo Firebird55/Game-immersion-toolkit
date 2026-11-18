@@ -1,0 +1,29 @@
+{
+  "schema": "toolkit-android-publisher-hash-recipe-v1",
+  "contract": "toolkit-publisher-hash-v1",
+  "library": "libtoolkit_publisher_hash.so",
+  "source": {
+    "source": "https://files.pythonhosted.org/packages/c9/b5/3d11d3830ace56d67ea83136c24385c3b07da5a9bc62b73b0b94ac096da3/xxhash-4.1.0.tar.gz",
+    "bytes": 114122,
+    "sha256": "c9b288e4c1f5dae54417bc8a05e6f6daf505783d916b4783f4dd2f2e7d5db486",
+    "root": "xxhash-4.1.0",
+    "version": "4.1.0",
+    "xxhash_version": "0.8.4",
+    "members": {
+      "deps/xxhash/xxhash.h": "3dc8d161e867a62d3417f7885b55fdaded8b7b497e2f165d05c94f4fe24f2ca4",
+      "deps/xxhash/LICENSE": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a",
+      "LICENSE": "b76e99529f3e47372029e11914a8f4b95d6313463ed5a1a5c9afe96c3e015114"
+    },
+    "license": "BSD-2-Clause"
+  },
+  "abis": {"arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android"},
+  "api": 24,
+  "ndk": "27.3.13750724",
+  "load_alignment": 16384,
+  "authored_vectors": "packaging/android/publisher-hash-authored-vectors.json",
+  "max_bytes": 4096,
+  "seed": 0,
+  "custom_secret": false,
+  "original_client_execution": false,
+  "cpython": false
+}

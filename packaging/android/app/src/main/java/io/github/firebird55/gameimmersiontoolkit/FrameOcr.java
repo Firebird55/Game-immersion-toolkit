@@ -38,6 +38,11 @@ public final class FrameOcr {
     private final Context context;
     private NativeX64Decoder dataDecoder;
     private PublisherCrypto publisherCrypto;
+    private PublisherHash publisherHash;
+    public synchronized PublisherHash publisherHash() {
+        if (publisherHash == null) publisherHash = new PublisherHash(context);
+        return publisherHash;
+    }
     public synchronized PublisherCrypto publisherCrypto() {
         if (publisherCrypto == null) publisherCrypto = new PublisherCrypto(context);
         return publisherCrypto;

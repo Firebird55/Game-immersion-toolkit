@@ -1,0 +1,247 @@
+{
+  "schema": "toolkit-authored-publisher-hash-v1",
+  "algorithm": "XXH3-64",
+  "seed": 0,
+  "custom_secret": false,
+  "supplier_version": "4.1.0",
+  "xxhash_version": "0.8.4",
+  "reference_native_sha256": "b93a04ab5bf2fdb05b3d000d56a42c000f4f2353aa78a431bdbed7463957e137",
+  "original_game_bytes": false,
+  "cases": [
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 0,
+      "expected_hex": "2d06800538d394c2"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 1,
+      "expected_hex": "dd9adf665c968614"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 3,
+      "expected_hex": "d48ea69323cfdba9"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 4,
+      "expected_hex": "2c710c573fbdedc1"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 7,
+      "expected_hex": "2be2cc31303a2372"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 8,
+      "expected_hex": "e6b2003e900d4525"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 9,
+      "expected_hex": "76681a81bdd0456a"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 15,
+      "expected_hex": "3eaa23d194e14ddf"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 16,
+      "expected_hex": "7c008721b0609ba4"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 17,
+      "expected_hex": "2dc4c278c95de62f"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 31,
+      "expected_hex": "96eed7daa98eadcc"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 32,
+      "expected_hex": "f0ce15765848e6d9"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 33,
+      "expected_hex": "5fc46474239c3a2d"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 63,
+      "expected_hex": "5d764251457e8b8b"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 64,
+      "expected_hex": "0c743fd8c94a17fe"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 65,
+      "expected_hex": "2ee45e3847d26555"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 95,
+      "expected_hex": "88e1d03475325089"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 96,
+      "expected_hex": "d205a86cd0337fcb"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 97,
+      "expected_hex": "180fd791653c4569"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 127,
+      "expected_hex": "4a1b56fb3b810f0f"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 128,
+      "expected_hex": "fa6b35a0fef6a014"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 129,
+      "expected_hex": "ae0ec6636ca32f5f"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 159,
+      "expected_hex": "7824d53a2cb52760"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 160,
+      "expected_hex": "b85b1e6494f25312"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 161,
+      "expected_hex": "c0997c6c1b58ffd8"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 239,
+      "expected_hex": "ce2341c9acaeb6a5"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 240,
+      "expected_hex": "054e2a5ed1b56b21"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 241,
+      "expected_hex": "7e7c388d96166831"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 255,
+      "expected_hex": "cd7305825a3e1f0b"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 256,
+      "expected_hex": "c479da6d29be5d42"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 257,
+      "expected_hex": "3ccdbaae5027fadb"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 511,
+      "expected_hex": "73118ab5a3018f1c"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 512,
+      "expected_hex": "1519d000310b58b0"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 513,
+      "expected_hex": "e9e63cf5a46263d8"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 1023,
+      "expected_hex": "687bc92e7f6d7957"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 1024,
+      "expected_hex": "64d971e55b0d00ed"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 1025,
+      "expected_hex": "221050ef82381dc5"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 2047,
+      "expected_hex": "b9b6f850acb9ed86"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 2048,
+      "expected_hex": "ffb9307350069ac3"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 2049,
+      "expected_hex": "768f845b0b0a8bfa"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 4095,
+      "expected_hex": "3aa371e1e93fa463"
+    },
+    {
+      "pattern": "sequence-73-19",
+      "bytes": 4096,
+      "expected_hex": "b603696e4b4e342f"
+    },
+    {
+      "pattern": "utf8",
+      "text": "Authored hash data",
+      "expected_hex": "04b30590d172a450"
+    },
+    {
+      "pattern": "utf8",
+      "text": "测试文字",
+      "expected_hex": "a61550b236e4771c"
+    },
+    {
+      "pattern": "utf8",
+      "text": "独自の検証",
+      "expected_hex": "15f386f9df8ef190"
+    },
+    {
+      "pattern": "utf8",
+      "text": "테스트 문자열",
+      "expected_hex": "c5f6ad1a6972877d"
+    },
+    {
+      "pattern": "utf8",
+      "text": "a\\u0000b",
+      "expected_hex": "fa870a0539ea55f1"
+    }
+  ]
+}

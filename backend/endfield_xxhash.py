@@ -47,6 +47,10 @@ def implementation():
         raise ValueError('Repair the pinned original-parameter hash dependency.') from error
 
 
-def hash64(data):
+def hash64(data, *, hashing=None):
     check(isinstance(data, bytes) and len(data) <= 4096)
+    if hashing is not None:
+        from .android_publisher_hash import AndroidPublisherHash
+        check(type(hashing) is AndroidPublisherHash)
+        return hashing.xxh3_64(data)
     return implementation()(data)
