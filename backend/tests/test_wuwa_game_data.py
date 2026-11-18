@@ -56,7 +56,8 @@ def original(tmp_path, monkeypatch, signing_key):
         if url.startswith(provider._source().CATALOGUE + '?_t='):
             raw = json.dumps({'primary': URL, 'version': '1.0.0'}).encode()
             return Response(raw, url, headers={'Content-Length': str(len(raw))})
-        assert url == URL
+        if url != URL:
+            return controls['extra_response'](request)
         carrier = controls.get('carrier') or apk
         headers = {'ETag': '"original"'}
         if request.get_header('Range'):
@@ -69,7 +70,7 @@ def original(tmp_path, monkeypatch, signing_key):
         def on_read():
             if controls['cancel'] is not None: controls['cancel'].cancel.set()
         return Response(bytes(raw), url, headers=headers, on_read=on_read)
-    controls['transport_factory'] = lambda ctx, **kwargs: PublisherTransport(ctx, opener=open_, **kwargs)
+    controls['transport_factory'] = lambda ctx, *, opener=None, **kwargs: PublisherTransport(ctx, opener=open_, **kwargs)
     monkeypatch.setattr(provider, 'PublisherTransport', controls['transport_factory'])
     # This lane must not touch legacy seeds, protected ownership, or processes.
     from backend import wuthering_metadata
@@ -102,9 +103,118 @@ def test_real_shared_transport_full_integrity_stage_then_honest_format_gate(tmp_
     controls['offline'] = True
     ctx.phase, ctx.stage_handle = 'plan', stage.restore_handle
     gate = adapter.plan(ctx.request, ctx)
-    assert gate.stage == 'manifest-format' and not gate.runtime_available and gate.source_proof is None
+    assert gate.stage == 'manifest-format' and gate.runtime_available and gate.download_is_upper_bound and gate.source_proof is None
     with pytest.raises(GameDataError) as failure: adapter.restore(stage.restore_handle, ctx)
-    assert failure.value.code == 'publisher_format_key_unresolved'
+    assert failure.value.code == 'publisher_manifest_incomplete'
+
+
+@pytest.mark.parametrize('variant', ['plaintext', 'fallback', 'bad-source', 'bad-index', 'entry-moved'])
+def test_original_global_manifest_stage_uses_only_hash_verified_fallback(tmp_path, original, monkeypatch, variant):
+    import gzip
+    import hashlib
+    from backend import wuthering_manifest as manifest
+    from backend.tests.test_wuthering_entry_failures import KEY, IV, source as format_source
+    from backend.tests.test_wuthering_metadata import encrypted_package
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    import base64
+
+    _module, apk, calls, controls = original
+    ctx = Context(tmp_path)
+    adapter = provider.create_provider('android', transport_factory=controls['transport_factory'])
+    quote = adapter.plan(ctx.request, ctx)
+    ctx.phase, ctx.consumed, ctx.budget = 'download', 0, quote.download_bytes
+    stage = adapter.download(quote, ctx)
+    parameter = provider._retained(ctx, stage.restore_handle)[1]
+    prefix, route = 'https://aki-config-owned.aki-game.net', 'OwnedEntryRoute123456'
+    bootstrap = bytes(encrypted_package(parameter, directory_name='Config/Kuro/',
+        filename='KuroPublicConfig.ini', payload=f'InternalPrefix={prefix}\nUrlPath={route}\n'.encode()))
+    entry_url = prefix + '/' + route + '/index.json'
+    cdn = 'https://owned.aki-game.net'
+    launcher_path = '/launcher/game/G153/50004/1.0.0/Owned/common/indexFile.json'
+    launcher_base = launcher_path.removesuffix('/common/indexFile.json') + '/zip'
+    bootstrap_url = cdn + launcher_base + '/' + manifest.BOOTSTRAP
+    download_root = cdn + '/prod/client/'
+    content = download_root + 'OwnedResourceRoot123/Windows/'
+    key_root = download_root + 'OwnedNativeRoot12345/Windows/'
+
+    def wire(value):
+        plain = json.dumps(value).encode()
+        if variant == 'plaintext':
+            return plain
+        return base64.b64encode(AES.new(KEY, AES.MODE_CBC, IV).encrypt(pad(plain, 16)))
+
+    common = json.dumps({'resource': [{'dest': manifest.BOOTSTRAP, 'size': len(bootstrap),
+        'md5': hashlib.md5(bootstrap).hexdigest()}]}).encode()
+    compatibility = format_source()
+    monkeypatch.setattr(manifest, 'FORMAT_SHA', hashlib.sha256(compatibility).hexdigest())
+    routes = {
+        manifest.KURO: json.dumps({'resourcePacks': {'common': {'version': '1.0.0',
+            'indexFile': launcher_path[1:], 'baseUrl': launcher_base[1:],
+            'indexFileMd5': hashlib.md5(common).hexdigest()}}, 'cdnList': [{'url': cdn}]}).encode(),
+        cdn + launcher_path: common,
+        manifest.FORMAT_URL: compatibility + (b'x' if variant == 'bad-source' else b''),
+        entry_url: wire({'default': {'ResUri': 'OwnedResourceRoot123', 'MixUri': 'OwnedNativeRoot12345',
+            'CdnUrl': [{'url': download_root, 'weight': 1}]}}),
+    }
+    channels = {}
+    for name in ('resource', *manifest.DUBS):
+        base = wire({'Version': '1.0.0', 'Pv': 1, 'DiffPatch': {
+            'PatchFiles': [], 'BaseFiles': [{'Name': f'{name}.pak', 'Size': 64, 'Hash': 'a'*40}]}})
+        channels[name] = {'Version': '1.0.0', 'Name': name, 'IndexSha1': {'1.0.0': hashlib.sha1(base).hexdigest()}}
+        filename = 'ManifestResource' if name == 'resource' else 'ManifestLang_' + name
+        routes[content+'1.0.0/'+filename+'.txt'] = base + (b'x' if variant == 'bad-index' and name == 'ja' else b'')
+    routes[content+'config.json'] = wire({'PackageVersion': '1.0.0', 'ResVersions': channels})
+    for name in ('KeyList_1.0.0.json', 'KeyList.json'):
+        routes[key_root+name] = wire({'UpdateTime': 0, 'Hash': '', 'Key': ''})
+
+    entry_reads = 0
+
+    def extra_response(request):
+        nonlocal entry_reads
+        url = request.full_url
+        if url == bootstrap_url:
+            start, end = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
+            raw = bootstrap[start:end+1]
+            return Response(raw, url, 206, {'Content-Range': f'bytes {start}-{end}/{len(bootstrap)}',
+                'Content-Length': str(len(raw)), 'ETag': '"pak-source"'})
+        raw = routes[url]
+        if url == entry_url:
+            entry_reads += 1
+            if entry_reads == 2 and variant == 'entry-moved':
+                raw = raw + b' '
+        headers = {}
+        if url in (manifest.KURO, cdn + launcher_path):
+            raw = gzip.compress(raw)
+            headers['Content-Encoding'] = 'gzip'
+        headers['Content-Length'] = str(len(raw))
+        return Response(raw, url, headers=headers)
+
+    controls['extra_response'] = extra_response
+    ctx.phase, ctx.stage_handle = 'plan', stage.restore_handle
+    next_quote = adapter.plan(ctx.request, ctx)
+    ctx.phase, ctx.consumed, ctx.budget = 'download', 0, next_quote.download_bytes
+    failures = {'bad-source': 'publisher_checksum_mismatch', 'bad-index': 'publisher_checksum_mismatch',
+        'entry-moved': 'publisher_object_changed'}
+    if variant in failures:
+        with pytest.raises(GameDataError) as invalid:
+            adapter.download(next_quote, ctx)
+        assert invalid.value.code == failures[variant]
+        assert not (tmp_path / 'wuwa/current.json').exists()
+        return
+    verified = adapter.download(next_quote, ctx)
+    assert verified.restore_handle['stage'] == 'manifest-verified'
+    assert sum(request.full_url == manifest.FORMAT_URL for request in calls) == (variant == 'fallback')
+    receipt = provider._file(ctx, verified.restore_handle['inventory_sha256']+'.json').read_bytes()
+    assert json.loads(receipt)['entry_source_sha256'] == (manifest.FORMAT_SHA if variant == 'fallback' else None)
+    assert compatibility not in receipt
+    assert set(json.loads(receipt)['versions']) == {'resource', *manifest.DUBS}
+    assert entry_reads == 2
+    controls['offline'] = True
+    ctx.phase, ctx.stage_handle = 'plan', verified.restore_handle
+    assert not adapter.plan(ctx.request, ctx).runtime_available
+    with pytest.raises(GameDataError, match='portable content reader'):
+        adapter.restore(verified.restore_handle, ctx)
 
 
 @pytest.mark.parametrize('fault', ['corrupt', 'cancel', 'budget'])
@@ -180,7 +290,7 @@ def test_actual_settings_service_stage_restart_gate_and_scoped_delete(tmp_path, 
     restarted = GameDataService(tmp_path, {'wuwa': adapter})
     try:
         row = restarted.plan('wuwa', request)['game']
-        assert not row['can_download'] and not row['can_activate'] and row['installed_bytes'] > 0
+        assert row['can_download'] and not row['can_activate'] and row['installed_bytes'] > 0
         assert provider.FORMAT_MESSAGE in row['message']
         removed = restarted.delete('wuwa', {'revision': row['revision']})
         assert removed['freed_bytes'] > 0 and not (tmp_path / 'wuwa').exists()
@@ -265,7 +375,7 @@ def test_android_explicit_capability_drives_full_pure_bootstrap_without_desktop_
     ctx.stage_handle = stage.restore_handle
     assert adapter.plan(ctx.request,ctx).stage == 'manifest-format'
     with pytest.raises(GameDataError) as error: adapter.restore(stage.restore_handle,ctx)
-    assert error.value.code == 'publisher_format_key_unresolved'
+    assert error.value.code == 'publisher_manifest_incomplete'
 
 
 def test_cancel_during_local_native_derivation_never_publishes_module_or_stage(tmp_path, original, monkeypatch):

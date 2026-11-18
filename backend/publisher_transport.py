@@ -118,19 +118,22 @@ class PublisherTransport:
         self.ctx, self.hosts, self.timeout = ctx, hosts, timeout
         self.open = opener if opener is not None else build_opener(_PublisherRedirect(hosts)).open
 
-    def _transfer(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None):
+    def _transfer(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None, allow_gzip=False):
         # Budget checks, body reads and consumption share the service's lock.
         # Two provider threads cannot both spend the same remaining allowance.
         with self.ctx.transfer_lock:
             return self._transfer_locked(url, sink, limit=limit, kind=kind, expected_size=expected_size,
-                digests=digests, original_range=original_range, headers=headers, method=method, body=body, consumer=consumer)
+                digests=digests, original_range=original_range, headers=headers, method=method, body=body, consumer=consumer, allow_gzip=allow_gzip)
 
-    def _transfer_locked(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None):
+    def _transfer_locked(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None, allow_gzip=False):
         source_url(url, self.hosts)
         if kind not in {'metadata', 'asset', 'audio'} or not _integer(limit, minimum=1):
             raise ValueError('A positive typed transfer bound is required')
         if expected_size is not None and (not _integer(expected_size) or expected_size > limit):
             raise ValueError('The expected original size must fit its transfer bound')
+        if type(allow_gzip) is not bool or allow_gzip and (
+                kind != 'metadata' or original_range is not None or method != 'GET' or consumer is not None):
+            raise ValueError('Compressed responses require a whole metadata GET')
         expected = _expected_hashes(digests)
         if method not in {'GET', 'POST'} or method == 'GET' and body is not None:
             raise ValueError('Only explicit original metadata/data requests are supported')
@@ -176,7 +179,9 @@ class PublisherTransport:
                 status = response.status
                 if status != (206 if original_range else 200):
                     raise GameDataError('publisher_response_invalid', 'The game server returned an incomplete download response.')
-                if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
+                encodings = response.headers.get_all('Content-Encoding', ['identity'])
+                allowed = ('identity', 'gzip') if allow_gzip else ('identity',)
+                if len(encodings) != 1 or encodings[0].lower() not in allowed:
                     raise GameDataError('publisher_response_invalid', 'The game download encoding changed unexpectedly.')
                 tags = response.headers.get_all('ETag', [])
                 if len(tags) > 1:
@@ -283,10 +288,12 @@ class PublisherTransport:
             headers=headers, digests=digests, original_range=None, method='GET', body=None, consumer=consumer)
 
     def fetch_bytes(self, url, *, limit, kind='metadata', expected_size=None, digests=None, original_range=None,
-                    headers=None, method='GET', body=None):
+                    headers=None, method='GET', body=None, allow_gzip=False):
+        # The caller parses a bounded gzip representation after transport
+        # verification. Bytes charged and hashed here are always wire bytes.
         chunks = []
         receipt = self._transfer(url, chunks.append, limit=limit, kind=kind, expected_size=expected_size,
-            digests=digests, original_range=original_range, headers=headers, method=method, body=body)
+            digests=digests, original_range=original_range, headers=headers, method=method, body=body, allow_gzip=allow_gzip)
         return b''.join(chunks), receipt
 
     def stream_bytes(self, url, receive, *, limit, expected_size, digests=None, original_range=None):

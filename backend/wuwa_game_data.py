@@ -1,10 +1,11 @@
-"""Consented official bootstrap stage, with an explicit unresolved format gate.
+"""Consented Wuthering bootstrap and release manifest verification.
 
 This provider does not activate a matcher or claim a prepared language library.
 Downloaded publisher code is read as bounded data and is never executed.
 """
 import base64
 import hashlib
+from functools import lru_cache
 import json
 from pathlib import Path
 import re
@@ -13,13 +14,15 @@ import tempfile
 import time
 from urllib.parse import urlsplit
 
-from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage
+from .game_data_protocol import GameDataError, GameDataPlan, MAX_METADATA_BYTES, PreparationStage
 from .publisher_transport import PublisherTransport
 from .private_data_paths import _no_links
 
 POLICY = 'wuwa-official-bootstrap-stage/1'
-FORMAT_MESSAGE = ('The original bootstrap module is verified. Independent release-manifest '
-    'key/IV discovery is still unavailable; no language library has been activated.')
+FORMAT_MESSAGE = ('The original bootstrap module is verified. Check the official Global release and '
+    'its resource and dub manifests. Encrypted metadata uses verified community compatibility parameters.')
+CONTENT_MESSAGE = ('The official Global release and its resource and dub manifests are verified. '
+    'Preparing dialogue tables and audio still requires the portable content reader.')
 METADATA_MAX = 2 * 1024**2
 
 
@@ -69,7 +72,7 @@ def _archive(transport, url, total, etag, crypto):
 
 def _handle(value, request):
     if (not isinstance(value, dict) or value.get('policy') != POLICY or
-            value.get('request') != request.json() or value.get('stage') not in ('bootstrap', 'manifest-format')):
+            value.get('request') != request.json() or value.get('stage') not in ('bootstrap', 'manifest-format', 'manifest-verified')):
         raise GameDataError('invalid_source_handle', 'Check the Wuthering download size again.')
     return value
 
@@ -87,8 +90,8 @@ def _retained(ctx, value):
     if not valid:
         raise GameDataError('publisher_bootstrap_cache_invalid', 'The original bootstrap module needs repair.')
     # Derive only in memory; the archive reader has not yet authorized a key.
-    source_reader.default_output(module, source['module']['sha256'], check=ctx.check)
-    return source
+    result = source_reader.default_output(module, source['module']['sha256'], check=ctx.check)
+    return source, result.parameter
 
 
 class WutheringGameDataProvider:
@@ -100,9 +103,19 @@ class WutheringGameDataProvider:
         self.platform, self.native = platform, native
         self._transport_factory = transport_factory
 
-    def _transport(self, ctx, **kwargs):
-        factory = self._transport_factory or PublisherTransport
-        return factory(ctx, **kwargs)
+    def _transport(self, ctx, *, hosts):
+        if self._transport_factory is not None:
+            return self._transport_factory(ctx, hosts=hosts)
+        if self.platform in ('desktop', 'windows') and sys.platform == 'win32' and any(
+                re.fullmatch(r'[a-z0-9-]+\.aki-game\.(?:com|net)', host) for host in hosts):
+            # Match the existing verified Windows Kuro trust route when a
+            # conflicting intermediate is present in the Windows system store.
+            from urllib.request import HTTPSHandler, build_opener
+            from .publisher_transport import _PublisherRedirect
+            from .wuthering_release_pak import _publisher_tls
+            opener = build_opener(_PublisherRedirect(hosts), HTTPSHandler(context=_publisher_tls()))
+            return PublisherTransport(ctx, hosts=hosts, opener=opener.open)
+        return PublisherTransport(ctx, hosts=hosts)
 
     def _crypto(self):
         try:
@@ -119,15 +132,122 @@ class WutheringGameDataProvider:
             raise GameDataError('game_runtime_unavailable',
                 'The verified publisher cryptography runtime is unavailable on this device.', 409) from error
 
+    def _verify_manifest(self, handle, ctx):
+        from . import wuthering_manifest as manifest, wuthering_publisher_keys as publisher_keys
+        from .preparation_errors import PreparationFailure
+        from .wuthering_portable_pak import PortablePackage
+
+        source, parameter = _retained(ctx, handle)
+        crypto = self._crypto()
+
+        def fetch(url, **options):
+            transport = self._transport(ctx, hosts={urlsplit(url).hostname})
+            return transport.fetch_bytes(url, **options)
+
+        def read(url):
+            raw, _ = fetch(url, limit=manifest.LIMIT)
+            return raw
+
+        def launcher_read(url):
+            raw, _ = fetch(url, limit=manifest.LIMIT, allow_gzip=True)
+            return manifest.launcher_bytes(raw)
+
+        def launcher_index(url, sha):
+            raw = launcher_read(url)
+            manifest._check(hashlib.md5(raw).hexdigest() == sha)
+            return raw
+
+        used_compatibility = False
+
+        @lru_cache(maxsize=1)
+        def parameters():
+            nonlocal used_compatibility
+            raw, _ = fetch(manifest.FORMAT_URL, limit=40 * 1024, digests={'sha256': manifest.FORMAT_SHA})
+            value = manifest.parse_entry_source(raw, manifest.FORMAT_SHA)
+            used_compatibility = True
+            return value
+
+        def decode(raw):
+            return manifest.decode_manifest(raw, parameters, crypto)
+
+        def inventory_read(url, digest):
+            raw, _ = fetch(url, limit=manifest.LIMIT, digests={'sha1': digest})
+            return decode(raw)
+
+        try:
+            version, launcher_root, files = manifest.launcher('global', launcher_read, launcher_index)
+            url = launcher_root + '/' + manifest.BOOTSTRAP
+            size, digest = files[manifest.BOOTSTRAP]
+            _, witness = fetch(url, limit=1, expected_size=1, original_range=(0, 1, size))
+            etag = witness.response_etag
+            manifest._check(etag)
+
+            def read_range(owner, total, offset, count):
+                raw, receipt = fetch(owner, limit=count, expected_size=count,
+                    original_range=(offset, count, total), headers={'If-Match': etag})
+                manifest._check(receipt.response_etag == etag)
+                return raw
+
+            package = PortablePackage(url, size, digest, _file(ctx, 'manifest-index'), (parameter,),
+                range_reader=read_range, crypto=crypto, native_parameters={}, verified_default_parameters=())
+            manifest._check(package.verified_default_parameter)
+            config = package.member('Client/Config/Kuro/KuroPublicConfig.ini')
+            entry, cdn, root, release, platform, pointers = manifest.platform_config(config, version, 'global', read, decode)
+            versions, _, products = manifest.resource_inventory(root, release, platform['ResVersions'], inventory_read)
+            manifest._check(products)
+            mix = entry.get('MixUri')
+            manifest._check(isinstance(mix, str) and re.fullmatch(r'[A-Za-z0-9]{16,80}', mix))
+            native = publisher_keys.current(_file(ctx, 'manifest-index'), cdn['url'] + mix + '/Windows/',
+                release, 'global', (parameter,), lambda url, *, limit: fetch(url, limit=limit)[0],
+                decode, pointers, verified_defaults=(parameter,))
+            if (any(read(url) != raw for url, raw in pointers.items()) or
+                    manifest.launcher('global', launcher_read, launcher_index) != (version, launcher_root, files)):
+                raise GameDataError('publisher_object_changed', 'Kuro changed the release during verification. Retry.', 409)
+        except PreparationFailure as error:
+            raise GameDataError(error.code, str(error), 409) from error
+        except (ValueError, KeyError, TypeError) as error:
+            raise GameDataError('publisher_metadata_invalid',
+                'The official Wuthering release could not be verified. Your previous data is retained.', 409) from error
+        receipt = {'version': version, 'versions': versions, 'packages': products, 'root': root,
+            'launcher_root': launcher_root, 'launcher_packages': files,
+            'bootstrap': digest, 'native_key_sources': native.sources,
+            'entry_source_sha256': manifest.FORMAT_SHA if used_compatibility else None,
+            'pointers_sha256': {url: _digest(raw) for url, raw in pointers.items()}}
+        raw = _json(receipt)
+        if len(raw) > METADATA_MAX:
+            raise GameDataError('publisher_metadata_limit', 'The Wuthering release inventory exceeds its size limit.')
+        key = _digest(raw)
+        ctx.check()
+        _save(_file(ctx, key + '.json'), raw)
+        return PreparationStage({'policy': POLICY, 'stage': 'manifest-verified',
+            'request': ctx.request.json(), 'source': source, 'inventory_sha256': key,
+            'revision': versions['resource']}, CONTENT_MESSAGE)
+
+    def _verified_inventory(self, handle, ctx):
+        key = handle.get('inventory_sha256', '')
+        if not isinstance(key, str) or not re.fullmatch('[0-9a-f]{64}', key):
+            raise GameDataError('invalid_source_handle', 'Check the Wuthering release again.')
+        path = _file(ctx, key + '.json')
+        if not path.is_file() or path.stat().st_size > METADATA_MAX or _digest(path.read_bytes()) != key:
+            raise GameDataError('publisher_manifest_cache_invalid', 'The verified Wuthering release inventory needs repair.')
+
     def plan(self, request, ctx):
         _request(request)
         ctx.check()
         if ctx.stage_handle is not None:
             previous = _handle(ctx.stage_handle, request)
+            if previous['stage'] == 'manifest-verified':
+                self._verified_inventory(previous, ctx)
+                return GameDataPlan(previous['revision'], None, None, previous,
+                    stage='manifest-verified', message=CONTENT_MESSAGE)
             if previous['stage'] == 'manifest-format':
-                source = _retained(ctx, previous)
-                return GameDataPlan(source['version'], 0, 0, previous, runtime_available=False,
-                    stage='manifest-format', message=FORMAT_MESSAGE)
+                source, _ = _retained(ctx, previous)
+                if request.region == 'global':
+                    return GameDataPlan(source['version'], MAX_METADATA_BYTES, MAX_METADATA_BYTES + 3 * METADATA_MAX, previous,
+                        download_is_upper_bound=True, runtime_available=True,
+                        stage='manifest-format', message=FORMAT_MESSAGE)
+                return GameDataPlan(source['version'], None, None, previous, stage='manifest-format',
+                    message='This manifest reader currently supports the Global edition.')
         crypto = self._crypto()
         source_reader = _source()
         metadata = self._transport(ctx, hosts={urlsplit(source_reader.CATALOGUE).hostname})
@@ -165,14 +285,17 @@ class WutheringGameDataProvider:
         # member is retained. It may contain unused packaged audio; disclose it.
         disk = packed + entry['plain'] + len(serialized) + 64 * 1024
         return GameDataPlan(catalogue['version'], total, disk, handle, runtime_available=True,
-            stage='bootstrap', message='Language preparation remains blocked by release-manifest key/IV discovery after this step. '
-                'Verify the complete original installer carrier and retain only its native module. '
+            stage='bootstrap', message='Verify the complete original installer carrier and retain only its native module. '
                 'The carrier includes unused packaged media. No optional voice pack or language library is downloaded in this stage.')
 
     def download(self, plan, ctx):
         handle = _handle(plan.handle, ctx.request)
+        if handle['stage'] == plan.stage == 'manifest-format' and ctx.request.region == 'global':
+            if plan.download_bytes != MAX_METADATA_BYTES:
+                raise GameDataError('invalid_download_plan', 'Check the Wuthering manifest download again.')
+            return self._verify_manifest(handle, ctx)
         if handle['stage'] != 'bootstrap' or plan.stage != 'bootstrap':
-            raise GameDataError('publisher_format_key_unresolved', FORMAT_MESSAGE, 409)
+            raise GameDataError('invalid_download_plan', 'Check the Wuthering download again.')
         key = handle.get('artifact_sha256', '')
         if not isinstance(key, str) or not re.fullmatch('[0-9a-f]{64}', key):
             raise GameDataError('invalid_source_handle', 'Check the original download again.')
@@ -243,8 +366,11 @@ class WutheringGameDataProvider:
         if handle['stage'] == 'bootstrap':
             raise GameDataError('publisher_bootstrap_incomplete',
                 'The original bootstrap download has not been verified. Complete its download stage before preparing language data; existing data is unchanged.', 409)
+        if handle['stage'] == 'manifest-verified':
+            self._verified_inventory(handle, ctx)
+            raise GameDataError('publisher_content_reader_unavailable', CONTENT_MESSAGE, 409)
         _retained(ctx, handle)
-        raise GameDataError('publisher_format_key_unresolved', FORMAT_MESSAGE, 409)
+        raise GameDataError('publisher_manifest_incomplete', FORMAT_MESSAGE, 409)
 
 
 def create_provider(platform, native=None, *, transport_factory=None):

@@ -15,7 +15,7 @@ from types import MappingProxyType
 from urllib.parse import urlsplit
 import uuid
 
-from .game_tools import _atomic_file
+from .atomic_files import write_bytes as _atomic_file
 from .preparation_errors import PreparationFailure
 
 KEYLIST_LIMIT = 16 * 1024

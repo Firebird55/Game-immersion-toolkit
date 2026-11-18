@@ -22,17 +22,22 @@ def protected(monkeypatch):
     monkeypatch.setattr(lexirise, '_protect', envelope)
 
 
-def encrypted_package(parameter):
+def encrypted_package(parameter, *, directory_name='voices/', filename='a.wem', payload=None):
     def i(value): return struct.pack('<i', value)
     def text(value):
         raw = value.encode() + b'\0'
         return i(len(raw)) + raw
     def aligned(raw): return raw + bytes(-len(raw) % 16)
-    directory = aligned(i(1) + text('voices/') + i(1) + text('a.wem') + i(0))
-    encoded = struct.pack('<IBII', 0xa0000000, 0, 16, 32)
+    directory = aligned(i(1) + text(directory_name) + i(1) + text(filename) + i(0))
+    size, offset = (16, 32) if payload is None else (len(payload), 608)
+    encoded = struct.pack('<IBII', 0xa0000000, 0, size, offset)
     main = aligned(text('../../../Client/') + i(1) + bytes(8) + i(1) + bytes(36) + i(1)
         + struct.pack('<QQ', 512, len(directory)) + hashlib.sha1(directory).digest() + i(len(encoded)) + encoded)
     data = bytearray(1024)
+    if payload is not None:
+        assert 512 + len(directory) <= offset and offset + 53 + size < 819
+        header = struct.pack('<QQQI', 0, size, size, 0) + hashlib.sha1(payload).digest() + bytes(5)
+        data[offset:offset + 53 + size] = header + payload
     cipher = AES.new(parameter, AES.MODE_ECB)
     data[128:128+len(main)] = cipher.encrypt(main)
     data[512:512+len(directory)] = cipher.encrypt(directory)

@@ -1,9 +1,6 @@
 """Resolve the active regional Wuthering Waves story, movie and dub manifests."""
 import base64
-import binascii
 from functools import lru_cache
-import gzip
-import io
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -18,26 +15,12 @@ from urllib.parse import urlsplit
 
 from . import wuthering_release_pak as pak
 from .publisher_crypto import DesktopPublisherCrypto
-from .wuthering_manifest import decode_manifest
+from . import wuthering_manifest as manifest
+from .wuthering_manifest import CHANNELS, DUBS, FORMAT_SHA, FORMAT_URL, KURO, LIMIT, VERSION
 from .game_tools import _atomic_file, download as download_bytes
 from .wuthering_assets import PUBLIC_METADATA_URL
 
-KURO = ('https://prod-alicdn-gamestarter.kurogame.com/launcher/game/'
-        '50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json')
-
-CHANNELS = {
-    'global': (KURO, 'G153/50004', 'net'),
-    'cn': ('https://prod-volcdn-gamestarter.kurogame.xyz/launcher/game/'
-           '10003_oLNgHF1CESo51DGHN2odtp40e3oI1HfZ/G152/official/index.json', 'G152/10003', 'com'),
-}
-
-FORMAT_URL = ('https://raw.githubusercontent.com/Yumeo0/mornye-tools/4591ef24949688ec9835bf910a204d6bbc4b339c/'
-              'src-tauri/crates/game-client/src/discovery.rs')
-FORMAT_SHA = 'da9918d1a4ef286add40d78d40b433346e8e4790ca2bfcde6c392dd24b75c7fd'
-DUBS = ('en', 'ja', 'ko', 'zh')
 TIERS = ('sd', 'hd', 'uhd')
-LIMIT = 16 * 1024**2
-VERSION = r'[0-9]+\.[0-9]+\.[0-9]+'
 
 
 def download(url, *, limit):
@@ -69,14 +52,7 @@ def _native_key_download(url, *, limit):
 
 
 def kuro_bytes(url):
-    data = download(url, limit=LIMIT)
-    if data.startswith(b'\x1f\x8b'):
-        with gzip.GzipFile(fileobj=io.BytesIO(data)) as packed:
-            data = packed.read(LIMIT + 1)
-        if len(data) > LIMIT:
-            raise ValueError('Kuro launcher index exceeds its size limit.')
-    return data
-
+    return manifest.launcher_bytes(download(url, limit=LIMIT))
 
 @lru_cache(maxsize=3)
 def _launcher_manifest(url, digest):
@@ -87,47 +63,7 @@ def _launcher_manifest(url, digest):
 
 
 def launcher(region='global', *, excluded=()):
-    url, channel_path, domain = CHANNELS[region]
-    root = json.loads(kuro_bytes(url))
-    # The live tiered launcher publishes common separately from graphics packs.
-    # Pre-downloads and experiment branches can advertise an unreleased version.
-    config = root['resourcePacks']['common']
-    path, version = config['indexFile'], config['version']
-    pak.check(isinstance(config['indexFileMd5'], str) and re.fullmatch('[0-9a-f]{32}', config['indexFileMd5']))
-    if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch(
-            r'launcher/game/' + channel_path + '/' + re.escape(version) + r'/[A-Za-z0-9]+/common/indexFile\.json', path):
-        raise ValueError('Unrecognized regional Kuro launcher index.')
-    network_error = None
-    for candidate in root['cdnList']:
-        cdn = urlsplit(candidate['url'])
-        if (cdn.netloc not in excluded and cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, cdn.netloc)
-                and cdn.path in ('', '/') and not cdn.query and not cdn.fragment):
-            url = 'https://' + cdn.netloc + '/' + path
-            try:
-                data = _launcher_manifest(url, config['indexFileMd5'])
-            except OSError as error:
-                network_error = error
-                continue
-            break
-    else:
-        if network_error is not None:
-            raise network_error
-        raise ValueError('No recognized Kuro publisher CDN.')
-    files = {}
-    for row in json.loads(data)['resource']:
-        name = row['dest']
-        if name.startswith('Client/Content/Paks/') and name.lower().endswith('.pak'):
-            if (not re.fullmatch(r'Client/Content/Paks/[A-Za-z0-9_.-]+\.pak', name) or name in files or
-                    not re.fullmatch('[0-9a-f]{32}', row['md5']) or type(row['size']) is not int or row['size'] <= 0):
-                raise ValueError('Invalid or duplicate Kuro package.')
-            files[name] = [row['size'], row['md5']]
-    if not files:
-        raise ValueError('The Kuro launcher has no base game PAKs.')
-    folder = config['baseUrl'].rstrip('/')
-    if folder != path.removesuffix('/common/indexFile.json') + '/zip':
-        raise ValueError('Unexpected Kuro download directory.')
-    return version, 'https://' + cdn.netloc + '/' + folder, files
-
+    return manifest.launcher(region, kuro_bytes, _launcher_manifest, excluded=excluded)
 
 @lru_cache(maxsize=1)
 def _format(tools=None):
@@ -148,29 +84,13 @@ def _format(tools=None):
             raise PreparationFailure('publisher_entry_source_invalid',
                 'The Wuthering ENTRY source response could not be verified within its required bounds. Existing prepared text and audio are unchanged.',
                 previous_snapshot_retained=True) from error
-    if not isinstance(raw, bytes) or len(raw) > 40 * 1024 or hashlib.sha256(raw).hexdigest() != FORMAT_SHA:
-        raise PreparationFailure('publisher_entry_source_auth_failed',
-            'The Wuthering ENTRY input did not match its required source checksum. It was rejected; existing prepared text and audio are unchanged.',
-            previous_snapshot_retained=True)
-    try:
-        values = []
-        for name in (b'KEY', b'IV'):
-            matches = re.findall(b'const ENTRY_' + name + b': &str = "([^"\r\n]+)";', raw)
-            if len(matches) != 1:
-                raise ValueError('Expected one declaration')
-            values.append(base64.b64decode(matches[0], validate=True))
-        if len(values[0]) not in (16, 24, 32) or len(values[1]) != 16:
-            raise ValueError('Unsupported ENTRY input size')
-    except (ValueError, binascii.Error) as error:
-        raise PreparationFailure('publisher_entry_source_invalid',
-            'The verified Wuthering ENTRY source does not provide the required key and IV. Existing prepared text and audio are unchanged.',
-            previous_snapshot_retained=True) from error
+    parameters = manifest.parse_entry_source(raw, FORMAT_SHA)
     if downloaded and tools is not None:
         if not metadata.remember_format(tools, raw, FORMAT_SHA) or metadata.format_source(tools, FORMAT_SHA) != raw:
             raise PreparationFailure('publisher_entry_cache_failed',
                 'The verified Wuthering ENTRY input could not be retained safely. Check app data storage and retry; existing prepared text and audio are unchanged.',
                 previous_snapshot_retained=True)
-    return tuple(values)
+    return parameters
 
 
 def _archive_parameters(tools=None, historical=False):
@@ -257,7 +177,7 @@ def _bootstrap_package(tools, info, region):
 
 
 def _json(raw, tools=None):
-    return decode_manifest(raw, lambda: _format(tools), DesktopPublisherCrypto())
+    return manifest.decode_manifest(raw, lambda: _format(tools), DesktopPublisherCrypto())
 
 
 def _manifest(url, sha, cache=None):
@@ -276,106 +196,17 @@ def _manifest(url, sha, cache=None):
     return index
 
 
-def _size(value):
-    if isinstance(value, str) and re.fullmatch(r'__kr_long__[0-9]{1,16}', value):
-        value = int(value[11:])
-    pak.check(type(value) is int and 0 < value < 2**55)
-    return value
-
-
-def _file(name, size, digest):
-    pak.check(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9_-]+\.(?:pak|sig)', name))
-    pak.check(isinstance(digest, str) and re.fullmatch(r'[0-9a-fA-F]{40}', digest))
-    return [_size(size), digest.lower()]
-
-
 def _resource_inventory(root, release, channels, cache):
-    products, files, versions = {}, {}, {}
-
-    def record(channel, revision, index):
-        pak.check(index['Version'] == revision and index['Pv'] == 1)
-        versions[channel] = revision
-        for layer, folder in (('BaseFiles', release), ('PatchFiles', revision)):
-            for row in index['DiffPatch'][layer]:
-                name = row['Name']
-                info = _file(name, row['Size'], row['Hash'])
-                key = '/'.join((channel, layer, name))
-                pak.check(key not in files)
-                files[key] = info
-                products[key] = (root + folder + '/' + name, *info)
-
-    names = {'resource': 'ManifestResource', **{dub: 'ManifestLang_' + dub for dub in DUBS}}
-    for channel in sorted(channels):
-        if channel.startswith('Option_Pack_'):
-            pak.check(re.fullmatch(r'Option_Pack_[A-Za-z0-9_]+', channel))
-            names[channel] = 'Manifest' + channel
-    for channel, manifest in names.items():
-        current = channels[channel]
-        revision = current['Version']
-        pak.check(re.fullmatch(VERSION, revision) and current['Name'] == channel)
-        index = _manifest(root + revision + '/' + manifest + '.txt', current['IndexSha1'][revision], cache)
-        record(channel, revision, index)
-    if 'ManifestAggregated' in channels:
-        current = channels['ManifestAggregated']
-        rev = current['Version']
-        pak.check(re.fullmatch(VERSION, rev) and current['Name'] == 'ManifestAggregated')
-        grouped = _manifest(root + rev + '/ManifestAggregated.txt', current['IndexSha1'][rev], cache)
-        pak.check(isinstance(grouped, dict) and grouped)
-        for name, index in grouped.items():
-            pak.check(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9_]+', name)
-                      and name not in versions and re.fullmatch(VERSION, index['Version']))
-            record(name, index['Version'], index)
-    return versions, files, products
-
+    return manifest.resource_inventory(root, release, channels, lambda url, sha: _manifest(url, sha, cache))
 
 def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
     from . import wuthering_metadata as metadata
-    domain = CHANNELS[region][2]
-    bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
+    bootstrap = manifest.BOOTSTRAP
     size, digest = launcher_files[bootstrap]
     base, params = _bootstrap_package(cache, (launcher_root + '/' + bootstrap, size, digest), region)
     config = base.member('Client/Config/Kuro/KuroPublicConfig.ini')
-    pak.check(config is not None)
-    lines = config.decode('utf-8-sig').splitlines()
-    routes = [line.removeprefix('UrlPath=') for line in lines if line.startswith('UrlPath=')]
-    prefixes = [line.removeprefix('InternalPrefix=') for line in lines if line.startswith('InternalPrefix=')]
-    pak.check(len(routes) == len(prefixes) == 1 and re.fullmatch(r'[A-Za-z0-9]{16,80}', routes[0]))
-    network_error = None
-    for prefix in prefixes[0].split(';'):
-        if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.' + domain, prefix):
-            try:
-                entry_url = f'{prefix}/{routes[0]}/index.json'
-                entry_data = download(entry_url, limit=LIMIT)
-                source = _json(entry_data, cache)['default']
-                break
-            except OSError as error:
-                network_error = error
-                continue
-    else:
-        if network_error is not None:
-            raise network_error
-        raise ValueError('No available regional Kuro bootstrap.')
-    res = source['ResUri']
-    pak.check(re.fullmatch(r'[A-Za-z0-9]{16,80}', res))
-    network_error = None
-    for cdn in source['CdnUrl']:
-        url = urlsplit(cdn['url'])
-        if (url.scheme == 'https' and url.path == '/prod/client/' and not url.query and not url.fragment and
-                re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, url.netloc) and int(cdn['weight']) > 0):
-            root = cdn['url'] + res + '/Windows/'
-            try:
-                config_data = download(root + 'config.json', limit=LIMIT)
-                break
-            except OSError as error:
-                network_error = error
-                continue
-    else:
-        if network_error is not None:
-            raise network_error
-        raise ValueError('No available regional Kuro resource CDN.')
-    platform = _json(config_data, cache)
-    release = platform['PackageVersion']
-    pak.check(re.fullmatch(VERSION, release) and release.split('.')[:2] == launcher_version.split('.')[:2])
+    source, cdn, root, release, platform, pointers = manifest.platform_config(
+        config, launcher_version, region, lambda url: download(url, limit=LIMIT), lambda raw: _json(raw, cache))
     versions, files, products = _resource_inventory(root, release, platform['ResVersions'], cache)
     video_pointers = {}
     if videos:
@@ -392,8 +223,8 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
                 for prefix in ('Pak', 'Sig'):
                     name = row[prefix + 'Name']
                     pak.check(name == f'Video_{scene}-{tier.upper()}-WindowsNoEditor.' + prefix.lower())
-                    files['Video/' + tier + '/' + name] = _file(name, row[prefix + 'Size'], row[prefix + 'Hash'])
-    pointers = {entry_url: entry_data, root + 'config.json': config_data, **video_pointers}
+                    files['Video/' + tier + '/' + name] = manifest._file(name, row[prefix + 'Size'], row[prefix + 'Hash'])
+    pointers.update(video_pointers)
     from . import wuthering_publisher_keys as publisher_keys
     mix = source.get('MixUri')
     pak.check(isinstance(mix, str) and re.fullmatch(r'[A-Za-z0-9]{16,80}', mix))

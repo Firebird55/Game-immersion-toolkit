@@ -1,5 +1,33 @@
 # Wuthering official bootstrap investigation
 
+## November 19, 2026 · Standalone release manifest continuation
+
+All checked original mirrors still serve encrypted ENTRY metadata. The shared
+Windows and Android provider now continues from its verified bootstrap with
+the existing immutable Mornye Tools format pin. It reads exactly the two
+parameter declarations as data, verifies the whole source file SHA-256 and
+keeps those parameter bytes in memory. Plain publisher JSON bypasses the
+compatibility source. The provider retains a digest for provenance.
+
+The new stage verifies the launcher inventory MD5, both original PAK index
+SHA-1s, the bootstrap config and the official resource and four dub
+manifest SHA-1s. It also verifies both publisher KeyList/PakData routes
+and rechecks the original entry, platform, key lists and launcher inventory.
+Protected content indices still require authorization by their own hashes.
+
+An empty shared Windows provider verified the 1,396,149,288-byte publisher
+carrier. A transient Windows certificate-chain error was corrected through
+the existing Kuro CA trust path. The retained stage then verified active
+Global 3.8.12 and 598 package references using 1,591,828 bytes. Kuro serves
+launcher metadata with gzip encoding even after an identity request. The
+transport bounds and charges its wire bytes before the launcher parser
+validates the decoded document and declared checksum.
+
+The verified manifest is an intermediate receipt. Portable dialogue-table
+selection and preparation, original voice acquisition and playback, and
+Android update and recovery remain subsequent acceptance steps. Future
+ENTRY rotations require a reviewed replacement pin or an official derivation.
+
 ## November 18–19, 2026 · Fresh Global Windows discovery and portable manifest reader
 
 Ordinary Windows publisher discovery completed from an empty toolkit cache

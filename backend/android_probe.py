@@ -212,17 +212,17 @@ def run_wuwa_bootstrap(root, native, fixture_json):
                 raise ValueError('Original native source-data derivation changed')
             controls['offline']=True;before=len(calls)
             warm=service.plan('wuwa',request)['game']
-            if warm['can_download'] or warm['can_activate'] or len(calls)!=before:
+            if not warm['can_download'] or warm['can_activate'] or len(calls)!=before:
                 raise ValueError('Cached native stage crossed its format gate')
             service.close()
             service=GameDataService(directory,{'wuwa':provider})
             restarted=service.plan('wuwa',request)['game']
-            if restarted['can_download'] or restarted['can_activate'] or len(calls)!=before:
+            if not restarted['can_download'] or restarted['can_activate'] or len(calls)!=before:
                 raise ValueError('Fresh service failed offline stage recovery')
             ctx=_Context(service,directory,'local','wuwa',GameDataRequest.parse(request),directory/'restore','restore')
             try:provider.restore(stage,ctx)
             except GameDataError as error:
-                if error.code!='publisher_format_key_unresolved':raise
+                if error.code!='publisher_manifest_incomplete':raise
             else:raise ValueError('Native stage incorrectly restored a prepared language library')
             cases.append({'case':case,'stage':'manifest-format','downloaded_bytes':row['job']['downloaded_bytes'],
                 'module_sha256':parsed.module_sha256,'full_apk_verified':True,'mmap_data_parser':True,
