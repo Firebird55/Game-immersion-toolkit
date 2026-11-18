@@ -732,21 +732,60 @@ to `downinfo.a.c`, which calls the actual file-info fetcher `downinfo.fetch.c.i`
 These are original typed edges, not a claim that every runtime setting selects
 this engine.
 
-The actual fetcher builds a map with `id` from its own string field, `node`,
-`abi`, `screen_densities`, conditional endpoint/sandbox/automatic-download and
-patch fields, and a separately delegated context map. It allocates the exact
-`fetch.c$a` coroutine and uses `runBlocking`. **The meaning/initialization of
-that `id` field is still unproved**; it is not replaced with either the website
-app ID, numeric APK ID or MD5. This is a different producer from the stopped
-title/icon helper. Its coroutine request builder and response-to-source URL
-mapping remain unread, as do necessary context/config initialization edges.
-No endpoint, method, transmitted identity or accountless behavior is guessed.
+The actual fetcher builds a file-info parameter map plus a separately
+delegated context map, allocates the exact `fetch.c$a` coroutine and uses
+`runBlocking`. This is a different producer from the stopped title/icon helper.
+The next bounded pass below establishes its native ID input, relative request
+paths and concrete source-URL assignment. It does not establish current live
+parameter values, absolute host, transmitted identity or accountless behavior.
 
 This consumer phase stops at eight bodies / 3,174 instruction bytes, 72
 try-table bytes and 26 handler bytes, with the original signed-source and typed
 bounds checks. New origin bytes and code execution remain zero. The next source
 step is the exact allocated fetch coroutine and its concrete request/response
 owners, not another broad store-client or Windows packed-code search.
+
+### Original APK-detail paths and response-to-source assignment
+
+The exact allocated fetch coroutine dispatches between `/apk/v1/detail` and
+`/apk/v1/detail-with-user` after examining account login state. The ordinary
+path calls the same source-owned `common.net.f.e` and POST-model transport
+already examined independently. The context-map helper has also been read;
+no concrete device/account values are collected or copied. These static edges
+do not prove that a live accountless request succeeds, or that account
+credentials are needed for the ordinary path.
+
+Only necessary original initialization is read. The task factory takes
+`Download.getMApkId()` when present, otherwise `AppInfo.apkId`; its value flows
+through the task field, the exact downinfo constructor and the exact fetch
+constructor into the request's `id`. The earlier URL-model `md5` is a different
+value and is not substituted. The exact `AppInfo.apkId` annotation is only
+`Deprecated`, with no demonstrated JSON-name annotation. Therefore the retained
+page's numeric APK ID is **not yet accepted as the current native request ID**.
+The primary download getter's underlying field/schema still needs proof;
+absence of an annotation is not evidence of an impossible official route.
+
+The complete response collector stores the typed file-info response. Its
+consumer `downinfo.a.m` delegates the ordinary source assignment to
+`downinfo.c.e`, which passes `fetch.b.a()` directly to `tc.b.setUrl`. The
+separate patch path has its own typed getter. This establishes an actual
+response-to-source assignment, rather than a title/icon update; the exact
+getter-to-JSON URL member still needs proof before consuming a live response.
+
+The last request edge inspected is the exact `compat.net.c.v` default wrapper;
+it delegates to `c.u(FlowCollector, e7.d, int, Continuation)`. The absolute
+host, wire headers and underlying transport/configuration are still unresolved,
+so no detail endpoint is called and no header, ID or hash URL is guessed.
+
+This phase stops at eight bodies / 2,302 instruction bytes, eight try-table
+bytes and six handler bytes. Explicit fail-fast metadata accounting records
+40,792 bytes including exact owner locators, declarations, necessary
+initializers, typed references and the negative annotation result, below the
+64 KiB allocation. Each original DEX hash and method bounds is verified. The
+earlier reader overrun remains recorded separately; this later metered pass
+does not erase it. New origin bytes and original-code execution remain zero.
+Preparation, all regional text/audio coverage and normal-update acceptance
+remain open, with no Ready state or community fallback.
 
 ### Community key candidate: research only
 
