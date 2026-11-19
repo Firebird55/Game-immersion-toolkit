@@ -10,7 +10,7 @@ import threading
 from rapidfuzz import fuzz, process
 
 from .languages import audio_locale, normalize_text, resolve_locale, study_language
-from .models import TextMatch
+from .models import TextMatch, is_comic_text_id
 from .local_game import (dialogue_voice_status, dialogue_audio_scope, dialogue_capture_channels,
     DEFAULT_CAPTURE_CHANNELS, original_recording_context, validate_original_recording_metadata)
 from .textmaps import display_text
@@ -722,6 +722,15 @@ class MultilingualTextIndex:
                   and key in normalize_text(hit.source_ocr, 'zh-Hans')]
         if longer:
             best = max(longer, key=lambda hit: (len(normalize_text(hit.source_ocr)), hit.score))
+        if self.game == 'zzz' and channel == 'cinematic':
+            # A complete bubble with a few OCR errors can contain an exact
+            # sentence fragment reused in another authored bubble.
+            complete = normalize_text(sources[0])
+            full = [hit for hit in hits if normalize_text(hit.source_ocr) == complete]
+            if full:
+                whole_bubble = max(full, key=lambda hit: hit.score)
+                if is_comic_text_id(whole_bubble.text_id):
+                    best = whole_bubble
         key = normalize_text(best.source_ocr, 'zh-Hans')
         if any(len(normalize_text(text, 'zh-Hans')) >= len(key)
                and key in normalize_text(text, 'zh-Hans') for text in ambiguous):

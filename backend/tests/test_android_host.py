@@ -10,6 +10,7 @@ import uuid
 import pytest
 
 from backend.android_host import AndroidHost
+from backend.prepared_library import write_prepared_library
 from backend.tests.test_prepared_session import fixture_library
 
 
@@ -36,6 +37,55 @@ def request(host, method, path, body=b'', *, headers=None):
 def upload(host, path, identity):
     return request(host, 'POST', '/api/library/import', path.read_bytes(),
         headers={'Content-Type': 'application/zip', 'X-Toolkit-Import-Id': identity})
+
+
+def test_zzz_static_comic_uses_positioned_rows_and_owns_overlapping_dialogue(host, tmp_path):
+    _, payload = fixture_library(tmp_path / 'input')
+    texts = ['We have to cross the river before daylight. Keep watch.',
+             'The road ahead will be difficult. Avoid the old bridge.',
+             'Keep watch.']
+    ids = ['Comic_' + digit * 32 for digit in 'abc']
+    payload['records'] = [
+        dict(payload['records'][0], text_id=identity, source_text=text, english=text,
+             texts={'en': text}, dialogue_kind='comic',
+             channels=['cinematic'] if index < 2 else ['cinematic', 'dialogue'])
+        for index, (identity, text) in enumerate(zip(ids, texts))
+    ]
+    archive = write_prepared_library(payload, tmp_path / 'comic.zip',
+        dict.fromkeys(ids, tmp_path / 'input' / 'tone.wav'))
+    host.session.import_library(archive)
+    generation = host.session.start()
+    # The comic response can contain greatly separated columns and the lower
+    # dialogue crop can contain just the last separately recognized sentence.
+    def span(text, left, top, right, bottom):
+        return {'text': text, 'confidence': .99, 'bounding_rect': {
+            'x1': left, 'x2': right, 'x3': right, 'x4': left,
+            'y1': top, 'y2': top, 'y3': bottom, 'y4': bottom,
+        }}
+
+    rows = [span('The road ahead will be difficult.', 600, 82, 840, 104),
+            span('Avoid the old bridge.', 600, 109, 740, 130),
+            span('We have to cross the river before daylight.', 270, 262, 547, 283),
+            span('Keep watch.', 270, 288, 376, 309)]
+    raw = json.dumps({'width': 900, 'height': 400, 'presentation_lines': rows,
+        'blocks': [
+            {'text': texts[1], 'rect': [600, 82, 840, 130]},
+            {'text': 'We have to cross the river before daylight.', 'rect': [270, 262, 547, 283]},
+            {'text': texts[2], 'rect': [270, 288, 376, 309]},
+        ]})
+    reported = host._accept_ocr(generation, 1, raw)
+    assert [(line['text_id'], line['channel']) for line in reported] == [
+        (ids[0], 'cinematic'), (ids[1], 'cinematic')]
+    assert all(line['audio_source'] == 'original' for line in reported)
+    assert host._accept_ocr(generation, 2, raw) == []
+    assert host._accept_ocr(generation, 3, raw) == []
+    assert host.session.history.count() == 2
+
+    # A high-quality full observation owns a shared short sentence even if
+    # spelling errors make the whole bubble score below that exact fragment.
+    fuzzy = 'We have ta crass the riveer befare daylite. Keep watch.'
+    hit, = host.session.index.match_line_groups([fuzzy])
+    assert hit.text_id == ids[0] and hit.kind == 'fuzzy'
 
 
 def test_cancel_before_server_register_is_not_forgotten(host, tmp_path):

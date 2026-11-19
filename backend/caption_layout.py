@@ -3,7 +3,7 @@ import re
 import math
 from dataclasses import dataclass
 
-from .models import CaptureRegion
+from .models import CaptureRegion, TextMatch, is_comic_text_id
 from .steam_games import STEAM_GAMES
 from .bilingual import normalize_subtitle
 
@@ -135,3 +135,128 @@ def local_subtitle_rows(response: dict, size: tuple[int, int],
             continue
         rows.append(row)
     return {**response, "lines": rows, "dialogue_menu": dialogue_menu}
+
+
+def spatial_text_groups(response: dict, bounds: tuple[int, int, int, int] | None = None) -> list[str]:
+    """Reassemble OCR rows into comic bubbles using their screen geometry."""
+    positioned = []
+    fallback = []
+    for line in response.get("lines", []):
+        text = str(line.get("text", "")).strip()
+        if not text:
+            continue
+        rectangle = line.get("bounding_rect") or {}
+        try:
+            xs = [float(rectangle[f"x{index}"]) for index in range(1, 5)]
+            ys = [float(rectangle[f"y{index}"]) for index in range(1, 5)]
+        except (KeyError, TypeError, ValueError):
+            if bounds is None:
+                fallback.append(text)
+            continue
+        left, right = min(xs), max(xs)
+        top, bottom = min(ys), max(ys)
+        if bounds is not None:
+            x, y, width, height = bounds
+            if not (x <= left < right <= x + width and y <= top < bottom <= y + height):
+                continue
+        fallback.append(text)
+        if right > left and bottom > top:
+            positioned.append({
+                "text": text,
+                "left": left,
+                "right": right,
+                "top": top,
+                "bottom": bottom,
+            })
+    if len(positioned) != len(fallback):
+        return fallback
+
+    positioned.sort(key=lambda item: (item["top"], item["left"]))
+    groups: list[dict] = []
+    for item in positioned:
+        item_height = item["bottom"] - item["top"]
+        best_group = None
+        best_distance = float("inf")
+        for group in groups:
+            group_height = max(1.0, group["line_height"])
+            vertical_gap = item["top"] - group["bottom"]
+            if vertical_gap < -max(item_height, group_height) or vertical_gap > max(
+                48.0, group_height * 2.4
+            ):
+                continue
+            overlap = min(item["right"], group["right"]) - max(
+                item["left"], group["left"]
+            )
+            narrow_width = min(
+                item["right"] - item["left"],
+                group["right"] - group["left"],
+            )
+            aligned = abs(item["left"] - group["left"]) <= max(
+                12.0, group_height * 1.25
+            )
+            centered = abs(
+                (item["left"] + item["right"] - group["left"] - group["right"]) / 2
+            ) <= max(12.0, group_height * 1.25)
+            # Partial column overlap also occurs between separate bubbles.
+            # Centered short final rows need substantial containment; mere
+            # overlap must not join a diagonally adjacent bubble or effect.
+            if not aligned and not (centered and overlap >= narrow_width * 0.8):
+                continue
+            distance = abs(vertical_gap) + abs(item["left"] - group["line_left"]) * 0.15
+            if distance < best_distance:
+                best_group = group
+                best_distance = distance
+        if best_group is None:
+            groups.append({
+                "lines": [item],
+                "left": item["left"],
+                "right": item["right"],
+                "top": item["top"],
+                "bottom": item["bottom"],
+                "line_left": item["left"],
+                "line_height": item_height,
+            })
+            continue
+        best_group["lines"].append(item)
+        best_group["left"] = min(best_group["left"], item["left"])
+        best_group["right"] = max(best_group["right"], item["right"])
+        best_group["bottom"] = max(best_group["bottom"], item["bottom"])
+        best_group["line_left"] = item["left"]
+        best_group["line_height"] = (best_group["line_height"] + item_height) / 2
+
+    # Comic dialogue advances horizontally. Several bubbles may become
+    # visible before one OCR pass, and ordering them by vertical position
+    # would put an upper-right bubble before a lower-left bubble. Preserve
+    # the game's reading sequence: columns left-to-right, then top-to-bottom
+    # only when multiple bubbles occupy the same column.
+    groups.sort(key=lambda group: (group["left"], group["top"]))
+    return [
+        " ".join(
+            item["text"]
+            for item in sorted(group["lines"], key=lambda row: (row["top"], row["left"]))
+        )
+        for group in groups
+    ]
+
+def is_cinematic_fragment(match: TextMatch | None, cinematic_matches) -> bool:
+    """Give the broad scan ownership of comic matches visible in overlapping crops."""
+    if match is None:
+        return False
+    source = normalize_subtitle(match.source_ocr)
+    if not source:
+        return False
+    for cinematic in cinematic_matches:
+        if not is_comic_text_id(cinematic.text_id):
+            continue
+        if match.text_id == cinematic.text_id:
+            return True
+        visible = normalize_subtitle(cinematic.source_ocr)
+        if len(visible) <= len(source) or source not in visible:
+            continue
+        for fragment_text, full_text in ((match.english, cinematic.english),
+                (match.chinese, cinematic.chinese), (match.source_text, cinematic.source_text)):
+            fragment = normalize_subtitle(fragment_text or "")
+            full = normalize_subtitle(full_text or "")
+            if fragment and len(fragment) + 8 <= len(full) and fragment in full:
+                return True
+    return False

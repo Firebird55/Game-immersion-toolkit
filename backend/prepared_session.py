@@ -17,9 +17,9 @@ from .floating_caption_policy import floating_caption_policy, observe_floating_c
 from .config import SettingsStore
 from .endfield_caption_context import EndfieldCaptionContext
 from .nte_dialogue_context import NteDialogueContext
-from .caption_layout import NativeNteCaption
+from .caption_layout import NativeNteCaption, is_cinematic_fragment
 from .languages import study_language
-from .models import AppSettings, CaptureSnapshot
+from .models import AppSettings, CaptureSnapshot, is_comic_text_id
 from .native_frame_admission import NativeFrameReceipt
 from .zzz_cinema_context import CinemaContext, ProxyEvidence, proxy_source_scope
 from .multilingual_index import MultilingualTextIndex
@@ -51,6 +51,7 @@ class PreparedCaptureSession:
         self.running = False
         self.last_frame = -1
         self.processed_channels = set()
+        self._visible_comics = ()
         self.last_time = None
         self.trackers = {}
         self._independent_exact = set()
@@ -221,6 +222,7 @@ class PreparedCaptureSession:
             self.on_invalidate()
             self.last_frame, self.last_time = -1, None
             self.processed_channels.clear()
+            self._visible_comics = ()
             self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
             self.nte_context.reset()
             self.zzz_cinema.reset()
@@ -351,6 +353,7 @@ class PreparedCaptureSession:
                 self.contexts.clear();self.floating_contexts.clear()
             if sequence > self.last_frame:
                 self.processed_channels.clear()
+                self._visible_comics = ()
             self.processed_channels.add(channel)
             self.last_time, self.last_frame = now, sequence
             self.last_ocr = '\n'.join(groups)
@@ -377,6 +380,12 @@ class PreparedCaptureSession:
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
             matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+            if self.index.game == 'zzz':
+                if channel == 'cinematic':
+                    self._visible_comics = tuple(hit for hit in matches.values() if is_comic_text_id(hit.text_id))
+                elif self._visible_comics:
+                    matches = {identity: hit for identity, hit in matches.items()
+                               if not is_cinematic_fragment(hit, self._visible_comics)}
             if (channel == 'cinematic' and self.index.game == 'zzz'
                     and self.index._zzz_cinema_occurrences and admission is not None):
                 source_scope = proxy_source_scope(self.index, None, settings.zzz_proxy_voice)
@@ -457,7 +466,13 @@ class PreparedCaptureSession:
                     tracker.observe(None)
             for text_id, hit in matches.items():
                 tracker = self.trackers.setdefault((channel, text_id), StableMatchTracker())
-                tracker.configure(capture_confirmation_frames(hit, settings.stable_frames, full_frame=channel == 'fullframe'))
+                # A static comic page can yield only one fresh receiver frame.
+                # The broad scan already matched the complete authored text.
+                exact_comic = (channel == 'cinematic' and self.index.game == 'zzz'
+                               and is_comic_text_id(text_id) and hit.kind == 'exact'
+                               and hit.source_ocr in groups)
+                tracker.configure(1 if exact_comic else
+                    capture_confirmation_frames(hit, settings.stable_frames, full_frame=channel == 'fullframe'))
                 if tracker.observe(text_id):
                     saved_channel = next((name for name in ('dialogue', 'cinematic', 'tip', 'gameplay')
                         if self.index.is_capture_text(hit.text_id, hit.english, name)), 'dialogue') if channel == 'fullframe' else channel

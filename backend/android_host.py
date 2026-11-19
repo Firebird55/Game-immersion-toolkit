@@ -23,6 +23,7 @@ import weakref
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .capture_geometry import picture_bounds, region_bounds
+from .caption_layout import spatial_text_groups
 from .models import CaptureRegion
 from .native_frame_admission import NativeFrameAdmissions
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
@@ -579,7 +580,7 @@ class AndroidHost:
             left, top, right, bottom = block['rect']
             if picture[0] <= left < right <= picture[0] + picture[2] and picture[1] <= top < bottom <= picture[1] + picture[3]:
                 texts.append(block['text'])
-        zzz_dialogue = []
+        observations = {}
         for channel, region in channels.items():
             groups = []
             zzz_captions = []
@@ -594,13 +595,23 @@ class AndroidHost:
                             and .60 <= (top - y) / crop_height < (bottom - y) / crop_height <= 1
                             and (bottom - top) / crop_height < .10):
                         zzz_captions.append(block['text'])
-            if game == 'zzz' and channel == 'dialogue':
-                zzz_dialogue = groups
+            if game == 'zzz' and channel == 'cinematic' and positioned:
+                # ML Kit blocks may split wrapped rows or join nearby panels.
+                # Use the same positioned groups as desktop for the broad scan.
+                spatial = spatial_text_groups({'lines': positioned}, (x, y, crop_width, crop_height))
+                if spatial and len(spatial) <= 128 and all(len(group) <= 8192 for group in spatial):
+                    groups = spatial
             if game == 'nte' and channel == 'dialogue' and nte_layout is not None:
                 groups = list(nte_layout.groups)
+            observations[channel] = (groups, zzz_captions)
+        # Give broad comic balloons precedence over fragments from the same
+        # native frame while preserving narrow dialogue evidence for movies.
+        order = ('cinematic', 'dialogue') if game == 'zzz' else observations
+        for channel in order:
+            groups, zzz_captions = observations[channel]
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
                 dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
-                zzz_captions=zzz_captions, zzz_dialogue=zzz_dialogue))
+                zzz_captions=zzz_captions, zzz_dialogue=observations['dialogue'][0] if game == 'zzz' else None))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
             dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))

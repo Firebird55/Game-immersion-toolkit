@@ -413,6 +413,31 @@ def test_comic_suffix_cannot_publish_as_unrelated_dialogue(tmp_path, monkeypatch
         service._executor.shutdown()
 
 
+def test_broad_scan_keeps_all_comic_bubbles_when_a_tip_matches(tmp_path, monkeypatch):
+    import backend.capture as module
+
+    service, tip, scheduled, _ = fixture_service(tmp_path, channel='tip')
+    comics = [tip.model_copy(update={'text_id': 'Comic_' + digit * 32,
+        'english': text, 'source_ocr': text}) for digit, text in
+        [('d', 'Look!'), ('e', 'We should hurry before the gates close.')]]
+    service.textmaps.match_line_groups = lambda *_args, **_kwargs: comics
+    service._scan_index = 1
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _:
+        (SimpleNamespace(id='zzz'), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='ZZZ')))
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        service._scan_once()
+        service._scan_once()
+        await asyncio.sleep(.02)
+        assert {line.text_id for line in service.transcript.list()} == {tip.text_id, *(line.text_id for line in comics)}
+        assert [entry[0] for entry in scheduled] == [tip.text_id, *(line.text_id for line in comics)]
+
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize('mapped', [True, False])
 def test_centered_galgame_narration_requires_verified_voice(tmp_path, monkeypatch, mapped):
     import json
