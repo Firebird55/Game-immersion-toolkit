@@ -111,7 +111,7 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await panel.getByRole('button',{name:'Continue download',exact:true}).click();
   await stop.waitFor();
   assert.equal(await bar.getAttribute('value'),'25');
-  row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,can_delete:true,can_plan:true,message:'Authored data ready.',
+  row={...row,state:'ready',installed_revision:'authored-revision',installed_bytes:8192,deletable_bytes:8192,can_delete:true,can_plan:true,message:'Authored data ready.',
    installed_request:{region:'global',source_locale:'ja',target_locales:['en'],content_mode:'text-audio'},
    job:{...row.job,status:'complete',phase:'ready',downloaded_bytes:7168,total_bytes:7168}};
   await panel.getByText('7.0 KiB',{exact:true}).waitFor();
