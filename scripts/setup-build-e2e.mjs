@@ -75,14 +75,24 @@ try{
   page.on('response',response=>{if(response.url().startsWith(base)&&response.status()===404)missing.push(new URL(response.url()).pathname);});
   page.on('pageerror',error=>errors.push(error.message));
   page.on('console',message=>{if(message.type()==='error'&&!message.text().includes('net::ERR'))errors.push(message.text());});
-  const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'*'};
-  const gameData={id:'zzz',title:'Zenless Zone Zero',state:'not_downloaded',revision:null,installed_revision:null,can_activate:false,
+  const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST','Access-Control-Allow-Headers':'*'};
+  const downloadStarts=[];
+  let gameData={id:'zzz',title:'Zenless Zone Zero',state:'not_downloaded',revision:null,installed_revision:null,can_activate:false,
    region:'global',content_mode:'text',source_locale:'ja',target_locales:['en'],installed_bytes:0,deletable_bytes:0,retained_bytes:0,
    download_bytes:null,download_is_upper_bound:false,required_disk_bytes:null,plan_id:null,job:null,
-   can_plan:true,can_download:false,can_delete:false,message:'Check size first.'};
+   can_plan:true,can_download:false,can_delete:false,message:'Download size will be checked when preparation starts.'};
+  const startPath='/api/game-data/zzz/start';
   await context.route('http://127.0.0.1:8766/**',route=>{
-   const path=new URL(route.request().url()).pathname;
-   if(path==='/api/game-data'&&route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
+   const request=route.request(),path=new URL(request.url()).pathname;
+   if((path==='/api/game-data'||path===startPath)&&request.method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
+   if(path===startPath&&request.method()==='POST'){
+    downloadStarts.push(request.postDataJSON());
+    const bytes=2048,message='Packaged fixture game data ready.';
+    gameData={...gameData,state:'ready',revision:'fixture',installed_revision:'fixture',
+     installed_request:downloadStarts.at(-1),installed_bytes:bytes,deletable_bytes:bytes,can_activate:true,can_delete:true,message,
+     job:{id:'fixture',status:'complete',phase:'ready',downloaded_bytes:bytes,total_bytes:bytes,message}};
+    return route.fulfill({status:202,json:{game:gameData},headers:cors});
+   }
    if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup','/api/setup/games/zzz/languages','/api/game-data'].includes(path)){
     unexpected.push(route.request().method()+' '+path);
     return route.fulfill({status:500,json:{detail:'Unexpected packaged browser API request'}});
@@ -99,9 +109,13 @@ try{
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Game data',exact:true}).click();
-  await page.getByRole('button',{name:'Download',exact:true}).waitFor();
+  const download=page.getByRole('button',{name:'Download',exact:true});
+  await download.waitFor();
   assert.equal(await page.getByRole('combobox',{name:'Game data content',exact:true}).inputValue(),'text');
-  assert(await page.getByRole('button',{name:'Download',exact:true}).isDisabled(),'Unknown size cannot authorize a download');
+  assert.equal(downloadStarts.length,0,'Opening game settings must not start a download');
+  await download.click();
+  await page.getByText('Packaged fixture game data ready.',{exact:true}).waitFor();
+  assert.deepEqual(downloadStarts.map(request=>request.content_mode),['text'],'One click must start text preparation with an unknown size');
   await page.keyboard.press('Escape');
   // font-display:swap can mount the desktop before its fonts finish. Complete
   // and verify both faces before navigation can abort the previous document.
