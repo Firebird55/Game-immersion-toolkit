@@ -48,6 +48,9 @@ function fixture(options = {}) {
   assert.equal(init.headers['X-Toolkit-Receiver-Revision'], String(highest));
   assert.equal(init.headers['X-Toolkit-Document-Epoch'], documentEpoch);
   assert.equal(init.headers['Content-Type'], 'image/png');
+  const failure = options.frameFailure?.();
+  if (failure === 'network') throw new TypeError('Injected connection failure');
+  if (failure) return reply({}, failure);
   accepted.push(init);
   return reply({}, 202);
  }
@@ -77,6 +80,28 @@ test('a received frame reaches only the leased native PNG endpoint with no viewe
   assert.equal(f.accepted[0].body.type, 'image/png');
   assert.equal(f.controller.getState().acceptedFrames, 1);
   assert.ok(!JSON.stringify(f.calls).includes('private-value'));
+ } finally {f.controller.dispose(); await flush();}
+});
+
+test('temporary native frame transfer failures keep the viewer and resume with a fresh frame', async () => {
+ const failures = ['network', 503], f = fixture({frameFailure: () => failures.shift()});
+ try {
+  await f.controller.connect('authored-stream');
+  const sessionId = f.source.getState().sessionId;
+  for (const sequence of [1, 2]) {
+   const frame = f.frame(sequence);
+   await f.tick();
+   assert.equal(frame.released(), 1);
+   assert.equal(f.controller.getState().status, 'reconnecting');
+   assert.equal(f.controller.getState().paused, false);
+   assert.equal(f.source.getState().sessionId, sessionId);
+  }
+  f.frame(3); await f.tick();
+  assert.equal(f.controller.getState().status, 'live');
+  assert.equal(f.accepted[0].headers['X-Toolkit-Frame'], '3');
+  const controls = f.calls.filter(call => call.path === '/api/capture/receiver');
+  assert.equal(controls.length, 1);
+  assert.equal(JSON.parse(controls[0].body).action, 'start');
  } finally {f.controller.dispose(); await flush();}
 });
 
