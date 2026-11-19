@@ -62,6 +62,32 @@ def test_audio_read_detects_changed_cached_chunk_and_never_repairs_it_implicitly
     assert calls == before
 
 
+def test_verified_sdk_chunks_reopen_without_rehashing_unchanged_files(tmp_path, monkeypatch):
+    from backend import zzz_audio_sources as module
+
+    ctx, old, asset, bodies, calls, factory = setup(tmp_path, b'Original audio owner', base=True)
+    ctx.request = replace(ctx.request, content_mode='text-audio')
+    files = {asset.name: asset}
+    ranges = [{'name': asset.name, 'offset': 0, 'size': 3}]
+    download = AudioSources(Context(tmp_path, ctx.request, 'download', sum(map(len, bodies.values()))),
+                            old.build, 'ja', transport_factory=factory)
+    download.download_ranges(files, ranges)
+    assert download.ranges_available(files, ranges)
+    restore = AudioSources(Context(tmp_path, ctx.request, 'restore', 0), old.build, 'ja', transport_factory=factory)
+    original = module._valid_file
+    with monkeypatch.context() as patch:
+        patch.setattr(module, '_valid_file', lambda *_: pytest.fail('Unchanged chunk was hashed again'))
+        assert restore.ranges_available(files, ranges)
+        assert restore.read(asset, 0, 3) == b'Ori'
+    assert module._valid_file is original
+    path = restore.bootstrap_cache / 'chunks' / asset.base.chunks[0][4]
+    path.write_bytes(b'x' * path.stat().st_size)
+    assert not restore.ranges_available(files, ranges)
+    with pytest.raises(MissingAudio):
+        restore.read(asset, 0, 3)
+    assert all(phase == 'download' for phase, _ in calls)
+
+
 def test_text_request_refuses_audio_catalogue_before_any_file_or_network_lookup(tmp_path):
     ctx, old, _, _, calls, factory = setup(tmp_path, b'Original audio owner', base=True)
     with pytest.raises(GameDataError) as failure:AudioSources(ctx, old.build, 'ja', transport_factory=factory)

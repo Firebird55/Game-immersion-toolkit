@@ -5,9 +5,11 @@ Updater ranges require the entire advertised file hash. Both costs include
 co-resident bytes; synthetic access windows never become download estimates.
 """
 from bisect import bisect_right
+import json
 import re
 
 from . import sophon_assets as sophon, zzz_hotfix as hotfix
+from .atomic_files import write_bytes
 from .game_data_protocol import GameDataError
 from .publisher_transport import PublisherTransport
 from .zzz_dialogue_records import VOICE_FOLDERS
@@ -23,6 +25,8 @@ class MissingAudio(Exception):
 
 
 class AudioSources(Sources):
+    MAX_CHUNK_CHECKS = 2 * 1024 * 1024
+
     def __init__(self, ctx, build, locale, *, transport_factory=PublisherTransport, verification=None):
         if ctx.request.content_mode != 'text-audio':
             raise GameDataError('zzz_audio_not_requested', 'Select text and audio before accessing original voice sources.')
@@ -32,8 +36,20 @@ class AudioSources(Sources):
             raise GameDataError('zzz_audio_locale', 'Choose an official ZZZ dub.')
         super().__init__(ctx, build, transport_factory=transport_factory)
         self.locale = locale
-        self._audio_chunks = set() if verification is None else verification.setdefault('chunks', set())
+        self._audio_chunks = {} if verification is None else verification.setdefault('chunks', {})
         if verification is not None:self._verified = verification.setdefault('files', {})
+        self._chunk_checks = _safe(self.bootstrap_cache / 'verified-audio-chunks.json')
+        self._chunk_checks_dirty = False
+        if not self._audio_chunks:
+            try:
+                with self._chunk_checks.open('rb') as stream:
+                    raw = stream.read(self.MAX_CHUNK_CHECKS + 1)
+                if len(raw) <= self.MAX_CHUNK_CHECKS:
+                    checks = json.loads(raw)
+                    if isinstance(checks, dict):
+                        self._audio_chunks.update(checks)
+            except (OSError, ValueError, RecursionError):
+                pass
         self._game_files = None
 
     @property
@@ -159,12 +175,18 @@ class AudioSources(Sources):
     def _chunk_available(self, digest, size):
         path = _safe(self.bootstrap_cache / 'chunks' / digest)
         try:
-            stamp = hotfix._stamp(path.stat())
-            key = digest, size, stamp
-            if key in self._audio_chunks:return True
-            if _valid_file(path, digest, size):
-                self._audio_chunks.add(key)
+            attributes = path.stat()
+            stamp = [*hotfix._stamp(attributes), attributes.st_ctime_ns]
+            if attributes.st_size == size and self._audio_chunks.get(digest) == stamp:
                 return True
+            if not _valid_file(path, digest, size):
+                return False
+            current = path.stat()
+            if stamp != [*hotfix._stamp(current), current.st_ctime_ns]:
+                return False
+            self._audio_chunks[digest] = stamp
+            self._chunk_checks_dirty = True
+            return True
         except OSError:pass
         return False
 
@@ -178,7 +200,18 @@ class AudioSources(Sources):
         return network, disk
 
     def ranges_available(self, files, ranges):
-        return self.quote_ranges(files, ranges)[0] == 0
+        available = self.quote_ranges(files, ranges)[0] == 0
+        if available and self._chunk_checks_dirty:
+            # Reuse verified unchanged chunks across restarts. The actual
+            # reader still authenticates every accessed chunk against its MD5.
+            raw = json.dumps(self._audio_chunks.copy(), separators=(',', ':')).encode()
+            if len(raw) <= self.MAX_CHUNK_CHECKS:
+                try:
+                    write_bytes(_safe(self._chunk_checks), raw, check=self.ctx.check)
+                    self._chunk_checks_dirty = False
+                except OSError:
+                    pass
+        return available
 
     def _range_sources(self, selected):
         patches = {asset.name: asset for asset, _, _ in selected if not asset.base}
