@@ -100,13 +100,25 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await stop.waitFor();
   const bar=panel.getByRole('progressbar',{name:'Game data download progress'});
   assert.equal(await bar.getAttribute('value'),'0');
-  row={...row,message:'Downloading game files…',job:{...row.job,phase:'transfer',downloaded_bytes:2048,total_bytes:8192,progress_percent:25}};
-  await panel.getByText('2.0 KiB / 8.0 KiB currently estimated',{exact:true}).waitFor();
+  row={...row,message:'Downloading game files…',job:{...row.job,phase:'transfer',downloaded_bytes:2048,total_bytes:8192,
+   total_is_final:false,stage_downloaded_bytes:2048,stage_total_bytes:8192,progress_percent:25}};
+  await panel.getByText('2.0 KiB / 8.0 KiB',{exact:true}).waitFor();
+  await panel.getByText('Still calculating…',{exact:true}).waitFor();
+  assert.equal(await panel.getByText('Estimated total',{exact:true}).count(),0);
   assert.equal(await bar.getAttribute('value'),'25');
-  row={...row,message:'Reading the ZZZ dialogue catalogue…',job:{...row.job,phase:'catalogue',downloaded_bytes:4096,total_bytes:16384,completed_stages:1}};
+  row={...row,message:'Reading the ZZZ dialogue catalogue…',job:{...row.job,phase:'catalogue',downloaded_bytes:4096,total_bytes:16384,
+   stage_downloaded_bytes:4096,stage_total_bytes:16384,completed_stages:1}};
   await panel.getByText('Reading the ZZZ dialogue catalogue…',{exact:true}).waitFor();
-  await panel.getByText(/4.0 KiB \/ 16.0 KiB currently estimated/).waitFor();
+  await panel.getByText('4.0 KiB / 16.0 KiB',{exact:true}).waitFor();
   assert.equal(await bar.getAttribute('value'),'25');
+  assert.equal(await panel.locator('.game-data-stats > div').evaluateAll(rows=>rows.some(row=>{
+    const [label,value]=[...row.children].map(item=>item.getBoundingClientRect());
+    return label.right>value.left && value.right>label.left && label.bottom>value.top && value.bottom>label.top;
+  })),false);
+  row={...row,job:{...row.job,total_is_final:true,total_bytes:6*1024**3,stage_total_bytes:6*1024**3}};
+  await panel.getByText('6.0 GiB',{exact:true}).waitFor();
+  await panel.getByText('Estimated total',{exact:true}).waitFor();
+  assert.equal(await panel.getByText('Current step',{exact:true}).count(),0);
   await stop.click();
   await panel.getByRole('button',{name:'Continue download',exact:true}).click();
   await stop.waitFor();

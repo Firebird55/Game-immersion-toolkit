@@ -15,7 +15,8 @@ export type GameDataRow = {id: string; title: string; state: string; revision: s
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
  last_download_bytes?: number | null;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
- job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; progress_percent?: number; completed_stages?: number; stop_requested?: boolean; message: string};
+ job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; progress_percent?: number; completed_stages?: number; stop_requested?: boolean; total_is_final?: boolean;
+  stage_downloaded_bytes?: number; stage_total_bytes?: number; message: string};
  can_plan: boolean; can_download: boolean; can_delete: boolean; has_checkpoint?: boolean; message: string};
 
 export function GameDataSettings({game, targetLanguage, online, account, onChanged, onGames, children, buttonLabel = 'Settings', pollClosed = true}: {
@@ -106,12 +107,14 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
  const updating = installed && installed.region === region && installed.content_mode === contentMode &&
   installed.source_locale === source && targets.length === installed.target_locales.length &&
   targets.every(locale => installed.target_locales.includes(locale));
- const size = job && job.phase !== 'up-to-date' ? job.total_bytes : row?.last_download_bytes;
  const downloaded = job?.status === 'complete' || !job && row?.last_download_bytes != null;
- const totalKnown = size !== null && size !== undefined;
  const progress = downloaded ? 100 : job?.progress_percent ?? 0;
  const step = job?.completed_stages ?? 0;
- const transferred = job && job.phase !== 'up-to-date' ? formatGameBytes(job.downloaded_bytes) : null;
+ const stepsLabel = step === 1 ? '1 step completed' : step + ' steps completed';
+ const finalEstimate = job?.total_is_final && job.total_bytes != null ? formatGameBytes(job.total_bytes) : null;
+ const received = job && job.phase !== 'up-to-date' ? job.downloaded_bytes : row?.last_download_bytes;
+ const currentStage = job?.stage_downloaded_bytes != null && job.stage_total_bytes
+  ? formatGameBytes(job.stage_downloaded_bytes) + ' / ' + formatGameBytes(job.stage_total_bytes) : null;
  const message = !job && row?.has_checkpoint && row.state === 'not_downloaded'
   ? 'Tap Download to resume from saved game files.' : row?.message || job?.message;
  return <>
@@ -133,15 +136,17 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    <fieldset><legend>Translations</legend>{targetChoices.filter(code => code !== source).map(code => <label key={code}>
     <input type="checkbox" disabled={busy} checked={targets.includes(code)} onChange={event => setTargets(previous => event.target.checked ? [...previous, code] : previous.filter(value => value !== code))}/>{languageName(code, 'en')}
    </label>)}</fieldset>
-   <dl>
-    {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
-    <dt>{downloaded ? 'Downloaded' : 'Download progress'}</dt>
-    <dd>{transferred ? <>{transferred}{totalKnown && !downloaded ? ' / ' + formatGameBytes(size) + ' currently estimated' : ''}
-      {step > 0 && !downloaded ? ' · ' + step + (step === 1 ? ' step completed' : ' steps completed') : ''}</> :
-      totalKnown ? formatGameBytes(size) : busy ? 'Checking game files…' : 'Available after starting'}</dd>
+   <dl className="game-data-stats">
+    {installed && <div><dt>Downloaded contents</dt><dd>{installed.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(installed.source_locale, 'en')}</dd></div>}
+    {received != null && <div><dt>{downloaded ? 'Downloaded' : 'Downloaded so far'}</dt><dd>{formatGameBytes(received)}</dd></div>}
+    {!downloaded && <div><dt>{finalEstimate ? 'Estimated total' : 'Total download size'}</dt>
+     <dd>{finalEstimate ?? (job || busy ? 'Still calculating…' : 'Available after starting')}</dd></div>}
+    {!downloaded && !finalEstimate && currentStage && <div><dt>Current step</dt><dd>{currentStage}</dd></div>}
    </dl>
    {(busy || downloaded || job) && <progress className="game-data-progress" aria-label="Game data download progress"
+    aria-valuetext={!downloaded && !finalEstimate ? stepsLabel + '. Total download size still being calculated.' : undefined}
     value={progress} max={100} />}
+   {job && !downloaded && step > 0 && <p className="game-data-steps">{stepsLabel}</p>}
    <div className="toolkit-setup-actions">
     <Button variant="outline" disabled={!online || busy || !row.can_activate} onClick={() => void mutate('activate')}>Use downloaded data</Button>
     {job && (job.status === 'running' || job.status === 'queued') ?

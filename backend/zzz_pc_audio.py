@@ -201,7 +201,7 @@ def plan_candidate(ctx, current, handle, reader, *, transport_factory, final_met
     handle.update(mode=mode, audio_plan=digest, source_network_bytes=network)
     allowance = final_metadata_bytes if mode == 'audio-recordings' else 0
     return GameDataPlan(handle['revision'], network + allowance, disk, handle=handle,
-        runtime_available=True, stage=mode, download_is_upper_bound=True,
+        runtime_available=True, stage=mode, download_is_upper_bound=True, final_transfer=mode == 'audio-recordings',
         message='Download the selected complete original recordings and their required bank containers. Previously prepared data is kept.')
 
 

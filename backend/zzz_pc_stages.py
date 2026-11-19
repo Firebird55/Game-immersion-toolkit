@@ -252,7 +252,7 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
             ctx.check()
         else:
             return GameDataPlan(revision, FINAL_METADATA_BYTES, disk, confirmation, runtime_available=True,
-                                download_is_upper_bound=True, stage='zzz-text-confirmation',
+                                download_is_upper_bound=True, stage='zzz-text-confirmation', final_transfer=True,
                                 message='Confirm the current publisher update for the saved ZZZ dialogue.')
     if ctx.request.content_mode == 'text-audio':
         from . import zzz_pc_audio
@@ -282,7 +282,7 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
     allowance = FINAL_METADATA_BYTES if mode == 'catalogue' and ctx.request.content_mode == 'text' and not automatic else 0
     handle['source_network_bytes'] = network
     return GameDataPlan(revision, network + allowance, disk, handle=handle, runtime_available=True,
-        stage='zzz-' + mode, download_is_upper_bound=True,
+        stage='zzz-' + mode, download_is_upper_bound=True, final_transfer=bool(allowance),
         message=('Prepare the selected original ZZZ text sources. Audio is not included.' if ctx.request.content_mode == 'text'
                  else 'Verify the original dialogue and voice references, then check the selected audio size.'))
 

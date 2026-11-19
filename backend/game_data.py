@@ -26,6 +26,7 @@ from .private_data_paths import MAX_TEXT, MAX_ROWS, _no_links
 
 
 MAX_DOWNLOAD_STAGES = 256
+INTERMEDIATE_PROGRESS_LIMIT = 70
 
 
 def _json_bytes(value):
@@ -262,10 +263,12 @@ class _Context:
                 if self.job.get('automatic') and self.job['total_bytes'] is not None:
                     self.job['total_bytes'] = max(self.job['total_bytes'], received)
                 total = self.job.get('total_bytes')
-                if self.phase == 'download' and total:
-                    # New stages can raise the total estimate. Hold the last
-                    # reported percentage until the transfer catches up.
-                    estimate = min(99, received * 99 // total)
+                if self.phase == 'download' and total and self.budget:
+                    if self.job.get('automatic'):
+                        start, end = self.job['stage_progress']
+                        estimate = start + (end - start) * self.consumed // self.budget
+                    else:
+                        estimate = min(99, received * 99 // total)
                     self.job['progress_percent'] = max(self.job.get('progress_percent', 0), estimate)
             self.check()
 
@@ -400,6 +403,16 @@ class GameDataService:
         self.cached_sizes[key] = (now, size)
         return size
 
+    @staticmethod
+    def _public_job(job):
+        value = {key: job[key] for key in ('id', 'status', 'phase', 'downloaded_bytes', 'total_bytes',
+                 'message', 'progress_percent', 'completed_stages', 'stop_requested', 'total_is_final')}
+        offset = job.get('stage_offset')
+        if offset is not None and job['total_bytes'] is not None and job['status'] != 'complete':
+            value['stage_downloaded_bytes'] = max(0, job['downloaded_bytes'] - offset)
+            value['stage_total_bytes'] = max(0, job['total_bytes'] - offset)
+        return value
+
     def _row(self, root, owner, game):
         metadata_error = None
         try: current = self._metadata(root, game)
@@ -419,13 +432,15 @@ class GameDataService:
         job = self.jobs.get((root, game))
         if job and job['context'].owner != owner:
             job['context'].cancel.set(); job = None
-        public_job = ({key: job[key] for key in ('id', 'status', 'phase', 'downloaded_bytes', 'total_bytes', 'message', 'progress_percent', 'completed_stages', 'stop_requested')} if job else None)
+        public_job = self._public_job(job) if job else None
         if latest and job and job.get('plan_id') != latest['id'] and job['status'] not in {'queued', 'running'}:
             public_job = None  # A completed old request cannot label the new request ready.
         if not job and not latest:
             stopped = self._stopped_progress(root, game)
             if stopped:
                 public_job = stopped['job']
+                if not public_job.get('total_is_final'):
+                    public_job['progress_percent'] = min(INTERMEDIATE_PROGRESS_LIMIT, public_job['progress_percent'])
                 request = _game_request(game, stopped['request'])
         automatic = bool(public_job and job and job.get('automatic'))
         if automatic:
@@ -562,9 +577,13 @@ class GameDataService:
                     del self.plans[key]
             ctx.activation_token = secrets.token_hex(16)
             self.activations[root] = (owner, ctx.activation_token)
+            saved = resume or checkpoint or {}
+            final_total = bool(saved.get('total_is_final')) if resume else False
+            limit = 99 if final_total else INTERMEDIATE_PROGRESS_LIMIT
             job = {'id': secrets.token_hex(16), 'status': 'queued', 'phase': 'planning',
                 'downloaded_bytes': received, 'total_bytes': resume['total_bytes'] if resume else None,
-                'progress_percent': resume['progress_percent'] if resume else (checkpoint or {}).get('progress_percent', 0),
+                'total_is_final': final_total, 'stage_offset': None,
+                'progress_percent': min(limit, saved.get('progress_percent', 0)),
                 'completed_stages': resume['completed_stages'] if resume else (checkpoint or {}).get('completed_stages', 0),
                 'stop_requested': False, 'message': 'Checking game files…',
                 'context': ctx, 'reserved': 0, 'device': root.stat().st_dev,
@@ -586,7 +605,8 @@ class GameDataService:
                     planning = _Context(self, previous.root, previous.owner, previous.game, previous.request,
                                         directory, 'plan', job=job, previous=previous)
                     directory.mkdir(parents=True)
-                    job.update(status='running', phase='planning', message='Checking game files…', context=planning)
+                    job.update(status='running', phase='planning', message='Checking game files…', context=planning,
+                               total_is_final=False, stage_offset=None)
                 try:
                     plan = self._plan_stage(provider, planning)
                     if plan.reuse_installed:
@@ -608,8 +628,14 @@ class GameDataService:
                         ctx = _Context(self, planning.root, planning.owner, planning.game, planning.request,
                                        staging, 'download', budget=plan.download_bytes, job=job, previous=planning)
                         staging.mkdir(parents=True)
+                        floor = job['progress_percent']
+                        # The publisher award of a phase budget is not the
+                        # full quote. Reserve visible progress for later files.
+                        room = max(0, INTERMEDIATE_PROGRESS_LIMIT - floor)
+                        ceiling = 99 if plan.final_transfer else floor + (room + 2) // 3
                         job.update(context=ctx, reserved=plan.required_disk_bytes, phase='transfer' if plan.download_bytes else 'preparing',
-                                   total_bytes=ctx.offset + plan.download_bytes,
+                                   total_bytes=ctx.offset + plan.download_bytes, total_is_final=plan.final_transfer,
+                                   stage_offset=ctx.offset, stage_progress=(floor, ceiling),
                                    message=plan.message or 'Preparing game files…')
                     if self._prepare(provider, {'plan': plan, 'directory': directory}, job) is not False:
                         return
@@ -677,6 +703,7 @@ class GameDataService:
             self.activations[root] = (owner, ctx.activation_token)
             job = {'id': secrets.token_hex(16), 'plan_id': item['id'], 'status': 'queued', 'phase': item['plan'].stage,
                 'downloaded_bytes': 0, 'total_bytes': item['plan'].download_bytes, 'progress_percent': 0,
+                'total_is_final': item['plan'].final_transfer, 'stage_offset': 0,
                 'completed_stages': 0, 'stop_requested': False, 'message': 'Preparing original game data.',
                 'context': ctx, 'reserved': item['plan'].required_disk_bytes, 'device': device}
             ctx.job = job; item['used'] = True
@@ -760,7 +787,7 @@ class GameDataService:
             if automatic:
                 metadata['downloaded_bytes'] = job['downloaded_bytes']
                 metadata['completed_stages'] = job['completed_stages'] + 1
-                metadata['progress_percent'] = job['progress_percent']
+                metadata['progress_percent'] = job['stage_progress'][1] if not metadata['ready'] else 100
             if metadata['ready']:
                 restore = _Context(self, ctx.root, ctx.owner, ctx.game, ctx.request, final, 'restore', budget=0, previous=ctx)
                 result = provider.restore(result.restore_handle, restore)
@@ -813,7 +840,8 @@ class GameDataService:
                         job.update(status='complete', phase='ready', total_bytes=job['downloaded_bytes'], progress_percent=100,
                                    message=metadata['message'], reserved=0)
                     else:
-                        job.update(phase='planning', message='Checking the remaining game files…', reserved=0)
+                        job.update(phase='planning', message='Checking the remaining game files…', reserved=0,
+                                   progress_percent=metadata['progress_percent'], total_is_final=False, stage_offset=None)
                 else:
                     job.update(status='complete' if metadata['ready'] else 'needs_plan', phase='ready' if metadata['ready'] else 'estimate',
                         downloaded_bytes=ctx.consumed, progress_percent=100 if metadata['ready'] else job['progress_percent'], message=metadata['message'])
@@ -841,8 +869,7 @@ class GameDataService:
                            message='Download stopped. Continue to reuse verified files.', reserved=0)
                 if self.jobs.get((ctx.root, ctx.game)) is job and job.get('automatic'):
                     try:
-                        progress = {name: job[name] for name in ('id', 'status', 'phase', 'message', 'stop_requested',
-                            'downloaded_bytes', 'total_bytes', 'progress_percent', 'completed_stages')}
+                        progress = self._public_job(job)
                         _write(ctx.root / ctx.game / 'stopped-progress.json',
                             {'request': ctx.request.json(), 'job': progress})
                     except OSError:

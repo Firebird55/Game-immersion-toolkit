@@ -3,10 +3,11 @@
 The desktop API uses the same bounded game-data service and request contract as
 the Android host. In Settings, choose **Text only** or **Text + audio**, the
 region and languages, then select **Download**. One job discovers and runs the
-required stages. Settings shows cumulative bytes, the current total estimate,
-and completed steps next to **Stop download**. The bar keeps its position
-between stages and during verification. It reaches 100% after the selected
-source has been verified and activated. **Continue download** keeps the last
+required stages. Settings shows downloaded bytes and completed steps next to
+**Stop download**. The size of the current step is shown separately while the
+full size is still being calculated. The bar tracks preparation steps until
+the publisher reader can price the final transfer. It reaches 100% after the
+selected source has been verified and activated. **Continue download** keeps the last
 reported progress and reuses verified files and saved stages, including after
 an app restart. Each stage checks its transfer limit and required free space.
 For the installed selection, **Check for updates** starts the same bounded job.

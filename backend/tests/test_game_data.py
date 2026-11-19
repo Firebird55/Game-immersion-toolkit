@@ -102,14 +102,21 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
         def plan(self, request, ctx):
             self.stage = ctx.stage_handle is None
             plan = super().plan(request, ctx)
-            return replace(plan, stage='bootstrap') if self.stage else plan
+            return replace(plan, stage='bootstrap') if self.stage else replace(plan, final_transfer=True)
 
         def download(self, plan, ctx):
-            if not self.stage:
+            if self.stage:
+                ctx.consume_bytes(plan.download_bytes)
+                first_stage.set()
+                assert finish_first.wait(5)
+                handle = {'revision': plan.revision, 'content_mode': ctx.request.content_mode}
+                return PreparationStage(handle, 'First authored phase verified.')
+            else:
                 second_stage.set()
                 assert finish_stage.wait(5)
             return super().download(plan, ctx)
 
+    first_stage, finish_first = threading.Event(), threading.Event()
     second_stage, finish_stage = threading.Event(), threading.Event()
     provider = StagedProvider()
     activations = []
@@ -117,12 +124,19 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
     try:
         first = service.start('zzz', REQUEST)['game']
         assert first['state'] == 'downloading' and first['job']['total_bytes'] is None
+        assert first_stage.wait(5)
+        mid = row(service)['job']
+        assert mid['status'] == 'running' and mid['total_is_final'] is False
+        assert mid['stage_downloaded_bytes'] == mid['stage_total_bytes'] == 8192
+        assert 0 < mid['progress_percent'] < 70
+        finish_first.set()
         assert second_stage.wait(5)
         active = row(service)
         assert active['job']['id'] == first['job']['id']
-        assert active['job']['downloaded_bytes'] == 2 * 4352 + 1000
-        assert active['job']['total_bytes'] == 2 * 4352 + 1000 + 8192
+        assert active['job']['downloaded_bytes'] == 2 * 4352 + 8192
+        assert active['job']['total_bytes'] == 2 * 4352 + 8192 + 8192
         assert active['job']['completed_stages'] == 1
+        assert active['job']['total_is_final'] is True and active['job']['stage_downloaded_bytes'] == 0
         assert first['job']['progress_percent'] < active['job']['progress_percent'] < 100
         assert active['has_checkpoint'] and not active['can_activate']
         assert not activations
@@ -133,11 +147,12 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
         complete = finish(service)
         assert complete['state'] == 'ready' and complete['job']['status'] == 'complete'
         assert complete['job']['progress_percent'] == 100 and complete['job']['completed_stages'] == 2
-        assert complete['job']['downloaded_bytes'] == complete['job']['total_bytes'] == 2 * (4352 + 1000)
+        assert complete['job']['downloaded_bytes'] == complete['job']['total_bytes'] == 2 * 4352 + 8192 + 1000
         assert complete['last_download_bytes'] == complete['job']['total_bytes']
         assert complete['installed_request'] == REQUEST
-        assert provider.downloads == 2 and activations == [REQUEST]
+        assert provider.downloads == 1 and activations == [REQUEST]
     finally:
+        finish_first.set()
         finish_stage.set()
         service.close()
 

@@ -1,8 +1,15 @@
-.game-data-settings > label {display: grid; gap: .35rem; min-width: 0;}
+.game-data-settings {grid-template-columns: minmax(0, 1fr);}
+.game-data-settings > * {min-width: 0;}
+.game-data-settings [data-slot="dialog-header"] {padding-inline-end: 2rem;}
+.game-data-settings > label {display: grid; gap: .35rem;}
 .game-data-settings select {width: 100%; min-width: 0; padding: .4rem;}
-.game-data-settings fieldset {display: flex; flex-wrap: wrap; gap: .5rem 1rem; min-width: 0;}
+.game-data-settings fieldset {display: flex; flex-wrap: wrap; gap: .5rem 1rem;}
 .game-data-settings fieldset label {display: inline-flex; align-items: center; gap: .35rem;}
-.game-data-settings dl {display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem;}
-.game-data-settings dd {margin: 0; overflow-wrap: anywhere;}
+.game-data-settings .game-data-stats {display: grid; gap: .5rem; margin: 0;}
+.game-data-settings .game-data-stats > div {display: flex; flex-wrap: wrap; justify-content: space-between; gap: .15rem .75rem;}
+.game-data-settings :is(dt, dd, [role="status"], [role="alert"]) {min-width: 0; overflow-wrap: anywhere;}
+.game-data-settings dd {margin: 0;}
 .game-data-settings .game-data-progress {width: 100%; accent-color: var(--primary);}
+.game-data-settings .game-data-steps {margin: 0; color: var(--muted-foreground);}
 .game-data-settings .toolkit-setup-actions {display: flex; flex-wrap: wrap; gap: .5rem;}
+.game-data-settings .toolkit-setup-actions > button {max-width: 100%;}
