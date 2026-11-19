@@ -1,5 +1,5 @@
 {
-  "version": "0.24.1",
-  "releaseCommand": "npm run release -- --version 0.24.1 --profile windows-android",
+  "version": "0.24.2",
+  "releaseCommand": "npm run release -- --version 0.24.2 --profile windows-android",
   "profile": "windows-android"
 }
