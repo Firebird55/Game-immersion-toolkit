@@ -1,9 +1,12 @@
 """Game locales and Lexirise language contexts; never infer a different target."""
 from __future__ import annotations
 
+import re
 import unicodedata
 
 from .language_contracts import STUDY_LANGUAGES
+
+_NON_ALNUM = re.compile(r"[\W_]+")
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
@@ -85,4 +88,4 @@ def normalize_text(text: str, locale: str = '') -> str:
     if locale.startswith('zh'):
         from .bilingual import simplify_chinese
         value = simplify_chinese(value)
-    return ''.join(char for char in value if char.isalnum())
+    return value if value.isalnum() else _NON_ALNUM.sub('', value)

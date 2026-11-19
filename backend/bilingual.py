@@ -18,11 +18,34 @@ HAN_RE = re.compile(r"[\u3400-\u9fff\U00020000-\U0003134f]")
 _SIMPLIFIED = OpenCC("t2s")
 
 
+def _single_character_conversion(converter):
+    # The bundled t2s conversion has one stage with a phrase dictionary and
+    # a character dictionary. Keep OpenCC's phrase precedence and separators.
+    # An unfamiliar dictionary layout uses the normal converter for all text.
+    stages = getattr(converter, "_dict_chain_data", ())
+    if len(stages) != 1 or not isinstance(stages[0], list) or len(stages[0]) != 2:
+        return None, None
+    characters, phrases = {}, set()
+    for _, _, dictionary in stages[0]:
+        for key, value in dictionary.items():
+            if len(key) != 1:
+                phrases.add(key)
+            elif not converter.split_chars_re.fullmatch(key):
+                characters.setdefault(key, value.split(" ", 1)[0])
+    pattern = re.compile("|".join(map(re.escape, sorted(phrases)))) if phrases else None
+    return str.maketrans(characters), pattern
+
+
+_T2S_CHARACTERS, _T2S_PHRASES = _single_character_conversion(_SIMPLIFIED)
+
+
 def contains_han(value: str) -> bool:
     return bool(HAN_RE.search(value))
 
 
 def simplify_chinese(value: str) -> str:
+    if _T2S_CHARACTERS is not None and (_T2S_PHRASES is None or not _T2S_PHRASES.search(value)):
+        return value.translate(_T2S_CHARACTERS)
     return _SIMPLIFIED.convert(value)
 
 
