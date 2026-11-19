@@ -86,6 +86,9 @@ def test_zzz_static_comic_uses_positioned_rows_and_owns_overlapping_dialogue(hos
     fuzzy = 'We have ta crass the riveer befare daylite. Keep watch.'
     hit, = host.session.index.match_line_groups([fuzzy])
     assert hit.text_id == ids[0] and hit.kind == 'fuzzy'
+    clipped = 'We have to cross the river before day'
+    hit, = host.session.index.match_line_groups([clipped])
+    assert hit.text_id == ids[0] and hit.kind == 'fuzzy' and hit.english == texts[0]
 
 
 def test_cancel_before_server_register_is_not_forgotten(host, tmp_path):

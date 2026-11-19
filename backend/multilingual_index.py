@@ -63,6 +63,7 @@ class MultilingualTextIndex:
         self._sns_compiled = None
         self._training_compiled = ()
         self._zzz_cinema_occurrences = None
+        self._zzz_comic_keys = {}
         if autoload:
             self.load()
 
@@ -171,6 +172,7 @@ class MultilingualTextIndex:
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             predecessor_aliases = {}
+            comic_keys = {}
             mission_parents = {row.get('previous_text_id') for row in payload['records']
                                if self.game == 'endfield' and row.get('dialogue_kind') == 'conversation'
                                and row.get('previous_text_id')}
@@ -250,6 +252,8 @@ class MultilingualTextIndex:
                     continue
                 else:
                     destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
+                comic = (self.game == 'zzz' and destination is lookup and 'cinematic' in channels
+                         and is_comic_text_id(row['text_id']))
                 for language, text in row['texts'].items():
                     for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                         key = normalize_text(display_text(value), language)
@@ -259,6 +263,8 @@ class MultilingualTextIndex:
                         # predecessor metadata must not widen its ordinary lane.
                         if len(key) >= 2 or key and row.get('previous_text_id') and self.game != 'nte':
                             destination.setdefault(language, {}).setdefault(key, []).append(row)
+                    if comic:
+                        comic_keys.setdefault(language, set()).add(normalize_text(display_text(text), language))
                     if not missing_audio and row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
                         last = anchors[0]
                         if last and text.endswith(' ' + last):
@@ -293,6 +299,7 @@ class MultilingualTextIndex:
                 cinema_compiled = compile_occurrences(payload, probe)
             with self.lock:
                 self._zzz_cinema_occurrences = cinema_compiled
+                self._zzz_comic_keys = comic_keys
                 self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels
@@ -818,9 +825,39 @@ class MultilingualTextIndex:
         result = {}
         for group in groups:
             hit = self.match_lines([group], threshold, channel=channel, context_groups=context_groups)
+            if hit is None and self.game == 'zzz' and channel == 'cinematic':
+                hit = self._match_comic_fragment(group, threshold)
             if hit:
                 result.setdefault(hit.text_id, hit)
         return list(result.values())
+
+    def _match_comic_fragment(self, group, threshold):
+        """Recover a substantial clipped bubble using a unique voiced comic."""
+        hits = {}
+        with self.lock:
+            observed = display_text(group)
+            if any(normalize_text(observed, locale) in lookup for locale, lookup in self._lookup.items()):
+                return None
+            for locale, choices in self._zzz_comic_keys.items():
+                key = normalize_text(observed, locale)
+                minimum = 14 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 28
+                if len(key) < minimum or self._vetoed(key, locale):
+                    continue
+                candidates = (text for text in choices if len(key) < len(text) <= len(key) / .45)
+                matches = process.extract(key, candidates, scorer=fuzz.partial_ratio,
+                    score_cutoff=max(92, threshold), limit=2)
+                if not matches:
+                    continue
+                for text, score, _ in matches:
+                    hit = self.match_lines([text], exact_only=True, channel='cinematic')
+                    if hit is None or not is_comic_text_id(hit.text_id) or hit.voice_status != 'voiced':
+                        # An ambiguous complete caption cannot identify this
+                        # bubble's performance through less visible text.
+                        return None
+                    if hit.text_id not in hits or score > hits[hit.text_id].score:
+                        hits[hit.text_id] = hit.model_copy(update={'source_ocr': group, 'score': score, 'kind': 'fuzzy'})
+            ordered = sorted(hits.values(), key=lambda hit: hit.score, reverse=True)
+        return ordered[0] if ordered and (len(ordered) == 1 or ordered[0].score > ordered[1].score + 1) else None
 
     def match_simultaneous_lines(self, lines, threshold=88):
         return self.match_lines(lines, threshold=threshold, multiple=True)
