@@ -31,7 +31,7 @@ from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
 from .zzz_dialogue_context import ZzzDialogueContext
-from .caption_layout import spatial_text_groups, is_cinematic_fragment
+from .caption_layout import spatial_text_groups, is_cinematic_fragment, zzz_filmstrip, zzz_filmstrip_picture
 from .nte_dialogue_context import NteDialogueContext
 from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
@@ -577,6 +577,7 @@ class CaptureService:
             comic_reader = getattr(self.textmaps, 'match_zzz_comics', None)
             cinematic_image = self._capture(window.bounds if comic_reader else cinematic_bounds)
             cinema_frame = getattr(self._window_frame, 'cinema_frame', None)
+            filmstrip = bool(comic_reader and self._zzz_filmstrip(cinematic_image))
             cinematic_image = self._ocr_image(cinematic_image, window)
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
@@ -600,8 +601,9 @@ class CaptureService:
                 if self._capturable_match(item)
             ]
             if comic_reader:
-                groups = self._spatial_text_groups(cinematic_response, keep_rows=True)
-                comics = {hit.text_id: hit for hit in comic_reader(groups, settings.fuzzy_threshold)
+                comic_picture = zzz_filmstrip_picture((0, 0, *cinematic_image.size)) if filmstrip else None
+                groups = self._spatial_text_groups(cinematic_response, comic_picture, keep_rows=True)
+                comics = {hit.text_id: hit for hit in comic_reader(groups, settings.fuzzy_threshold, filmstrip=filmstrip)
                           if self._capturable_match(hit)}
                 for hit in cinematic_matches:
                     if hit.text_id not in comics or hit.score > comics[hit.text_id].score:
@@ -1743,6 +1745,14 @@ class CaptureService:
         histogram = probe.histogram()
         total = max(1, sum(histogram))
         return sum(histogram[:threshold]) / total
+
+    @staticmethod
+    def _zzz_filmstrip(image):
+        width, height = image.size
+        image = image.convert("L")
+        pixels = image.load()
+        return zzz_filmstrip([[pixels[x * (width - 1) // 255, y * height // 100] for x in range(256)]
+                              for y in (3, 5, 7, 91, 93, 95)])
 
     @classmethod
     def _is_visual_novel_layout(cls, top_probe: Image.Image) -> bool:

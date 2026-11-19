@@ -167,6 +167,40 @@ def test_android_reads_prepared_translations_via_their_own_subtitle_script(host,
     assert line['audio_source'] == 'original'
 
 
+@pytest.mark.parametrize('second_bubble', [False, True])
+def test_zzz_filmstrip_distinguishes_a_voiced_comic_from_a_reused_choice(host, tmp_path, second_bubble):
+    _, payload = fixture_library(tmp_path / 'input')
+    text, observed = 'Quick! Across the bridge!', 'Quickl Across the bridge!'
+    identity = 'Comic_' + 'a' * 32
+    bubble = dict(payload['records'][0], text_id=identity, source_text=text, english=text,
+                  texts={'en': text}, dialogue_kind='comic', channels=['cinematic'])
+    choice = dict(bubble, text_id='Option_Synthetic', voice_status='unknown', audio=None,
+                  dialogue_kind='choice', channels=['dialogue', 'cinematic'])
+    clones = [dict(choice, text_id='Comic_' + 'b' * 32, dialogue_kind='comic')] if second_bubble else []
+    payload['records'] = [bubble, choice, *clones]
+    archive = write_prepared_library(payload, tmp_path / 'comic-choice.zip',
+        {identity: tmp_path / 'input' / 'tone.wav'})
+    host.session.import_library(archive)
+    generation = host.session.start()
+
+    row = {'text': observed, 'confidence': .99, 'bounding_rect': {
+        'x1': 441, 'x2': 645, 'x3': 645, 'x4': 441,
+        'y1': 175, 'y2': 175, 'y3': 191, 'y4': 191,
+    }}
+    raw = {'width': 900, 'height': 400, 'blocks': [{'text': observed, 'rect': [441, 175, 645, 191]}],
+           'presentation_lines': [row]}
+    strip = [12 if x % 11 == 1 else 2 for x in range(256)]
+    assert not host._accept_ocr(generation, 1, json.dumps({**raw, 'filmstrip_samples': [strip] * 3 + [[0] * 256] * 3}))
+    assert host.session.index.match_lines([text], channel='cinematic') is None
+    lines = host._accept_ocr(generation, 2, json.dumps({**raw, 'filmstrip_samples': [strip] * 6}))
+    if second_bubble:
+        assert lines == []
+    else:
+        line, = lines
+        assert line['text_id'] == identity and line['match_kind'] == 'fuzzy'
+        assert line['audio_source'] == 'original'
+
+
 def test_cancel_before_server_register_is_not_forgotten(host, tmp_path):
     archive, _ = fixture_library(tmp_path / 'input')
     identity = str(uuid.uuid4())

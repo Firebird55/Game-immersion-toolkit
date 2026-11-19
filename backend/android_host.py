@@ -23,7 +23,7 @@ import weakref
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .capture_geometry import picture_bounds, region_bounds
-from .caption_layout import spatial_text_groups
+from .caption_layout import spatial_text_groups, zzz_filmstrip, zzz_filmstrip_picture
 from .models import CaptureRegion
 from .native_frame_admission import NativeFrameAdmissions
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
@@ -584,11 +584,13 @@ class AndroidHost:
             alternates.append(alternate)
         alternative_rows = [presentation_lines(data, width, height) for data in alternates if isinstance(data, dict)]
         comic_groups = []
+        filmstrip = game == 'zzz' and zzz_filmstrip(value.get('filmstrip_samples'))
         if game == 'zzz':
             # Keep OCR passes independent so alternate readings at the
             # same position cannot be concatenated into a single bubble.
+            comic_picture = zzz_filmstrip_picture(picture) if filmstrip else picture
             for rows in (*alternative_rows, positioned):
-                comic_groups.extend(spatial_text_groups({'lines': rows}, picture, keep_rows=True))
+                comic_groups.extend(spatial_text_groups({'lines': rows}, comic_picture, keep_rows=True))
         nte_layout = None
         if game == 'nte':
             from .caption_layout import native_nte_caption
@@ -640,7 +642,8 @@ class AndroidHost:
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
                 dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
                 zzz_captions=zzz_captions, zzz_dialogue=observations['dialogue'][0] if game == 'zzz' else None,
-                zzz_comic_groups=comic_groups if channel == 'cinematic' else (), alternate_groups=alternate_groups))
+                zzz_comic_groups=comic_groups if channel == 'cinematic' else (),
+                zzz_comic_filmstrip=filmstrip and channel == 'cinematic', alternate_groups=alternate_groups))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
             dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,

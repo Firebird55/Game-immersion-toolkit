@@ -8,6 +8,39 @@ from .steam_games import STEAM_GAMES
 from .bilingual import normalize_subtitle
 
 
+def zzz_filmstrip(rows):
+    """Match the paired repeating perforations that frame ZZZ motion comics."""
+    if (not isinstance(rows, (list, tuple)) or len(rows) != 6
+            or any(not isinstance(row, (list, tuple)) or len(row) != 256
+                   or any(type(value) is not int or not 0 <= value <= 255 for value in row)
+                   for row in rows)):
+        return False
+    strips = [list(map(sum, zip(*piece))) for piece in (rows[:3], rows[3:])]
+    centered = []
+    for strip in strips:
+        average = sum(strip) / len(strip)
+        samples = [value - average for value in strip]
+        if average > 24 or sum(value > 60 for value in strip) > 12 or sum(x * x for x in samples) < 4096:
+            return False
+        centered.append(samples)
+
+    def repeats(strip, period):
+        left, right = strip[:-period], strip[period:]
+        dot = sum(a * b for a, b in zip(left, right))
+        energy = sum(a * a for a in left) * sum(b * b for b in right)
+        return dot / math.sqrt(energy) if energy else 0
+
+    return any(all(repeats(strip, period) >= .62
+                   and max(repeats(strip, period * 2 + shift) for shift in (-1, 0, 1)) >= .58
+                   for strip in centered) for period in range(6, 22))
+
+
+def zzz_filmstrip_picture(bounds):
+    x, y, width, height = bounds
+    margin = round(height * .11)
+    return x, y + margin, width, height - 2 * margin
+
+
 @dataclass(frozen=True)
 class NativeNteCaption:
     groups: tuple[str, ...]

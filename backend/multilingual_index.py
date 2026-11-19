@@ -64,6 +64,7 @@ class MultilingualTextIndex:
         self._training_compiled = ()
         self._zzz_cinema_occurrences = None
         self._zzz_comic_keys = {}
+        self._zzz_comic_rows = {}
         self.ocr_locales = ()
         if autoload:
             self.load()
@@ -174,6 +175,7 @@ class MultilingualTextIndex:
             coverage = {}
             predecessor_aliases = {}
             comic_keys = {}
+            comic_rows = {}
             ocr_locales = {locale: None}
             mission_parents = {row.get('previous_text_id') for row in payload['records']
                                if self.game == 'endfield' and row.get('dialogue_kind') == 'conversation'
@@ -213,6 +215,14 @@ class MultilingualTextIndex:
                 # rows excluded from OCR matching because they have no audio.
                 channels = dialogue_capture_channels(row.get('channels'))
                 row['channels'] = sorted(channels)
+                comic = self.game == 'zzz' and 'cinematic' in channels and is_comic_text_id(row['text_id'])
+                if comic:
+                    for language, text in row['texts'].items():
+                        for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
+                            key = normalize_text(display_text(value), language)
+                            entries = comic_rows.setdefault(language, {}).setdefault(key, [])
+                            if not entries or entries[-1] is not row:
+                                entries.append(row)
                 for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
                     previous = capture_channels.get(identity)
                     capture_channels[identity] = channels if previous is None else previous | channels
@@ -256,8 +266,6 @@ class MultilingualTextIndex:
                     continue
                 else:
                     destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
-                comic = (self.game == 'zzz' and destination is lookup and 'cinematic' in channels
-                         and is_comic_text_id(row['text_id']))
                 for language, text in row['texts'].items():
                     for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                         key = normalize_text(display_text(value), language)
@@ -267,7 +275,7 @@ class MultilingualTextIndex:
                         # predecessor metadata must not widen its ordinary lane.
                         if len(key) >= 2 or key and row.get('previous_text_id') and self.game != 'nte':
                             destination.setdefault(language, {}).setdefault(key, []).append(row)
-                    if comic:
+                    if comic and destination is lookup:
                         comic_keys.setdefault(language, set()).add(normalize_text(display_text(text), language))
                     if not missing_audio and row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
                         last = anchors[0]
@@ -304,6 +312,7 @@ class MultilingualTextIndex:
             with self.lock:
                 self._zzz_cinema_occurrences = cinema_compiled
                 self._zzz_comic_keys = comic_keys
+                self._zzz_comic_rows = comic_rows
                 self.ocr_locales = tuple(ocr_locales)
                 self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
@@ -697,17 +706,7 @@ class MultilingualTextIndex:
                         if not choices:
                             continue
                         row = choices[0]
-                    target = resolve_locale(self.target_locale, row['texts'])
-                    hits.append(TextMatch(game=self.game, text_id=row['text_id'], english=row.get('english') or row['source_text'],
-                        chinese=row.get('chinese', ''), source_ocr=source, score=score, kind='exact' if score == 100 else 'fuzzy',
-                        source_language=study_language(self.source_locale), source_locale=self.source_locale,
-                        source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
-                        translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
-                        speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
-                        voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
-                        text_capture_verified=row.get('text_capture_verified', False),
-                        audio_scope=row['audio_scope'], audio_omitted_by_request=row.get('audio_omitted_by_request', False),
-                        source_voice_binding=row.get('source_voice_binding'), **self._publisher_context(row)))
+                    hits.append(self._caption_match(row, source, score))
         if multiple:
             # Retain independent visible speakers, but never turn a wrapped
             # caption's fragment into another performance. The same ambiguity
@@ -836,13 +835,26 @@ class MultilingualTextIndex:
                 result.setdefault(hit.text_id, hit)
         return list(result.values())
 
-    def match_zzz_comics(self, groups, threshold=88):
+    def _caption_match(self, row, observed, score):
+        target = resolve_locale(self.target_locale, row['texts'])
+        return TextMatch(game=self.game, text_id=row['text_id'], english=row.get('english') or row['source_text'],
+            chinese=row.get('chinese', ''), source_ocr=observed, score=score, kind='exact' if score == 100 else 'fuzzy',
+            source_language=study_language(self.source_locale), source_locale=self.source_locale,
+            source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
+            translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
+            speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
+            voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
+            text_capture_verified=row.get('text_capture_verified', False),
+            audio_scope=row['audio_scope'], audio_omitted_by_request=row.get('audio_omitted_by_request', False),
+            source_voice_binding=row.get('source_voice_binding'), **self._publisher_context(row))
+
+    def match_zzz_comics(self, groups, threshold=88, *, filmstrip=False):
         """Read authored bubbles across the picture without matching HUD dialogue."""
         result = {}
         with self.lock:
             for rows in groups:
                 whole = ' '.join(rows)
-                if hit := self._comic_bubble(whole, threshold, exact=True):
+                if hit := self._comic_bubble(whole, threshold, exact=True, filmstrip=filmstrip):
                     candidates = [hit]
                 else:
                     # OCR can put two nearby balloons in one run as they move.
@@ -851,14 +863,14 @@ class MultilingualTextIndex:
                     first = 0
                     while first < len(rows):
                         for end in range(min(len(rows), first + 8), first, -1):
-                            hit = self._comic_bubble(' '.join(rows[first:end]), threshold, exact=True)
+                            hit = self._comic_bubble(' '.join(rows[first:end]), threshold, exact=True, filmstrip=filmstrip)
                             if hit:
                                 splits.append(hit)
                                 first = end
                                 break
                         else:
                             first += 1
-                    complete = self._comic_bubble(whole, threshold)
+                    complete = self._comic_bubble(whole, threshold, filmstrip=filmstrip)
                     candidates = [complete] if complete and len(splits) < 2 else splits
                 for hit in candidates:
                     old = result.get(hit.text_id)
@@ -866,9 +878,12 @@ class MultilingualTextIndex:
                         result[hit.text_id] = hit
         return list(result.values())
 
-    def _comic_bubble(self, observed, threshold, *, exact=False):
+    def _comic_bubble(self, observed, threshold, *, exact=False, filmstrip=False):
         hits = {}
         for locale, choices in self._zzz_comic_keys.items():
+            comic_rows = self._zzz_comic_rows.get(locale, {})
+            if filmstrip:
+                choices = comic_rows.keys()
             key = normalize_text(display_text(observed), locale)
             if len(key) < (4 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 8):
                 continue
@@ -876,12 +891,26 @@ class MultilingualTextIndex:
             if key not in choices:
                 if exact:
                     continue
-                nearest = process.extract(key, choices, scorer=fuzz.ratio,
-                    score_cutoff=max(92, threshold), limit=2)
-                if not nearest or len(nearest) > 1 and nearest[1][1] >= nearest[0][1] - 2:
+                cutoff = max(96 if filmstrip else 92, threshold)
+                nearest = process.extract(key, choices, scorer=fuzz.ratio, score_cutoff=cutoff - 2, limit=2)
+                if (not nearest or nearest[0][1] < cutoff
+                        or len(nearest) > 1 and nearest[1][1] >= nearest[0][1] - 2):
                     continue
                 key, score, _ = nearest[0]
-            hit = self.match_lines([key], exact_only=True, channel='cinematic')
+            if filmstrip:
+                # The frame identifies the motion-comic presentation. Reused
+                # dialogue choices cannot veto its unique authored take, but
+                # another comic occurrence or unresolved voice still can.
+                rows = comic_rows.get(key, ())
+                if len(rows) != 1:
+                    continue
+                row = rows[0]
+                if (row['voice_status'] != 'voiced' or row.get('text_binding_unresolved')
+                        or row.get('requires_previous') or row.get('audio_omitted_by_request')):
+                    continue
+                hit = self._caption_match(row, observed, score)
+            else:
+                hit = self.match_lines([key], exact_only=True, channel='cinematic')
             if hit and is_comic_text_id(hit.text_id) and (hit.text_id not in hits or score > hits[hit.text_id].score):
                 hits[hit.text_id] = hit.model_copy(update={'source_ocr': observed, 'score': score,
                     'kind': 'exact' if score == 100. else 'fuzzy'})

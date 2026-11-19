@@ -185,6 +185,7 @@ public final class FrameOcr {
                     (int)Math.round(height * factor), true);
             }
             JSONObject result = recognizeBitmap(scaled == null ? bitmap : scaled, frame.locales, frame.comic, width, height);
+            if (frame.comic) result.put("filmstrip_samples", filmstripSamples(bitmap));
             Python.getInstance().getModule("backend.android_host").callAttr("accept_ocr", frame.generation, frame.sequence, result.toString());
         } catch (Exception error) {
             if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "A frame could not be recognized locally");
@@ -192,6 +193,21 @@ public final class FrameOcr {
             if (scaled != null && scaled != bitmap) scaled.recycle();
             if (bitmap != null) bitmap.recycle();
         }
+    }
+
+    private static JSONArray filmstripSamples(Bitmap bitmap) {
+        JSONArray rows = new JSONArray();
+        for (int offset : new int[]{3, 5, 7, 91, 93, 95}) {
+            JSONArray row = new JSONArray();
+            int y = offset * bitmap.getHeight() / 100;
+            for (int x = 0; x < 256; x++) {
+                int rgb = bitmap.getPixel(x * (bitmap.getWidth() - 1) / 255, y);
+                int luma = (((rgb >> 16) & 255) * 299 + ((rgb >> 8) & 255) * 587 + (rgb & 255) * 114 + 500) / 1000;
+                row.put(luma);
+            }
+            rows.put(row);
+        }
+        return rows;
     }
     private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale) throws Exception {
         return recognizeBitmap(bitmap, locale, false, bitmap.getWidth(), bitmap.getHeight());
