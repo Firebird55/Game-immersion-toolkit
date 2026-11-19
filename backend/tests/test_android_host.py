@@ -39,6 +39,14 @@ def upload(host, path, identity):
         headers={'Content-Type': 'application/zip', 'X-Toolkit-Import-Id': identity})
 
 
+def test_android_reader_reports_existing_game_data_opening(host):
+    host.game_restored[host.session] = 'restoring'
+    status, result = request(host, 'GET', '/api/snapshot')
+    assert status == 200
+    capture = result['status']['capture']
+    assert capture['phase'] == 'restoring_game_data'
+    assert capture['message'] == 'Opening downloaded game data…'
+
 def test_zzz_static_comic_uses_positioned_rows_and_owns_overlapping_dialogue(host, tmp_path):
     _, payload = fixture_library(tmp_path / 'input')
     texts = ['We have to cross the river before daylight. Keep watch.',

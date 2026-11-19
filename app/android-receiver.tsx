@@ -14,8 +14,8 @@ import './android-receiver.css';
 type ReceiverState = {status: string; message: string; active: boolean; paused?: boolean;
  width?: number; height?: number; acceptedFrames?: number};
 
-export function AndroidReceiver({online, libraryReady, libraryRevision, capabilities, onChanged}: {
- online: boolean; libraryReady: boolean; libraryRevision: string | null; capabilities: NativeCapabilities | null; onChanged: () => void;
+export function AndroidReceiver({online, libraryReady, libraryRestoring, libraryRevision, capabilities, onChanged}: {
+ online: boolean; libraryReady: boolean; libraryRestoring: boolean; libraryRevision: string | null; capabilities: NativeCapabilities | null; onChanged: () => void;
 }) {
  const accountGeneration = useNativeAccountGeneration();
  const viewer = useRef<HTMLDivElement>(null);
@@ -98,6 +98,7 @@ export function AndroidReceiver({online, libraryReady, libraryRevision, capabili
    <Button variant="outline" onClick={() => setInstructions(true)}>Instructions</Button>
   </div>
   <p role="status">{!supported ? 'Screen reception is unavailable in this app build.'
+   : libraryRestoring ? 'Opening downloaded game data. The stream will connect when it’s ready.'
    : !libraryReady ? 'Finish preparing this game’s data in Settings to connect the stream.'
    : !online ? 'Waiting for the app to reconnect.' : link.trim() || state.status === 'error' ? state.message : ''}</p>
   <div ref={viewer} className="android-screen-viewer" hidden={!state.active}

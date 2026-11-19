@@ -1054,6 +1054,7 @@ function CompanionClient() {
       {nativeHost.android && !archivedHistory && <AndroidReceiver key={`${requestGeneration}:${selectedGame}`}
         libraryRevision={capture?.active_game === selectedGame ? capture?.library_revision ?? null : null}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
+        libraryRestoring={capture?.phase === 'restoring_game_data'}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
 

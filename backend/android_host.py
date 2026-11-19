@@ -240,6 +240,8 @@ class AndroidHost:
                 if session in self.game_restored:
                     return
                 self.game_restored[session] = 'restoring'
+            with session.lock:
+                session.state_version += 1
             def restore():
                 try:
                     self.game_data.restore(active['game'], expected_owner=owner, source_descriptor=active['source'])
@@ -248,6 +250,7 @@ class AndroidHost:
                         try:
                             if self.session is session and self._game_owner() == owner and session.index is None:
                                 session.message = 'Downloaded game data needs repair. Saved history is still available.'
+                                session.state_version += 1
                         except (ValueError, GameDataError):
                             pass
                 finally:
@@ -371,6 +374,11 @@ class AndroidHost:
                 if recovery is not None:
                     return recovery
             result = self.session.snapshot()
+            with self.game_restore_lock:
+                restoring = self.game_restored.get(self.session) == 'restoring'
+            if restoring and not result['status']['textmaps']['ready']:
+                result['status']['capture'].update(phase='restoring_game_data',
+                    message='Opening downloaded game data…')
             if self.account_sessions:
                 result['context']['account_generation'] = self.account_generation
                 preferences = self.account_sessions.cached_preferences()
