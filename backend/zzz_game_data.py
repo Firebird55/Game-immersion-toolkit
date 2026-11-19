@@ -186,76 +186,83 @@ class ZzzGameDataProvider:
         if ctx.request != request or ctx.game != 'zzz':
             raise GameDataError('game_data_plan_changed', 'Check the selected ZZZ download again.', 409)
         ctx.check()
-        with ctx.transfer_lock:
-            cache = _cache(ctx)
-            fetch = self._fetch(ctx, kind='metadata')
-            memo = getattr(ctx, 'preparation_memo', {})
-            build = memo.get('zzz-launcher')
-            if build is None:
-                build = sophon.release('zzz-' + request.region, fetch=fetch)
-                memo['zzz-launcher'] = build
-            revision = _revision(build)
-            handle = {'schema': SCHEMA, 'game': 'zzz', 'request': selection, 'build': build, 'revision': revision}
-            spec = tuple(build['manifests']['game'])
-            if not (0 < spec[2] <= sophon.MAX_MANIFEST and 0 < spec[3] <= sophon.MAX_MANIFEST):
-                raise GameDataError('zzz_manifest_bounds', 'The original ZZZ manifest exceeds the supported source bounds.')
-            if (not _valid_file(cache / 'manifests' / spec[4], spec[4], spec[3])
-                    and spec[2] > ctx.remaining_bytes(kind='metadata')):
-                return GameDataPlan(revision, spec[2], spec[3] * 2 + 1024**2,
-                    handle=handle, runtime_available=True, stage='official-manifest',
-                    message='Download the original ZZZ manifest first, then check the remaining source size.')
-            files = _files(build, cache, fetch)
-            try:
-                config = bootstrap.official(build, request.region, cache, fetch=_no_transfer)
-            except _MissingBootstrap:
-                pass
-            else:
-                handle['bootstrap_proof'] = hoyo_dispatch_metadata.provenance(config)
-                crypto = self._android_gateway()
-                reader = self._reader() if self.platform != 'android' or crypto is not None else None
-                if reader is not None:
-                    from . import zzz_pc_stages
-                    options = {'codecs': self._codecs()} if request.content_mode == 'text-audio' else {}
-                    return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory,
-                                              crypto=crypto, **options)
-                if crypto is not None:
-                    from . import zzz_pc_sources
-                    current = zzz_pc_sources.discover(ctx, build, cache, transport_factory=self.transport_factory,
-                                                      crypto=crypto)
-                    handle['hotfix'] = current['hotfix']
-                    handle['revision'] = _revision(current)
-                    ctx.check()
-                    return GameDataPlan(handle['revision'], None, None, handle=handle, runtime_available=False,
-                        stage='catalogue-runtime',
-                        message='The verified ZZZ dialogue reader is unavailable on this device. '
-                                'On Android, use the Android release with ZZZ support.')
+        cache = _cache(ctx)
+        fetch = self._fetch(ctx, kind='metadata')
+        memo = getattr(ctx, 'preparation_memo', {})
+        build = memo.get('zzz-launcher')
+        if build is None:
+            build = sophon.release('zzz-' + request.region, fetch=fetch)
+            memo['zzz-launcher'] = build
+        if 'zzz-content-runtime' in memo:
+            reader, crypto, codecs = memo['zzz-content-runtime']
+            from . import zzz_pc_stages
+            return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory,
+                                      crypto=crypto, codecs=codecs, verification=self._verification(ctx))
+        revision = _revision(build)
+        handle = {'schema': SCHEMA, 'game': 'zzz', 'request': selection, 'build': build, 'revision': revision}
+        spec = tuple(build['manifests']['game'])
+        if not (0 < spec[2] <= sophon.MAX_MANIFEST and 0 < spec[3] <= sophon.MAX_MANIFEST):
+            raise GameDataError('zzz_manifest_bounds', 'The original ZZZ manifest exceeds the supported source bounds.')
+        if (not _valid_file(cache / 'manifests' / spec[4], spec[4], spec[3])
+                and spec[2] > ctx.remaining_bytes(kind='metadata')):
+            return GameDataPlan(revision, spec[2], spec[3] * 2 + 1024**2,
+                handle=handle, runtime_available=True, stage='official-manifest',
+                message='Download the original ZZZ manifest first, then check the remaining source size.')
+        files = _files(build, cache, fetch)
+        try:
+            config = bootstrap.official(build, request.region, cache, fetch=_no_transfer)
+        except _MissingBootstrap:
+            pass
+        else:
+            handle['bootstrap_proof'] = hoyo_dispatch_metadata.provenance(config)
+            crypto = self._android_gateway()
+            reader = self._reader() if self.platform != 'android' or crypto is not None else None
+            if reader is not None:
+                from . import zzz_pc_stages
+                codecs = self._codecs() if request.content_mode == 'text-audio' else None
+                memo['zzz-content-runtime'] = reader, crypto, codecs
+                return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory,
+                                          crypto=crypto, codecs=codecs, verification=self._verification(ctx))
+            if crypto is not None:
+                from . import zzz_pc_sources
+                current = zzz_pc_sources.discover(ctx, build, cache, transport_factory=self.transport_factory,
+                                                  crypto=crypto)
+                handle['hotfix'] = current['hotfix']
+                handle['revision'] = _revision(current)
                 ctx.check()
-                if self.platform == 'android':
-                    message = ('Dialogue preparation could not start because the Android ZZZ source verification '
-                               'runtime is unavailable. Use the Android release with ZZZ support.')
-                else:
-                    message = 'Dialogue preparation requires the verified ZZZ reader. Repair the app installation.'
-                return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
-                    stage='catalogue-runtime', message=message)
-            _, _, native = bootstrap.native_source_plan(build, cache, fetch=fetch)
-            containers, network, disk = _quote(files, native, cache)
-            handle['containers'], handle['native_source'] = containers, native
+                return GameDataPlan(handle['revision'], None, None, handle=handle, runtime_available=False,
+                    stage='catalogue-runtime',
+                    message='The verified ZZZ dialogue reader is unavailable on this device. '
+                            'On Android, use the Android release with ZZZ support.')
             ctx.check()
-            return GameDataPlan(revision, network, disk, handle=handle, download_is_upper_bound=True,
-                runtime_available=True, stage='official-bootstrap',
-                message='Download original ZZZ bootstrap sources first. This stage does not prepare dialogue or audio.')
+            if self.platform == 'android':
+                message = ('Dialogue preparation could not start because the Android ZZZ source verification '
+                           'runtime is unavailable. Use the Android release with ZZZ support.')
+            else:
+                message = 'Dialogue preparation requires the verified ZZZ reader. Repair the app installation.'
+            return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
+                stage='catalogue-runtime', message=message)
+        _, _, native = bootstrap.native_source_plan(build, cache, fetch=fetch)
+        containers, network, disk = _quote(files, native, cache)
+        handle['containers'], handle['native_source'] = containers, native
+        ctx.check()
+        return GameDataPlan(revision, network, disk, handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage='official-bootstrap',
+            message='Download original ZZZ bootstrap sources first. This stage does not prepare dialogue or audio.')
 
     def download(self, plan, ctx):
         if plan.handle.get('schema') == 'zzz-pc-official-text-v1':
-            crypto = self._android_gateway()
-            reader = self._reader()
+            runtime = getattr(ctx, 'preparation_memo', {}).get('zzz-content-runtime')
+            if runtime is None:
+                crypto, reader = self._android_gateway(), self._reader()
+                codecs = self._codecs() if ctx.request.content_mode == 'text-audio' else None
+            else:
+                reader, crypto, codecs = runtime
             if reader is None or self.platform == 'android' and crypto is None:
                 raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
             from . import zzz_pc_stages
-            with ctx.transfer_lock:
-                options = {'codecs': self._codecs(), 'verification': self._verification(ctx)} if ctx.request.content_mode == 'text-audio' else {}
-                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory,
-                                                  crypto=crypto, **options)
+            return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory,
+                                          crypto=crypto, codecs=codecs, verification=self._verification(ctx))
         selection = _selection(ctx.request)
         handle = plan.handle
         if (handle.get('schema') != SCHEMA or handle.get('game') != 'zzz' or handle.get('request') != selection

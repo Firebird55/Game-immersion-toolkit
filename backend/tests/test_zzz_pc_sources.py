@@ -3,6 +3,7 @@ from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
+import threading
 
 import pytest
 import zstandard
@@ -110,3 +111,42 @@ def test_text_source_discovery_does_not_convert_consent_failures_into_endpoint_f
         pc.discover(Context(tmp_path, request), {'channel': 'zzz-global', 'version': '3.3.0'}, tmp_path,
                     transport_factory=Forbidden)
     assert error.value.code == 'unapproved_asset_transfer'
+
+
+def test_update_transfers_only_changed_chunks_and_overlaps_connections(tmp_path):
+    raw = b'First block remains identical through updates.'
+    old_ctx, source, old, objects, calls, factory = setup(tmp_path, raw, base=True)
+    _, original_bytes, _ = source.quote([old])
+    original = Sources(Context(tmp_path, old_ctx.request, 'download', original_bytes), source.build, transport_factory=factory)
+    original.download([old])
+    retained = len(calls)
+
+    body = raw[:11] + b'Changed portion of the current original source'
+    prefix = old.base.prefix + '/new'
+    chunks = []
+    for offset, part in [(0, body[:11]), (11, body[11:25]), (25, body[25:])]:
+        digest = hashlib.md5(part).hexdigest()
+        compressed = zstandard.ZstdCompressor().compress(part)
+        objects[prefix + '/' + digest] = compressed
+        chunks.append((offset, len(part), len(compressed), digest, digest))
+    current = replace(old, size=len(body), digest=xxhash64(body),
+                      base=replace(old.base, size=len(body), digest=hashlib.md5(body).hexdigest(),
+                                   prefix=prefix, chunks=tuple(chunks)))
+    # Each opener waits for the other request, so a serial transfer cannot pass.
+    barrier = threading.Barrier(2)
+    def concurrent_factory(context, *, hosts):
+        def open(request, **kwargs):
+            calls.append((context.phase, request.full_url))
+            barrier.wait(timeout=4)
+            return Response(request.full_url, objects[request.full_url])
+        return PublisherTransport(context, hosts=hosts, opener=open)
+
+    _, charged, _ = source.quote([current])
+    assert charged == sum(row[2] for row in chunks[1:]) < sum(row[2] for row in chunks)
+    scope = Context(tmp_path, old_ctx.request, 'download', charged)
+    updated = Sources(scope, source.build, transport_factory=concurrent_factory)
+    updated.download([current])
+    assert {url for _, url in calls[retained:]} == {prefix + '/' + row[3] for row in chunks[1:]}
+    assert scope.consumed == charged
+    assert updated.read(current, 0, len(body)) == body
+    assert updated.read(old, 0, len(raw)) == raw

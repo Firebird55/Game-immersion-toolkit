@@ -4,11 +4,13 @@ Updater files require their entire advertised checksum, even for a small scene
 range. Plans therefore charge whole selected containers; no archive/read call
 may silently transfer bytes. Original data is never executable input.
 """
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
 import re
+import threading
 import uuid
 from urllib.parse import urlsplit
 from urllib.error import URLError
@@ -17,7 +19,7 @@ from . import hoyo_dispatch_metadata as metadata, hoyo_zzz_bootstrap as bootstra
 from .game_data_protocol import GameDataError
 from .publisher_transport import PublisherTransport
 from .xxhash64 import xxhash64
-from .zzz_game_data import _safe
+from .zzz_game_data import _cached, _safe
 
 
 class NeedsFiles(Exception):
@@ -38,6 +40,28 @@ class OriginalFile:
         return {'name': self.name, 'size': self.size, 'xxh64': str(self.digest),
                 'transport': 'sophon' if self.base else 'updater',
                 'url': self.url, 'file_md5': self.base.digest if self.base else None}
+
+
+class _TransferSlot:
+    """One bounded original inside an already approved publisher batch."""
+    def __init__(self, context, allowance, kind):
+        self.context, self.allowance, self.kind = context, allowance, kind
+        self.cache_directory, self.phase = context.cache_directory, context.phase
+        self.transfer_lock = threading.RLock()
+
+    def check(self):
+        self.context.check()
+
+    def remaining_bytes(self, *, kind):
+        self.consume_bytes(0, kind=kind)
+        return self.allowance
+
+    def consume_bytes(self, count, *, kind):
+        if kind != self.kind or not 0 <= count <= self.allowance:
+            raise GameDataError('download_budget_exhausted', 'Check the download size again before continuing.')
+        with self.context.transfer_lock:
+            self.context.consume_bytes(count, kind=kind)
+        self.allowance -= count
 
 
 class Sources:
@@ -83,41 +107,114 @@ class Sources:
         stamp, blocks = self._verified[(str(path), asset.size, asset.digest, stamp, asset.base.digest if asset.base else None)]
         return hotfix._read_range(path, asset.size, offset, count, stamp, blocks)
 
-    def download(self, assets, *, kind='asset'):
-        transport = self.transport_factory(self.ctx, hosts={self.host})
-        for asset in self.unique(assets):
-            self.ctx.check()
-            if self.available(asset):
-                continue
-            pending = _safe(self.cache / 'pending' / uuid.uuid4().hex)
+    def _publish(self, asset, pending):
+        stamp, blocks = hotfix._check_file(pending, asset.size, asset.digest)
+        destination = self.path(asset)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        self.ctx.check()
+        pending.replace(destination)
+        stamp = hotfix._stamp(destination.stat())
+        self._verified[(str(destination), asset.size, asset.digest, stamp, asset.base.digest if asset.base else None)] = (stamp, blocks)
+
+    def _download_file(self, asset, transport, kind):
+        pending = _safe(self.cache / 'pending' / uuid.uuid4().hex)
+        try:
+            transport.download_to(asset.url, pending, limit=asset.size, expected_size=asset.size, kind=kind)
+            self._publish(asset, pending)
+        finally:
+            pending.unlink(missing_ok=True)
+
+    def _assemble(self, asset):
+        pending = _safe(self.cache / 'pending' / uuid.uuid4().hex)
+        pending.parent.mkdir(parents=True, exist_ok=True)
+        checksum, count = hashlib.md5(), 0
+        def no_fetch(*args, **kwargs):
+            raise GameDataError('zzz_source_changed', 'An original ZZZ chunk changed. Check the download again.', 409)
+        try:
+            with pending.open('xb') as output:
+                for offset, size, compressed, identity, digest in asset.base.chunks:
+                    self.ctx.check()
+                    if offset != count:
+                        raise GameDataError('zzz_original_range', 'The original ZZZ container layout changed.')
+                    raw = self._read_chunk(digest, size, compressed, asset.base.prefix + '/' + identity, no_fetch)
+                    output.write(raw)
+                    checksum.update(raw)
+                    count += len(raw)
+            if count != asset.size or checksum.hexdigest() != asset.base.digest:
+                raise GameDataError('publisher_checksum_mismatch', 'The original ZZZ base file failed its checksum.')
+            self._publish(asset, pending)
+        finally:
+            pending.unlink(missing_ok=True)
+
+    def _read_chunk(self, digest, size, compressed, url, fetch):
+        _safe(self.bootstrap_cache / 'chunks' / digest)
+        return sophon._verified(self.bootstrap_cache / 'chunks', url, compressed, size, digest,
+                               sophon.MAX_CHUNK, fetch=fetch)
+
+    def _chunk_available(self, digest, size):
+        _safe(self.bootstrap_cache / 'chunks' / digest)
+        return _cached(self.bootstrap_cache, digest, size)
+
+    def _download_batch(self, patches, chunks, *, kind):
+        files = {self.path(asset): asset for asset in self.unique(patches) if not self.available(asset)}
+        missing = {digest: row for digest, row in chunks.items() if not self._chunk_available(digest, row[0])}
+        transfers = [(asset.size, lambda transport, item=asset: self._download_file(item, transport, kind))
+                     for asset in files.values()]
+        for digest, (size, compressed, url) in missing.items():
+            def download_chunk(transport, digest=digest, size=size, compressed=compressed, url=url):
+                def fetch(address, *, limit):
+                    return transport.fetch_bytes(address, limit=limit, expected_size=compressed, kind=kind)[0]
+                self._read_chunk(digest, size, compressed, url, fetch)
+            transfers.append((compressed, download_chunk))
+        if sum(limit for limit, _ in transfers) > self.ctx.remaining_bytes(kind=kind):
+            raise GameDataError('download_budget_exhausted', 'Check the download size again before continuing.')
+        if not transfers:
+            return
+        workers = min(6, len(transfers))
+
+        # Each original is reserved once in the approved aggregate. Worker
+        # contexts have private transport locks and charge the same job counter.
+        remaining, guard, failed = iter(transfers), threading.Lock(), threading.Event()
+        def worker():
             try:
-                if asset.base:
-                    pending.parent.mkdir(parents=True, exist_ok=True)
-                    file_hash, count = hashlib.md5(), 0
-                    def fetch(url, *, limit):
-                        return transport.fetch_bytes(url, limit=limit, kind=kind)[0]
-                    with pending.open('xb') as output:
-                        for offset, size, compressed, identity, digest in asset.base.chunks:
-                            self.ctx.check()
-                            _safe(self.bootstrap_cache / 'chunks' / digest)
-                            raw = sophon._verified(self.bootstrap_cache / 'chunks',
-                                asset.base.prefix + '/' + identity, compressed, size, digest, sophon.MAX_CHUNK, fetch=fetch)
-                            if offset != count:
-                                raise GameDataError('zzz_original_range', 'The original ZZZ container layout changed.')
-                            output.write(raw); file_hash.update(raw); count += len(raw)
-                    if count != asset.size or file_hash.hexdigest() != asset.base.digest:
-                        raise GameDataError('publisher_checksum_mismatch', 'The original ZZZ base file failed its checksum.')
-                else:
-                    transport.download_to(asset.url, pending, limit=asset.size, expected_size=asset.size, kind=kind)
-                stamp, blocks = hotfix._check_file(pending, asset.size, asset.digest)
-                destination = self.path(asset)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                self.ctx.check()
-                pending.replace(destination)
-                stamp = hotfix._stamp(destination.stat())
-                self._verified[(str(destination), asset.size, asset.digest, stamp, asset.base.digest if asset.base else None)] = (stamp, blocks)
-            finally:
-                if pending.exists():pending.unlink()
+                while not failed.is_set():
+                    with guard:
+                        item = next(remaining, None)
+                    if item is None:
+                        return
+                    limit, perform = item
+                    context = _TransferSlot(self.ctx, limit, kind)
+                    context.check()
+                    perform(self.transport_factory(context, hosts={self.host}))
+            except Exception:
+                failed.set()
+                raise
+        if len(transfers) == 1:
+            worker()
+        else:
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='zzz-original') as pool:
+                for future in [pool.submit(worker) for _ in range(workers)]:
+                    future.result()
+
+    def download(self, assets, *, kind='asset'):
+        missing = [asset for asset in self.unique(assets) if not self.available(asset)]
+        base = [asset for asset in missing if asset.base]
+        chunks = self.chunks((asset, chunk) for asset in base for chunk in asset.base.chunks)
+        self._download_batch((asset for asset in missing if not asset.base), chunks, kind=kind)
+        for asset in base:
+            if not self.available(asset):
+                self._assemble(asset)
+
+    @staticmethod
+    def chunks(selections):
+        result = {}
+        for asset, (_, size, compressed, identity, digest) in selections:
+            existing = result.get(digest)
+            if existing and existing[0] != size:
+                raise GameDataError('zzz_source_identity_changed', 'Original ZZZ chunk sizes disagree.')
+            if existing is None or compressed > existing[1]:
+                result[digest] = size, compressed, asset.base.prefix + '/' + identity
+        return result
 
     @staticmethod
     def unique(assets):
@@ -134,19 +231,10 @@ class Sources:
     def quote(self, assets, *, scratch_bytes=0):
         selected = self.unique(assets)
         missing = [asset for asset in selected if not self.available(asset)]
-        chunks = {}
-        for asset in missing:
-            if not asset.base:continue
-            for _, size, compressed, identity, digest in asset.base.chunks:
-                path = _safe(self.bootstrap_cache / 'chunks' / digest)
-                good = False
-                if path.is_file() and path.stat().st_size == size:
-                    with path.open('rb') as handle:good = hashlib.file_digest(handle, 'md5').hexdigest() == digest
-                if not good:
-                    if digest in chunks and chunks[digest][0] != size:
-                        raise GameDataError('zzz_source_identity_changed', 'Original ZZZ chunk sizes disagree.')
-                    chunks[digest] = (size, max(compressed, chunks.get(digest, (0, 0))[1]))
-        network = sum(asset.size for asset in missing if not asset.base) + sum(row[1] for row in chunks.values())
+        chunks = self.chunks((asset, chunk) for asset in missing if asset.base for chunk in asset.base.chunks)
+        chunks = {digest: row for digest, row in chunks.items() if not self._chunk_available(digest, row[0])}
+        patches = {self.path(asset): asset for asset in missing if not asset.base}
+        network = sum(asset.size for asset in patches.values()) + sum(row[1] for row in chunks.values())
         disk = sum(asset.size for asset in missing) + sum(row[0] for row in chunks.values())
         disk += max([0, *(asset.size for asset in missing), *(row[0] for row in chunks.values())]) + scratch_bytes + 1024**2
         return [asset.json() for asset in selected], network, disk

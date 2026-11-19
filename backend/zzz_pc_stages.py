@@ -3,9 +3,12 @@ from pathlib import Path
 import base64
 import hashlib
 import json
+import os
+import shutil
 import re
 import tempfile
 import time
+from urllib.error import URLError
 
 from . import sophon_assets, zzz_hotfix
 from .atomic_files import write_bytes
@@ -24,7 +27,7 @@ from .zzz_pc_sources import Sources, NeedsFiles, discover
 
 SCHEMA = 'zzz-pc-official-text-v1'
 MODES = ('scene-plan', 'presentation-config-plan', 'presentation-owners', 'comic-plan', 'catalogue')
-FINAL_METADATA_BYTES = 12 * 1024**2
+FINAL_METADATA_BYTES = 24 * 1024**2
 MAX_OPERATIONS = 32 * 1024**2
 
 
@@ -217,7 +220,7 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
             'coverage_warnings': [SCOPE], 'message': 'Official ZZZ text prepared without audio acquisition.'}
 
 
-def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None, crypto=None):
+def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None, crypto=None, verification=None):
     memo = getattr(ctx, 'preparation_memo', {})
     current = memo.get('zzz-current')
     if current is None:
@@ -232,12 +235,31 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
     if ctx.request.source_locale not in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko'):
         return GameDataPlan(revision, None, None, handle=handle, runtime_available=False, stage='study-language',
             message='This ZZZ study language cannot be prepared on this device yet.')
+    installed = _same_source(ctx, revision, reader, codecs)
+    if installed is not None:
+        return GameDataPlan(revision, 0, 0, installed['handle'], runtime_available=True, stage='current', reuse_installed=True)
+    previous = getattr(ctx, 'stage_handle', None)
+    if (ctx.request.content_mode == 'text' and previous and previous.get('mode') == 'text-confirmation'
+            and previous.get('request') == ctx.request.json() and previous.get('revision') == revision
+            and previous.get('reader') == reader.identity):
+        confirmation = {**handle, 'mode': 'text-confirmation',
+                        'candidate_directory': ctx.stage_directory.name, 'candidate': previous['candidate']}
+        try:
+            candidate = _text_candidate(ctx, confirmation)
+            disk = sum(path.stat().st_size for path in (candidate.snapshot_path,
+                       candidate.snapshot_path.parent / 'source-receipt.json')) + 1024**2
+        except (OSError, ValueError, TypeError, KeyError, GameDataError):
+            ctx.check()
+        else:
+            return GameDataPlan(revision, FINAL_METADATA_BYTES, disk, confirmation, runtime_available=True,
+                                download_is_upper_bound=True, stage='zzz-text-confirmation',
+                                message='Confirm the current publisher update for the saved ZZZ dialogue.')
     if ctx.request.content_mode == 'text-audio':
         from . import zzz_pc_audio
-        initial = zzz_pc_audio.plan_inputs(ctx, current, handle, transport_factory=transport_factory)
+        initial = zzz_pc_audio.plan_inputs(ctx, current, handle, transport_factory=transport_factory, verification=verification)
         if initial is not None:return initial
         audio = zzz_pc_audio.plan_candidate(ctx, current, handle, reader,
-            transport_factory=transport_factory, final_metadata_bytes=FINAL_METADATA_BYTES)
+            transport_factory=transport_factory, final_metadata_bytes=FINAL_METADATA_BYTES, verification=verification)
         if audio is not None:return audio
     sources = Sources(ctx, current, transport_factory=transport_factory)
     try:inventories = sources.indexes(('design', 'catalog'))
@@ -256,7 +278,8 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
     locales = {ctx.request.source_locale, *(resolve_locale(locale, TEXT_LOCALES) for locale in ctx.request.target_locales)} - {None}
     selected, network, disk = sources.quote(assets, scratch_bytes=_scratch_bytes(files, ranges, locales))
     handle.update(mode=mode, files=selected, operations=previous.get('operations') if previous and operation.get('revision') else None)
-    allowance = FINAL_METADATA_BYTES if mode == 'catalogue' and ctx.request.content_mode == 'text' else 0
+    automatic = (getattr(ctx, 'job', None) or {}).get('automatic')
+    allowance = FINAL_METADATA_BYTES if mode == 'catalogue' and ctx.request.content_mode == 'text' and not automatic else 0
     handle['source_network_bytes'] = network
     return GameDataPlan(revision, network + allowance, disk, handle=handle, runtime_available=True,
         stage='zzz-' + mode, download_is_upper_bound=True,
@@ -270,6 +293,18 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
             or handle.get('reader') != reader.identity or handle.get('revision') != planned.revision
             or sophon_assets.descriptor(handle['build'])[0] != planned.revision):
         raise GameDataError('zzz_stage_changed', 'Check the selected ZZZ text download again.', 409)
+    if handle['mode'] == 'text-confirmation':
+        candidate = _text_candidate(ctx, handle)
+        _verify_current(ctx, handle['build'], planned.revision, transport_factory, crypto=crypto)
+        for name in ('textmap.json', 'source-receipt.json'):
+            original = _safe(candidate.snapshot_path.parent / name)
+            target = _safe(ctx.directory / name)
+            ctx.check()
+            try:
+                os.link(original, target)
+            except OSError:
+                shutil.copyfile(original, target)
+        return restore(ctx, candidate.restore_handle)
     if ctx.request.content_mode == 'text-audio':
         if codecs is None:raise GameDataError('zzz_audio_runtime_missing', 'The verified original-audio decoder is unavailable. Repair the app runtime.', 409)
         if handle['mode'].startswith('audio-'):
@@ -301,6 +336,9 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
     if mode != handle['mode'] or selected != handle['files'] or network > handle['source_network_bytes']:
         raise GameDataError('zzz_stage_changed', 'The selected ZZZ source changed. Check its size again.', 409)
     sources.download(assets, **({'kind': 'audio'} if ctx.request.content_mode == 'text-audio' else {}))
+    progress = getattr(ctx, 'progress', None)
+    if progress is not None:
+        progress('preparing', ctx.consumed, ctx.budget, 'Preparing the downloaded ZZZ dialogue…')
     result = _execute(ctx, reader, mode, sources, files, batches, blocks, operation)
     if mode != 'catalogue':
         operation.update(revision=planned.revision, reader=reader.identity, request=ctx.request.json())
@@ -316,20 +354,60 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
         return zzz_pc_audio.save_candidate(ctx, handle, result, reader)
     # Only the final source pointer check may spend the explicitly planned
     # metadata allowance. It has no permission to acquire a newer client key.
-    _verify_current(ctx, handle['build'], planned.revision, transport_factory, crypto=crypto)
+    automatic = (getattr(ctx, 'job', None) or {}).get('automatic')
+    if not automatic:
+        _verify_current(ctx, handle['build'], planned.revision, transport_factory, crypto=crypto)
     destination = _safe(ctx.directory / 'textmap.json')
     write_payload('zzz', result, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check, reader_revision=LANGUAGE_INDEX_VERSION)
     with destination.open('rb') as stream:
         snapshot_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
     ctx.check()
     receipt = {'schema': SCHEMA, 'revision': planned.revision, 'build': handle['build'], 'reader': reader.identity,
-               'request': ctx.request.json(), 'snapshot_sha256': snapshot_sha,
+               'request': ctx.request.json(), 'snapshot_sha256': snapshot_sha, 'reader_revision': LANGUAGE_INDEX_VERSION,
                'source_files': [*operation.get('source_files', []), *selected]}
     raw = encoded(receipt); digest = hashlib.sha256(raw).hexdigest()
     _safe(ctx.directory / 'source-receipt.json').write_bytes(raw)
     result_handle = {'schema': SCHEMA, 'game': 'zzz', 'request': ctx.request.json(), 'revision': planned.revision,
                      'receipt_sha256': digest, 'snapshot_sha256': snapshot_sha}
+    if automatic:
+        pending = {key: handle[key] for key in ('schema', 'request', 'reader', 'revision')}
+        pending.update(mode='text-confirmation', candidate=result_handle)
+        return PreparationStage(pending, 'ZZZ dialogue is saved. Confirm the current publisher update to finish.')
     return SnapshotSource(destination, result_handle, SourceProof('official', digest, True))
+
+
+def _text_candidate(ctx, handle):
+    from types import SimpleNamespace
+
+    name = handle.get('candidate_directory')
+    if not isinstance(name, str) or re.fullmatch('[a-f0-9]{64}', name) is None or ctx.request.content_mode != 'text':
+        raise GameDataError('zzz_stage_changed', 'Check the saved ZZZ dialogue again.', 409)
+    candidate = handle['candidate']
+    if not isinstance(candidate, dict) or candidate.get('revision') != handle['revision']:
+        raise GameDataError('zzz_stage_changed', 'The saved ZZZ dialogue belongs to another update.', 409)
+    directory = _safe(Path(ctx.cache_directory) / 'sources' / name)
+    return restore(SimpleNamespace(directory=directory, request=ctx.request, check=ctx.check), candidate)
+
+
+def _same_source(ctx, revision, reader, codecs):
+    installed = getattr(ctx, 'installed_source', lambda: None)()
+    if installed is None or installed['revision'] != revision:
+        return None
+    try:
+        path = _safe(Path(ctx.cache_directory) / 'sources' / installed['directory'] / 'source-receipt.json')
+        if not path.is_file() or not 0 < path.stat().st_size <= MAX_OPERATIONS:
+            return None
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != installed['handle'].get('receipt_sha256'):
+            return None
+        receipt = json.loads(raw)
+        if (not isinstance(receipt, dict) or receipt.get('reader') != reader.identity
+                or receipt.get('reader_revision', 24) != LANGUAGE_INDEX_VERSION
+                or codecs is not None and receipt.get('codecs') != codecs.identity):
+            return None
+        return installed
+    except (OSError, ValueError, GameDataError):
+        return None
 
 
 def _verify_current(ctx, build, revision, transport_factory, *, crypto=None):
@@ -337,9 +415,22 @@ def _verify_current(ctx, build, revision, transport_factory, *, crypto=None):
     def official_fetch(url, *, limit):
         (launcher, _, downloader), _, _, _ = sophon_assets.CHANNELS[channel]
         return transport_factory(ctx, hosts={launcher, downloader}).fetch_bytes(url, limit=limit, kind='metadata')[0]
-    latest_launcher = sophon_assets.release(channel, fetch=official_fetch)
     bootstrap_cache = Path(ctx.cache_directory) / 'zzz-original' / ctx.request.region
-    latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
+    for attempt in range(2):
+        ctx.check()
+        progress = getattr(ctx, 'progress', None)
+        if progress is not None:
+            progress('verifying', ctx.consumed, ctx.budget, 'Confirming the current ZZZ publisher update…')
+        try:
+            latest_launcher = sophon_assets.release(channel, fetch=official_fetch)
+            latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
+            break
+        except (URLError, GameDataError) as error:
+            if isinstance(error, GameDataError) and error.code != 'metadata_download_interrupted':
+                raise
+            if attempt:
+                raise GameDataError('zzz_update_confirmation_interrupted',
+                    'Game files are saved. Publisher confirmation could not finish. Continue to reuse the verified files.', 502) from error
     if sophon_assets.descriptor(latest)[0] != revision:
         raise GameDataError('zzz_publisher_changed', 'The original ZZZ update changed during preparation. Retry; previous data is kept.', 409)
 

@@ -18,7 +18,7 @@ def xxhash64_stream(chunks) -> int:
     def lane(accumulator, value):
         return rotate(accumulator + value * p2, 31) * p1 & mask
     length, pending = 0, b''
-    accumulators = [(p1 + p2) & mask, p2, 0, -p1 & mask]
+    a, b, c, d = (p1 + p2) & mask, p2, 0, -p1 & mask
     for chunk in chunks:
         data = memoryview(chunk).cast('B')
         length += len(data)
@@ -28,18 +28,17 @@ def xxhash64_stream(chunks) -> int:
             if len(data) < needed:
                 pending += bytes(data)
                 continue
-            values = struct.unpack('<4Q', pending + bytes(data[:needed]))
-            accumulators = [lane(acc, value) for acc, value in zip(accumulators, values)]
-            position, pending = needed, b''
-        while position <= len(data) - 32:
-            values = struct.unpack_from('<4Q', data, position)
-            accumulators = [lane(acc, value) for acc, value in zip(accumulators, values)]
-            position += 32
-        pending = bytes(data[position:])
+            w, x, y, z = struct.unpack('<4Q', pending + bytes(data[:needed]))
+            a, b, c, d = lane(a, w), lane(b, x), lane(c, y), lane(d, z)
+            position = needed
+        end = position + (len(data) - position) // 32 * 32
+        for w, x, y, z in struct.iter_unpack('<4Q', data[position:end]):
+            a, b, c, d = lane(a, w), lane(b, x), lane(c, y), lane(d, z)
+        pending = bytes(data[end:])
     if length >= 32:
-        value = sum(rotate(acc, bits) for acc, bits in zip(accumulators, (1, 7, 12, 18))) & mask
-        for acc in accumulators:
-            value = ((value ^ lane(0, acc)) * p1 + p4) & mask
+        value = (rotate(a, 1) + rotate(b, 7) + rotate(c, 12) + rotate(d, 18)) & mask
+        for accumulator in (a, b, c, d):
+            value = ((value ^ lane(0, accumulator)) * p1 + p4) & mask
     else:
         value = p5
     value = (value + length) & mask

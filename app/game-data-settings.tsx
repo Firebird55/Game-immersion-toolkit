@@ -45,7 +45,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   setRegion(row.region || 'global');
   setContentMode(row.content_mode);
   setSource(row.source_locale || sourceChoices.find(value => value.split('-')[0] === targetLanguage) || sourceChoices[0] || 'en');
-  setTargets(row.target_locales.length ? row.target_locales : targetChoices.filter(value => value === 'en'));
+  setTargets(row.installed_request || row.target_locales.length ? row.target_locales : targetChoices.filter(value => value === 'en'));
   // Polling a job must not replace language edits in progress.
   // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [game, row?.id]);
@@ -102,12 +102,16 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
 
  const busy = pending || row?.state === 'downloading' || row?.state === 'planning';
  const job = row?.job;
- const size = job ? job.total_bytes : row?.last_download_bytes;
+ const installed = row?.installed_request;
+ const updating = installed && installed.region === region && installed.content_mode === contentMode &&
+  installed.source_locale === source && targets.length === installed.target_locales.length &&
+  targets.every(locale => installed.target_locales.includes(locale));
+ const size = job && job.phase !== 'up-to-date' ? job.total_bytes : row?.last_download_bytes;
  const downloaded = job?.status === 'complete' || !job && row?.last_download_bytes != null;
  const totalKnown = size !== null && size !== undefined;
  const progress = downloaded ? 100 : job?.progress_percent ?? 0;
  const step = job?.completed_stages ?? 0;
- const transferred = job && formatGameBytes(job.downloaded_bytes);
+ const transferred = job && job.phase !== 'up-to-date' ? formatGameBytes(job.downloaded_bytes) : null;
  const message = !job && row?.has_checkpoint && row.state === 'not_downloaded'
   ? 'Tap Download to resume from saved game files.' : row?.message || job?.message;
  return <>
@@ -132,7 +136,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    <dl>
     {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
     <dt>{downloaded ? 'Downloaded' : 'Download progress'}</dt>
-    <dd>{job ? <>{transferred}{totalKnown && !downloaded ? ' / ' + formatGameBytes(size) + ' currently estimated' : ''}
+    <dd>{transferred ? <>{transferred}{totalKnown && !downloaded ? ' / ' + formatGameBytes(size) + ' currently estimated' : ''}
       {step > 0 && !downloaded ? ' · ' + step + (step === 1 ? ' step completed' : ' steps completed') : ''}</> :
       totalKnown ? formatGameBytes(size) : busy ? 'Checking game files…' : 'Available after starting'}</dd>
    </dl>
@@ -145,7 +149,8 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
         {job.stop_requested ? 'Stopping…' : 'Stop download'}
       </Button> :
       <Button disabled={!online || busy || !row.can_plan || !source} onClick={() => void mutate('start')}>
-        {job?.status === 'stopped' ? 'Continue download' : 'Download'}
+        {job?.status === 'stopped' || job?.status === 'failed' ? 'Continue download' :
+          updating ? 'Check for updates' : 'Download'}
       </Button>}
     <Button variant="outline" disabled={!online || busy || !row.can_delete} onClick={() => setConfirmDelete(true)}>Delete downloaded data</Button>
    </div>

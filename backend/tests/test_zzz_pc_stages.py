@@ -86,8 +86,8 @@ def test_restored_receipt_and_selection_cannot_be_replaced(tmp_path):
     with pytest.raises(GameDataError):stages.restore(wrong, handle)
 
 
-@pytest.mark.parametrize('pointer_changed', [False, True])
-def test_final_publisher_guard_and_snapshot_digest(tmp_path, monkeypatch, pointer_changed):
+@pytest.mark.parametrize('outcome', ['steady', 'changed', 'interrupted'])
+def test_final_publisher_guard_and_snapshot_digest(tmp_path, monkeypatch, outcome):
     """Only the current source can publish a snapshot and its streamed digest."""
     request = GameDataRequest('global', 'ja', ('en',))
     build = {'channel': 'zzz-global', 'version': '3.3.0', 'build': 'candidate'}
@@ -119,15 +119,43 @@ def test_final_publisher_guard_and_snapshot_digest(tmp_path, monkeypatch, pointe
     }]}
     monkeypatch.setattr(stages, '_execute', lambda *args: payload)
     monkeypatch.setattr(stages.sophon_assets, 'release', lambda *args, **kwargs: build)
-    monkeypatch.setattr(stages, 'discover', lambda *args, **kwargs:
-                        {**build, 'build': 'new-generation'} if pointer_changed else build)
+    offline, attempts = False, []
+    def discover(*args, **kwargs):
+        attempts.append(True)
+        if offline:
+            from urllib.error import URLError
+            raise URLError('Authored publisher confirmation outage')
+        return {**build, 'build': 'new-generation'} if outcome == 'changed' else build
+    monkeypatch.setattr(stages, 'discover', discover)
     destination = tmp_path / 'textmap.json'
     receipt_path = tmp_path / 'source-receipt.json'
-    if pointer_changed:
+    if outcome == 'changed':
         with pytest.raises(GameDataError) as failure:
             stages.download(ctx, planned, reader)
         assert failure.value.code == 'zzz_publisher_changed'
         assert not destination.exists() and not receipt_path.exists()
+        return
+
+    if outcome == 'interrupted':
+        ctx.job = {'automatic': True}
+        pending = stages.download(ctx, planned, reader)
+        assert pending.restore_handle['mode'] == 'text-confirmation' and not attempts
+        ctx.stage_directory = tmp_path / 'sources' / ('a'*64)
+        ctx.stage_directory.mkdir(parents=True)
+        for path in (destination, receipt_path):
+            path.replace(ctx.stage_directory / path.name)
+        ctx.stage_handle = pending.restore_handle
+        plan = stages.plan(ctx, build, tmp_path, reader)
+        assert plan.stage == 'zzz-text-confirmation'
+        monkeypatch.setattr(stages, '_execute', lambda *a: pytest.fail('Retry decoded completed dialogue again'))
+        offline = True
+        with pytest.raises(GameDataError) as failure:
+            stages.download(ctx, plan, reader)
+        assert failure.value.code == 'zzz_update_confirmation_interrupted'
+        assert len(attempts) == 3 and not destination.exists()
+        offline = False
+        source = stages.download(ctx, plan, reader)
+        assert source.snapshot_path == destination and len(attempts) == 4
         return
 
     read_bytes = Path.read_bytes

@@ -9,6 +9,19 @@ between stages and during verification. It reaches 100% after the selected
 source has been verified and activated. **Continue download** keeps the last
 reported progress and reuses verified files and saved stages, including after
 an app restart. Each stage checks its transfer limit and required free space.
+For the installed selection, **Check for updates** starts the same bounded job.
+It checks the publisher before replacing the active generation. ZZZ recognizes
+an unchanged compatible snapshot without rebuilding the dialogue index. On a
+new generation it reuses verified original chunks and complete files by
+checksum. Up to six missing independent originals can transfer concurrently.
+Whole updater files still require the full official file checksum.
+
+Once ZZZ has saved prepared text, publisher confirmation is a separate
+resumable step. A temporary network failure during that step is retried within
+the job's metadata budget. Continuing later reuses the saved dialogue and
+original files. A previous source stays active until its replacement passes
+verification.
+
 The requested selection is separate from the accepted downloaded selection:
 changing mode, source, targets or region needs a new preparation even when the
 publisher revision is unchanged. The old selection remains usable. A completed

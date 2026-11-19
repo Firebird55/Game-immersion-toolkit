@@ -191,11 +191,14 @@ class GameDataPlan:
     message: str = ''
     source_proof: SourceProof | None = None
     available_voice_choices: VoiceChoiceSet | None = None
+    reuse_installed: bool = False
 
     def __post_init__(self):
         if (not bounded_text(self.revision, 256) or not bounded_text(self.stage, 64)
                 or not bounded_text(self.message, 1000, empty=True)
                 or type(self.download_is_upper_bound) is not bool or type(self.runtime_available) is not bool
+                or type(self.reuse_installed) is not bool
+                or self.reuse_installed and (not self.runtime_available or self.download_bytes != 0 or self.required_disk_bytes != 0)
                 or any(value is not None and (type(value) is not int or not 0 <= value <= MAX_ASSET_BYTES)
                        for value in (self.download_bytes, self.required_disk_bytes))):
             raise GameDataError('invalid_download_plan', 'The game source did not provide a bounded download plan.')

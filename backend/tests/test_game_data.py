@@ -142,6 +142,67 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
         service.close()
 
 
+def test_update_reuses_unchanged_verified_library_and_repairs_a_broken_copy(tmp_path):
+    class UpdatingProvider(Provider):
+        def plan(self, request, ctx):
+            installed = ctx.installed_source()
+            if installed and self.revision == installed['revision']:
+                return GameDataPlan(self.revision, 0, 0, installed['handle'], runtime_available=True,
+                                    reuse_installed=True)
+            return super().plan(request, ctx)
+
+    provider = UpdatingProvider()
+    activations = []
+    service = GameDataService(tmp_path, {'zzz': provider}, on_activate=lambda *_: activations.append(True))
+    try:
+        service.start('zzz', REQUEST)
+        assert finish(service)['state'] == 'ready'
+        pointer = tmp_path / 'zzz/current.json'
+        saved = pointer.read_bytes()
+        service.start('zzz', REQUEST)
+        updated = finish(service)
+        assert updated['job']['phase'] == 'up-to-date' and updated['job']['progress_percent'] == 100
+        assert provider.downloads == 1 and activations == [True] and pointer.read_bytes() == saved
+
+        snapshot = tmp_path / 'zzz/cache/sources' / json.loads(saved)['directory'] / 'textmap.json'
+        snapshot.write_bytes(b'broken original')
+        service.start('zzz', REQUEST)
+        repaired = finish(service)
+        assert repaired['state'] == 'ready' and repaired['job']['phase'] == 'ready'
+        assert provider.downloads == 2 and activations == [True, True] and pointer.read_bytes() != saved
+
+        provider.revision = 'authored-two'
+        service.start('zzz', REQUEST)
+        changed = finish(service)
+        assert changed['installed_revision'] == 'authored-two' and provider.downloads == 3
+    finally:
+        service.close()
+
+
+def test_locked_temporary_planning_files_cannot_reverse_success(tmp_path, monkeypatch):
+    from backend import game_data
+    remove = game_data._remove_owned
+    locked = threading.Event()
+
+    def locked_work(path, root):
+        if path.parent.name == '.planning':
+            locked.set()
+            raise PermissionError('Authored Windows sharing violation')
+        remove(path, root)
+
+    monkeypatch.setattr(game_data, '_remove_owned', locked_work)
+    service = GameDataService(tmp_path, {'zzz': Provider()})
+    try:
+        service.start('zzz', REQUEST)
+        assert locked.wait(5)
+        service.pool.shutdown(wait=True)
+        installed = row(service)
+        assert installed['state'] == 'ready' and installed['job']['status'] == 'complete'
+        assert service.restore('zzz') is not None
+    finally:
+        service.close()
+
+
 def test_stop_keeps_cumulative_progress_through_restart_and_resume(tmp_path):
     class Stoppable(Provider):
         def download(self, plan, ctx):

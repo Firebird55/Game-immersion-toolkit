@@ -121,6 +121,13 @@ def _remove_owned(path, root):
         shutil.rmtree(path)
 
 
+def _discard_work(directory, root):
+    try:
+        _remove_owned(directory, root)
+    except (OSError, GameDataError, ValueError):
+        pass  # Locked provisional files do not affect publication.
+
+
 def adopt_local_game_data(local_root, profile_root):
     """Reuse finalized publisher downloads in an empty profile without moving user data."""
     if local_root == profile_root or not local_root.is_dir():
@@ -198,6 +205,17 @@ class _Context:
         stage = service._matching_stage(root, game, request) if phase == 'plan' else None
         self.stage_handle = private_handle(stage['handle']) if stage else None
         self.stage_directory = self.cache_directory / 'sources' / stage['directory'] if stage else None
+
+    def installed_source(self):
+        if (self.phase != 'plan' or not (self.job or {}).get('automatic')
+                or self.preparation_memo.get('repair-installed')):
+            return None
+        self.check()
+        try:
+            value = self.service._metadata(self.root, self.game)
+        except (OSError, ValueError, TypeError, KeyError, GameDataError):
+            return None
+        return value if value and value['ready'] and value['request'] == self.request.json() else None
 
     def cancelled(self):
         try:
@@ -571,6 +589,11 @@ class GameDataService:
                     job.update(status='running', phase='planning', message='Checking game files…', context=planning)
                 try:
                     plan = self._plan_stage(provider, planning)
+                    if plan.reuse_installed:
+                        if self._reuse_installed(provider, planning, plan, job):
+                            return
+                        planning.preparation_memo['repair-installed'] = True
+                        continue
                     if not plan.runtime_available or plan.download_bytes is None or plan.required_disk_bytes is None:
                         raise GameDataError('download_not_available', plan.message or 'Game data is unavailable on this device.', 409)
                     identity = hashlib.sha256(_json_bytes([plan.stage, plan.revision, plan.handle, plan.download_bytes])).digest()
@@ -591,10 +614,42 @@ class GameDataService:
                     if self._prepare(provider, {'plan': plan, 'directory': directory}, job) is not False:
                         return
                 finally:
-                    _remove_owned(directory, previous.root)
+                    _discard_work(directory, previous.root)
             raise GameDataError('download_stage_limit', 'Game preparation needs another pass. Tap Download to continue.', 409)
         except Exception as error:
             self._fail_job(job['context'], job, error)
+
+    def _reuse_installed(self, provider, planning, plan, job):
+        descriptor = planning.installed_source()
+        if descriptor is None or descriptor['revision'] != plan.revision or descriptor['handle'] != plan.handle:
+            raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
+        with self.lock:
+            planning.check()
+            job.update(phase='verifying', message='Checking the downloaded game data…')
+        directory = planning.cache_directory / 'sources' / descriptor['directory']
+        restore = _Context(self, planning.root, planning.owner, planning.game, planning.request,
+                           directory, 'restore', budget=0, previous=planning)
+        try:
+            source = provider.restore(descriptor['handle'], restore)
+            path = source.snapshot_path.absolute()
+            _no_links(path)
+            if (not path.resolve().is_relative_to(directory.resolve()) or not path.is_file()
+                    or not 0 < path.stat().st_size <= MAX_TEXT or source.restore_handle != descriptor['handle']
+                    or asdict(source.source_proof) != descriptor['source_proof']):
+                return False
+            with path.open('rb') as stream:
+                if hashlib.file_digest(stream, 'sha256').hexdigest() != descriptor['snapshot_sha256']:
+                    return False
+        except (OSError, ValueError, TypeError, KeyError, GameDataError):
+            planning.check()
+            return False
+        with self.lock:
+            planning.check()
+            if self._metadata(planning.root, planning.game) != descriptor:
+                raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
+            job.update(status='complete', phase='up-to-date', progress_percent=100, reserved=0,
+                       total_bytes=job['downloaded_bytes'], message='Already up to date. Downloaded game files were reused.')
+        return True
 
     def download(self, game, request, *, expected_owner=None):
         provider = self._provider(game)
@@ -683,14 +738,20 @@ class GameDataService:
             identity = hashlib.sha256(_json_bytes({'revision': item['plan'].revision,
                 'request': ctx.request.json(), 'handle': result.restore_handle, 'snapshot': digest})).hexdigest()
             final = ctx.cache_directory / 'sources' / identity
-            _no_links(final); final.parent.mkdir(parents=True, exist_ok=True)
+            _no_links(final)
+            if final.exists() and ctx.preparation_memo.get('repair-installed'):
+                identity = hashlib.sha256((identity + secrets.token_hex(16)).encode()).hexdigest()
+                final = ctx.cache_directory / 'sources' / identity
+                _no_links(final)
+            final.parent.mkdir(parents=True, exist_ok=True)
             ctx.check()
             if final.exists():
-                _remove_owned(ctx.directory, ctx.root); owns_output = False
+                _discard_work(ctx.directory, ctx.root)
+                owns_output = False
             else:
                 atomic_replace(ctx.directory, final)
             ctx.directory = final
-            _remove_owned(item['directory'], ctx.root)
+            _discard_work(item['directory'], ctx.root)
             metadata = {'schema': 'game-data-source-v1', 'game': ctx.game, 'revision': item['plan'].revision,
                 'request': ctx.request.json(), 'directory': identity, 'handle': result.restore_handle,
                 'ready': isinstance(result, SnapshotSource), 'snapshot_sha256': digest,
@@ -701,7 +762,7 @@ class GameDataService:
                 metadata['completed_stages'] = job['completed_stages'] + 1
                 metadata['progress_percent'] = job['progress_percent']
             if metadata['ready']:
-                restore = _Context(self, ctx.root, ctx.owner, ctx.game, ctx.request, final, 'restore', budget=0)
+                restore = _Context(self, ctx.root, ctx.owner, ctx.game, ctx.request, final, 'restore', budget=0, previous=ctx)
                 result = provider.restore(result.restore_handle, restore)
                 if (self._validate_source(result, restore, verified_index=ctx.index) != digest or asdict(result.source_proof) != metadata['source_proof']
                         or result.restore_handle != metadata['handle']):
@@ -772,6 +833,8 @@ class GameDataService:
         with ctx.transfer_lock:
             ctx.transfers_closed = True
         with self.lock:
+            if job['status'] == 'complete':
+                return
             message = error.message if isinstance(error, GameDataError) else 'Game preparation failed. Previous game data was kept.'
             if job['stop_requested']:
                 job.update(status='stopped', phase='stopped',

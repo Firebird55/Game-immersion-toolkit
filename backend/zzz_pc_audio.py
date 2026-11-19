@@ -177,8 +177,8 @@ def _selection(ctx, current, content, sources):
     return 'audio-recordings', files, [*metadata, *recordings.values()], payload
 
 
-def plan_inputs(ctx, current, handle, *, transport_factory):
-    sources = AudioSources(ctx, current, audio_locale(ctx.request.source_locale), transport_factory=transport_factory)
+def plan_inputs(ctx, current, handle, *, transport_factory, verification=None):
+    sources = AudioSources(ctx, current, audio_locale(ctx.request.source_locale), transport_factory=transport_factory, verification=verification)
     if sources.inputs_available():return None
     network, disk = sources.quote_inputs()
     return GameDataPlan(handle['revision'], network, disk, handle={**handle, 'mode': 'audio-indexes'},
@@ -186,12 +186,12 @@ def plan_inputs(ctx, current, handle, *, transport_factory):
         message='Download the selected official dub indexes first, then check the required recording size.')
 
 
-def plan_candidate(ctx, current, handle, reader, *, transport_factory, final_metadata_bytes):
+def plan_candidate(ctx, current, handle, reader, *, transport_factory, final_metadata_bytes, verification=None):
     previous = getattr(ctx, 'stage_handle', None)
     candidate = _candidate(ctx, previous, handle['revision'], reader)
     if candidate is None:return None
     handle = {**handle, 'candidate': previous['candidate']}
-    sources = AudioSources(ctx, current, audio_locale(ctx.request.source_locale), transport_factory=transport_factory)
+    sources = AudioSources(ctx, current, audio_locale(ctx.request.source_locale), transport_factory=transport_factory, verification=verification)
     mode, files, ranges, _ = _selection(ctx, current, candidate['content'], sources)
     document = {'schema': SCHEMA, 'revision': handle['revision'], 'request': ctx.request.json(),
         'candidate': handle['candidate'], 'mode': mode, 'ranges': ranges,
@@ -231,6 +231,7 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     sources.download_ranges(files, document['ranges'])
     if handle['mode'] != 'audio-recordings':
         return PreparationStage(handle, 'Original audio ownership containers verified. Check the remaining recording size.')
+    ctx.progress('verifying', ctx.consumed, ctx.budget, 'Verifying the downloaded ZZZ recordings…')
     mode, _, ranges, payload = _selection(ctx, handle['build'], candidate['content'], sources)
     if mode != 'audio-recordings' or ranges != document['ranges'] or not sources.ranges_available(files, ranges):
         raise GameDataError('zzz_audio_stage_changed', 'Complete selected originals are not available. Check their size again.', 409)
@@ -246,7 +247,7 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     receipt = {'schema': SCHEMA, 'revision': planned.revision, 'request': ctx.request.json(), 'build': handle['build'],
         'reader': reader.identity, 'codecs': codecs.identity, 'candidate': handle['candidate'], 'audio_plan': handle['audio_plan'],
         'snapshot_sha256': snapshot_sha, 'bindings_sha256': hashlib.sha256(raw_keys).hexdigest(),
-        'player_bindings': 1}
+        'player_bindings': 1, 'reader_revision': LANGUAGE_INDEX_VERSION}
     raw = encoded(receipt);digest = hashlib.sha256(raw).hexdigest()
     ctx.check();write_bytes(_safe(ctx.directory / 'source-receipt.json'), raw, check=ctx.check)
     restored = {'schema': SCHEMA, 'game': 'zzz', 'revision': planned.revision, 'request': ctx.request.json(),

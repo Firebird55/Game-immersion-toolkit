@@ -112,9 +112,11 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await stop.waitFor();
   assert.equal(await bar.getAttribute('value'),'25');
   row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,can_delete:true,can_plan:true,message:'Authored data ready.',
+   installed_request:{region:'global',source_locale:'ja',target_locales:['en'],content_mode:'text-audio'},
    job:{...row.job,status:'complete',phase:'ready',downloaded_bytes:7168,total_bytes:7168}};
   await panel.getByText('7.0 KiB',{exact:true}).waitFor();
   assert.equal(await bar.getAttribute('value'),'100');assert.equal(transfers,2);assert.equal(stops,1);
+  assert.equal(await panel.getByRole('button',{name:'Check for updates',exact:true}).isEnabled(),true);
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).waitFor({state:'visible'});
   await until(async()=>!(await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).isDisabled()),'download completion polling');
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).click();assert.equal(deletes,0);

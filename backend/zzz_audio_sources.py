@@ -4,6 +4,7 @@ SDK ranges are authenticated by their complete original transport chunks.
 Updater ranges require the entire advertised file hash. Both costs include
 co-resident bytes; synthetic access windows never become download estimates.
 """
+from bisect import bisect_right
 import re
 
 from . import sophon_assets as sophon, zzz_hotfix as hotfix
@@ -150,9 +151,10 @@ class AudioSources(Sources):
         return [selected[key] for key in sorted(selected)]
 
     def _chunks(self, asset, start, size):
-        for chunk in asset.base.chunks:
-            offset, expanded, *_ = chunk
-            if offset < start + size and offset + expanded > start:yield chunk
+        chunks = asset.base.chunks
+        first = max(0, bisect_right(chunks, start, key=lambda chunk: chunk[0]) - 1)
+        last = bisect_right(chunks, start + size - 1, lo=first, key=lambda chunk: chunk[0])
+        return chunks[first:last]
 
     def _chunk_available(self, digest, size):
         path = _safe(self.bootstrap_cache / 'chunks' / digest)
@@ -168,18 +170,8 @@ class AudioSources(Sources):
 
     def quote_ranges(self, files, ranges, *, scratch_bytes=0):
         selected = self._ranges(files, ranges)
-        patches, chunks = {}, {}
-        for asset, start, size in selected:
-            if not asset.base:
-                patches[asset.name] = asset
-                continue
-            for offset, expanded, compressed, identity, digest in self._chunks(asset, start, size):
-                if digest in chunks and chunks[digest][0] != expanded:
-                    raise GameDataError('zzz_audio_source_changed', 'Original ZZZ audio chunk sizes disagree.')
-                previous = chunks.get(digest)
-                if previous is None or compressed > previous[1]:
-                    chunks[digest] = expanded, compressed, asset.base.prefix + '/' + identity
-        _, network, disk = self.quote(patches.values())
+        patches, chunks = self._range_sources(selected)
+        _, network, disk = self.quote(patches)
         missing = [row for digest, row in chunks.items() if not self._chunk_available(digest, row[0])]
         network += sum(row[1] for row in missing)
         disk += sum(row[0] for row in missing) + max((row[0] for row in missing), default=0) + scratch_bytes
@@ -188,21 +180,15 @@ class AudioSources(Sources):
     def ranges_available(self, files, ranges):
         return self.quote_ranges(files, ranges)[0] == 0
 
+    def _range_sources(self, selected):
+        patches = {asset.name: asset for asset, _, _ in selected if not asset.base}
+        chunks = self.chunks((asset, chunk) for asset, start, size in selected if asset.base
+                             for chunk in self._chunks(asset, start, size))
+        return patches.values(), chunks
+
     def download_ranges(self, files, ranges):
-        selected = self._ranges(files, ranges)
-        # All ranges are validated before the first connection opens.
-        self.download([asset for asset, _, _ in selected if not asset.base], kind='audio')
-        transport = self.transport_factory(self.ctx, hosts={self.host})
-        def fetch(url, *, limit):return transport.fetch_bytes(url, limit=limit, kind='audio')[0]
-        seen = set()
-        for asset, start, size in selected:
-            if not asset.base:continue
-            for _, expanded, compressed, identity, digest in self._chunks(asset, start, size):
-                if digest in seen:continue
-                seen.add(digest);self.ctx.check()
-                _safe(self.bootstrap_cache / 'chunks' / digest)
-                sophon._verified(self.bootstrap_cache / 'chunks', asset.base.prefix + '/' + identity,
-                    compressed, expanded, digest, sophon.MAX_CHUNK, fetch=fetch)
+        patches, chunks = self._range_sources(self._ranges(files, ranges))
+        self._download_batch(patches, chunks, kind='audio')
 
     def read(self, asset, start, size):
         row = {'name': asset.name, 'offset': start, 'size': size}
