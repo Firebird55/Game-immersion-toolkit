@@ -48,7 +48,15 @@ public final class MainActivity extends Activity {
                 File web = preparedReader();
                 selfTestDiagnostic("reader", "passed", null);
                 selfTestDiagnostic("host", "running", null);
-                FrameOcr ocr = new FrameOcr(getApplicationContext());
+                FrameOcr ocr = new FrameOcr(getApplicationContext(), web);
+                if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitSubtitleOcrProbe", false)) {
+                    new Thread(() -> {
+                        File file = new File(getCacheDir(), "subtitle-ocr-probe.json");
+                        try (FileOutputStream output = new FileOutputStream(file)) {
+                            output.write(ocr.authoredSubtitleScripts().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        } catch (Exception error) { android.util.Log.w("ToolkitAndroid", "Authored subtitle OCR probe failed"); }
+                    }, "toolkit-subtitle-ocr-probe").start();
+                }
                 PyObject module = Python.getInstance().getModule("backend.android_host");
                 boolean authoredAccounts = BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitAuthoredAccounts", false);
                 boolean authoredGameData = BuildConfig.DEBUG && (authoredAccounts || getIntent().getBooleanExtra("toolkitAuthoredGameData", false));

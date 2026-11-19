@@ -525,9 +525,9 @@ class AndroidHost:
                 return self._receiver_conflict('receiver_frame_stale', 'A newer screen frame was already admitted')
             try:
                 index = self.session.index
-                submit_comic = getattr(self.native, 'submitComic', None)
-                if index.game == 'zzz' and callable(submit_comic):
-                    dimensions = submit_comic(raw, generation, sequence, index.source_locale, index.target_locale)
+                submit_languages = getattr(self.native, 'submitLanguages', None)
+                if index.game in GAME_TITLES and callable(submit_languages) and index.ocr_locales:
+                    dimensions = submit_languages(raw, generation, sequence, ','.join(index.ocr_locales), index.game == 'zzz')
                 else:
                     dimensions = self.native.submit(raw, generation, sequence, index.source_locale)
                 if dimensions is not None:
@@ -576,12 +576,18 @@ class AndroidHost:
                     'cinematic': getattr(settings, game + '_cinematic_region', settings.cinematic_region)}
         picture = self._picture(width, height)
         positioned = presentation_lines(value, width, height)
+        alternates = value.get('alternates', ())
+        if not isinstance(alternates, list) or len(alternates) > 6:
+            alternates = []
+        alternate = value.get('comic_alternate')
+        if isinstance(alternate, dict):
+            alternates.append(alternate)
+        alternative_rows = [presentation_lines(data, width, height) for data in alternates if isinstance(data, dict)]
         comic_groups = []
         if game == 'zzz':
-            alternate = value.get('comic_alternate')
-            # Keep the two OCR passes independent so alternate readings at the
+            # Keep OCR passes independent so alternate readings at the
             # same position cannot be concatenated into a single bubble.
-            for rows in (presentation_lines(alternate, width, height) if isinstance(alternate, dict) else [], positioned):
+            for rows in (*alternative_rows, positioned):
                 comic_groups.extend(spatial_text_groups({'lines': rows}, picture, keep_rows=True))
         nte_layout = None
         if game == 'nte':
@@ -623,19 +629,22 @@ class AndroidHost:
                     groups = spatial
             if game == 'nte' and channel == 'dialogue' and nte_layout is not None:
                 groups = list(nte_layout.groups)
-            observations[channel] = (groups, zzz_captions)
+            alternate_groups = [spatial_text_groups({'lines': rows}, (x, y, crop_width, crop_height))
+                                for rows in alternative_rows]
+            observations[channel] = (groups, zzz_captions, alternate_groups)
         # Give broad comic balloons precedence over fragments from the same
         # native frame while preserving narrow dialogue evidence for movies.
         order = ('cinematic', 'dialogue') if game == 'zzz' else observations
         for channel in order:
-            groups, zzz_captions = observations[channel]
+            groups, zzz_captions, alternate_groups = observations[channel]
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
                 dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
                 zzz_captions=zzz_captions, zzz_dialogue=observations['dialogue'][0] if game == 'zzz' else None,
-                zzz_comic_groups=comic_groups if channel == 'cinematic' else ()))
+                zzz_comic_groups=comic_groups if channel == 'cinematic' else (), alternate_groups=alternate_groups))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
-            dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))
+            dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
+            alternate_groups=[spatial_text_groups({'lines': rows}, picture) for rows in alternative_rows]))
         return result
 
     def _handler(self):

@@ -15,6 +15,8 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions;
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions;
 import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.io.File;
 import java.io.ByteArrayOutputStream;
 import android.util.Base64;
 import java.util.concurrent.Executors;
@@ -27,8 +29,8 @@ import org.json.JSONObject;
 /** Bundled on-device OCR; one worker and only the newest waiting frame. */
 public final class FrameOcr {
     private static final class Frame {
-        final byte[] bytes;final long generation, sequence;final String locale, alternate;
-        Frame(byte[] b, long g, long s, String l, String alt) { bytes=b;generation=g;sequence=s;locale=l;alternate=alt; }
+        final byte[] bytes;final long generation, sequence;final String locales;final boolean comic;
+        Frame(byte[] b, long g, long s, String l, boolean c) { bytes=b;generation=g;sequence=s;locales=l;comic=c; }
     }
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicReference<Frame> pending = new AtomicReference<>();
@@ -36,6 +38,7 @@ public final class FrameOcr {
     private final HashMap<String, TextRecognizer> models = new HashMap<>();
     private final AccountProtection protectedAccounts;
     private final Context context;
+    private final PortableSubtitleOcr portable;
     private NativeX64Decoder dataDecoder;
     private PublisherCrypto publisherCrypto;
     private ZzzWemCodec zzzWem;
@@ -57,7 +60,11 @@ public final class FrameOcr {
         if (publisherCrypto == null) publisherCrypto = new PublisherCrypto(context);
         return publisherCrypto;
     }
-    public FrameOcr(Context context) { this.context = context.getApplicationContext();protectedAccounts = new AccountProtection(this.context); }
+    public FrameOcr(Context context, File frontend) {
+        this.context = context.getApplicationContext();
+        protectedAccounts = new AccountProtection(this.context);
+        portable = new PortableSubtitleOcr(this.context, frontend);
+    }
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
     public void assertAuthoredAccounts() { if (!BuildConfig.DEBUG) throw new IllegalStateException(); }
@@ -77,14 +84,12 @@ public final class FrameOcr {
         return bounds;
     }
     public String submit(byte[] bytes, long generation, long sequence, String locale) throws Exception {
-        return submitFrame(bytes, generation, sequence, locale, null);
+        return submitLanguages(bytes, generation, sequence, locale, false);
     }
-    public String submitComic(byte[] bytes, long generation, long sequence, String locale, String alternate) throws Exception {
-        return submitFrame(bytes, generation, sequence, locale, alternate);
-    }
-    private String submitFrame(byte[] bytes, long generation, long sequence, String locale, String alternate) throws Exception {
+    public String submitLanguages(byte[] bytes, long generation, long sequence, String locales, boolean comic) throws Exception {
+        if (locales.length() > 2048 || !locales.matches("[A-Za-z0-9,-]+")) throw new IllegalArgumentException();
         BitmapFactory.Options bounds = dimensions(bytes);
-        pending.set(new Frame(bytes, generation, sequence, locale, alternate));
+        pending.set(new Frame(bytes, generation, sequence, locales, comic));
         schedule();
         return new JSONObject().put("width", bounds.outWidth).put("height", bounds.outHeight).toString();
     }
@@ -143,7 +148,13 @@ public final class FrameOcr {
         });
     }
     private static String script(String locale) {
-        return locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : locale.startsWith("ko") ? "ko" : "latin";
+        String language = locale.split("-", 2)[0];
+        switch (language) {
+            case "zh": case "ja": case "ko": return language;
+            case "ru": return "rus";
+            case "th": return "tha";
+            default: return "latin";
+        }
     }
     private TextRecognizer model(String locale) {
         String script = script(locale);
@@ -169,11 +180,11 @@ public final class FrameOcr {
             if (bitmap == null) return;
             int width = bitmap.getWidth(), height = bitmap.getHeight();
             double factor = Math.min(2.0, 1600.0 / Math.max(width, height));
-            if (frame.alternate != null && factor > 1.0) {
+            if (frame.comic && factor > 1.0) {
                 scaled = Bitmap.createScaledBitmap(bitmap, (int)Math.round(width * factor),
                     (int)Math.round(height * factor), true);
             }
-            JSONObject result = recognizeBitmap(scaled == null ? bitmap : scaled, frame.locale, frame.alternate, width, height);
+            JSONObject result = recognizeBitmap(scaled == null ? bitmap : scaled, frame.locales, frame.comic, width, height);
             Python.getInstance().getModule("backend.android_host").callAttr("accept_ocr", frame.generation, frame.sequence, result.toString());
         } catch (Exception error) {
             if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "A frame could not be recognized locally");
@@ -183,20 +194,32 @@ public final class FrameOcr {
         }
     }
     private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale) throws Exception {
-        return recognizeBitmap(bitmap, locale, null, bitmap.getWidth(), bitmap.getHeight());
+        return recognizeBitmap(bitmap, locale, false, bitmap.getWidth(), bitmap.getHeight());
     }
-    private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale, String alternate, int width, int height) throws Exception {
+    private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locales, boolean comic, int width, int height) throws Exception {
         InputImage image = InputImage.fromBitmap(bitmap, 0);
-        Text text = Tasks.await(model(locale).process(image), 30, TimeUnit.SECONDS);
-        JSONObject result = describe(text, bitmap, width, height, alternate != null);
-        if (alternate != null && !alternate.isEmpty() && !script(alternate).equals(script(locale))) {
+        LinkedHashSet<String> scripts = new LinkedHashSet<>();
+        for (String locale : locales.split(",")) scripts.add(script(locale));
+        JSONObject result = null;
+        JSONArray alternatives = new JSONArray();
+        for (String script : scripts) {
             try {
-                Text other = Tasks.await(model(alternate).process(image), 30, TimeUnit.SECONDS);
-                result.put("comic_alternate", describe(other, bitmap, width, height, true));
-            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException | IllegalArgumentException error) {
-                if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "Alternate comic OCR was unavailable");
+                JSONObject recognized;
+                if ("rus".equals(script) || "tha".equals(script))
+                    recognized = portable.recognize(bitmap, script, width, height);
+                else {
+                    Text text = Tasks.await(model(script).process(image), 30, TimeUnit.SECONDS);
+                    recognized = describe(text, bitmap, width, height, comic);
+                }
+                if (result == null) result = recognized;
+                else alternatives.put(recognized);
+            } catch (InterruptedException error) { throw error; }
+            catch (Exception error) {
+                if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "A prepared subtitle script could not be read locally");
             }
         }
+        if (result == null) throw new IllegalStateException("No subtitle OCR result");
+        if (alternatives.length() > 0) result.put("alternates", alternatives);
         return result;
     }
     private static Rect originalRect(Rect rect, Bitmap bitmap, int width, int height) {
@@ -250,5 +273,35 @@ public final class FrameOcr {
             canvas.drawText("Follow the river beyond the bridge.", 40, 140, paint);
             return recognizeBitmap(bitmap, "en").toString();
         } finally {bitmap.recycle();}
+    }
+
+    public JSONObject authoredSubtitleScripts() throws Exception {
+        if (!BuildConfig.DEBUG) throw new IllegalStateException();
+        JSONObject result = new JSONObject();
+        for (String[] sample : new String[][]{
+                {"ru", "Мост закрыт"},
+                {"th", "สะพานปิด"}
+        }) {
+            Bitmap bitmap = Bitmap.createBitmap(1240, 210, Bitmap.Config.ARGB_8888);
+            try {
+                android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+                canvas.drawColor(android.graphics.Color.WHITE);
+                android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                paint.setColor(android.graphics.Color.BLACK);
+                paint.setTextSize(64);
+                canvas.drawText(sample[1], 38, 140, paint);
+                JSONObject observed = recognizeBitmap(bitmap, sample[0]);
+                JSONArray blocks = observed.getJSONArray("blocks");
+                StringBuilder text = new StringBuilder();
+                for (int i = 0; i < blocks.length(); i++) text.append(blocks.getJSONObject(i).getString("text"));
+                result.put(sample[0], normalizedProbeText(sample[1]).equals(normalizedProbeText(text.toString())));
+            } finally {bitmap.recycle();}
+        }
+        return result;
+    }
+
+    private static String normalizedProbeText(String text) {
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC)
+            .toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
     }
 }

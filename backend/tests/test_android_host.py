@@ -139,6 +139,34 @@ def test_zzz_reads_the_new_upper_right_bubble_after_the_first_bubble_moves(host,
     assert host.session.history.count() == 2
 
 
+@pytest.mark.parametrize('locale, localized', [
+    ('ru', 'Путь через мост скоро закроют.'),
+    ('th', 'สะพานแห่งนี้กำลังจะปิดในไม่ช้า'),
+    ('ja', '橋はもうすぐ閉鎖されます。'),
+])
+def test_android_reads_prepared_translations_via_their_own_subtitle_script(host, tmp_path, locale, localized):
+    _, payload = fixture_library(tmp_path / 'input', game='genshin')
+    original, = payload['records']
+    original['texts'][locale] = localized
+    archive = write_prepared_library(payload, tmp_path / 'alternate-subtitles.zip',
+        {original['text_id']: tmp_path / 'input' / 'tone.wav'})
+    host.session.import_library(archive)
+    assert host.session.index.ocr_locales[0] == 'en'
+    assert set(host.session.index.ocr_locales) == {'en', 'zh-Hans', locale}
+    generation = host.session.start()
+    row = {'text': localized, 'confidence': .99, 'bounding_rect': {
+        'x1': 220, 'x2': 680, 'x3': 680, 'x4': 220,
+        'y1': 315, 'y2': 315, 'y3': 334, 'y4': 334,
+    }}
+    raw = json.dumps({'width': 900, 'height': 400, 'blocks': [],
+                      'alternates': [{'presentation_lines': [row]}]})
+    assert host._accept_ocr(generation, 1, raw) == []
+    line, = host._accept_ocr(generation, 2, raw)
+    assert line['source_locale'] == 'en'
+    assert line['source_ocr'] == localized
+    assert line['audio_source'] == 'original'
+
+
 def test_cancel_before_server_register_is_not_forgotten(host, tmp_path):
     archive, _ = fixture_library(tmp_path / 'input')
     identity = str(uuid.uuid4())

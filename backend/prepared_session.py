@@ -311,7 +311,7 @@ class PreparedCaptureSession:
 
     def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
             nte_layout=None, presentation_lines=None, frame_size=None, admission=None,
-            zzz_captions=None, zzz_dialogue=None, zzz_comic_groups=()):
+            zzz_captions=None, zzz_dialogue=None, zzz_comic_groups=(), alternate_groups=()):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -377,9 +377,24 @@ class PreparedCaptureSession:
                     matches += self.index.match_unvoiced_lines(groups)
                 if policy.missing_enabled:
                     matches += self.index.match_missing_audio_lines(groups)
+                for observed in alternate_groups:
+                    if policy.voice_enabled:
+                        matches += self.index.match_full_frame_voice_lines(observed)
+                    if policy.silent_enabled:
+                        matches += self.index.match_unvoiced_lines(observed)
+                    if policy.missing_enabled:
+                        matches += self.index.match_missing_audio_lines(observed)
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
-            matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+                for observed in alternate_groups:
+                    matches += [hit for group in observed if
+                                (hit := self.index.match_lines([group], channel=channel, exact_only=True))]
+            strongest = {}
+            for hit in matches:
+                old = strongest.get(hit.text_id)
+                if (old is None or hit.score > old.score) and eligible(hit):
+                    strongest[hit.text_id] = hit
+            matches = strongest
             exact_comics = set()
             if self.index.game == 'zzz':
                 if channel == 'cinematic':

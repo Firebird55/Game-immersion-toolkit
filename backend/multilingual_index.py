@@ -64,6 +64,7 @@ class MultilingualTextIndex:
         self._training_compiled = ()
         self._zzz_cinema_occurrences = None
         self._zzz_comic_keys = {}
+        self.ocr_locales = ()
         if autoload:
             self.load()
 
@@ -173,6 +174,7 @@ class MultilingualTextIndex:
             coverage = {}
             predecessor_aliases = {}
             comic_keys = {}
+            ocr_locales = {locale: None}
             mission_parents = {row.get('previous_text_id') for row in payload['records']
                                if self.game == 'endfield' and row.get('dialogue_kind') == 'conversation'
                                and row.get('previous_text_id')}
@@ -182,6 +184,8 @@ class MultilingualTextIndex:
                     raise ValueError('Incomplete game study text')
                 if not isinstance(row.get('texts'), dict) or row['texts'].get(locale) != row['source_text']:
                     raise ValueError('Official text locales do not agree')
+                for language in row['texts']:
+                    ocr_locales.setdefault(language, None)
                 if row.get('audio_locale') != audio_locale(locale, self.game):
                     raise ValueError('Original voice locale does not match study text')
                 row.setdefault('audio_omitted_by_request', False)
@@ -300,6 +304,7 @@ class MultilingualTextIndex:
             with self.lock:
                 self._zzz_cinema_occurrences = cinema_compiled
                 self._zzz_comic_keys = comic_keys
+                self.ocr_locales = tuple(ocr_locales)
                 self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels

@@ -80,7 +80,7 @@ function sourceCwd(action) {
 function selectedPublic() {
   const files = new Map([['proxy-transcript.png', readInput('public/proxy-transcript.png')]]);
   for (const name of ['index.html', 'games.html', ...previewSources]) files.set('mobile-capture/' + name, readInput('public/mobile-capture/' + name));
-  for (const [name, bytes] of sourceCwd(ocrAssets)) files.set('mobile-capture/' + name, bytes);
+  for (const [name, bytes] of sourceCwd(() => ocrAssets({nativeSubtitleModels:true}))) files.set('mobile-capture/' + name, bytes);
   return files;
 }
 
