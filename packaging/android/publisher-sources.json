@@ -316,8 +316,8 @@
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
     },
     "backend/wuthering_manifest.py": {
-      "sha256_lf": "32e39eb37f7b6ad10b85cb87cb6c9b9cb461feb56e6b21f21491876d7b268904",
-      "source_commit": "0bcc145e0226b211b18539a371f5b222fbda14f1"
+      "sha256_lf": "9f3bfe587b256f1af7fce07dfd09e21ba2f34b1556ae724faf1065ef434ef267",
+      "source_commit": "ef08bf192aa008a409c746a60c91e89a01d68ed2"
     },
     "backend/wuthering_portable_pak.py": {
       "sha256_lf": "cd40e18bd2464e7842ef7e9a264f8df8684d6a85f5e2f8a290935a4911e7a953",
@@ -336,8 +336,8 @@
       "source_commit": "79bd0829fa5ed720a90583cb2ace419396de21d9"
     },
     "backend/wuwa_game_data.py": {
-      "sha256_lf": "14e8d15cab73b2bab7aad3c30e96c9f2d444d8c302653cbbf59e945ef3b8debf",
-      "source_commit": "3c9935c55820eafe51ff697b16ea274eeb87d0d8"
+      "sha256_lf": "6915e361a9006251f046c62f254b37cd4fdba64ec0f6f72423f44db8d91ecbe6",
+      "source_commit": "ef08bf192aa008a409c746a60c91e89a01d68ed2"
     },
     "backend/wwise_tables.py": {
       "sha256_lf": "15befbf2ff0c4d85ba90d14426a4b9f453fc5f2def46355fdd21df2a5ccf869d",
@@ -368,8 +368,8 @@
       "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_game_data.py": {
-      "sha256_lf": "ad07ade537acf2105869d98e174e9316fe6500c54a8ccd9a35681bbdaa81d929",
-      "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
+      "sha256_lf": "b7e59a169d61cc2e82822fd919d0730402085b491cf11a65fa8fea4e8824d8f4",
+      "source_commit": "119c8657613eeaf0fb9118b4e0833051e87c2c10"
     },
     "backend/zzz_hotfix.py": {
       "sha256_lf": "42e5ab33725a86abc38873bcec38547b4ee1d1aeaf787c8004271bbe03aff0cd",
@@ -384,12 +384,12 @@
       "source_commit": "f6609ae5c0e1061760fcfdd4df268d6efd3183ef"
     },
     "backend/zzz_pc_sources.py": {
-      "sha256_lf": "df822e980354f832dc8e3ce0f9370f08f6ca3642251fdfb64307b6fad8c8ee48",
-      "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
+      "sha256_lf": "7f5fc2580f69424170ce994dd4a84f51e7ad28ad881cf5374ed1f9acc824657b",
+      "source_commit": "119c8657613eeaf0fb9118b4e0833051e87c2c10"
     },
     "backend/zzz_pc_stages.py": {
-      "sha256_lf": "56a61d07a2818333194d2dd477ccee1ca29ad592ee74b2926ca3ddbc2eaed536",
-      "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
+      "sha256_lf": "0f542da21552531b9a02e735d429e9a728b58ec02ecbaa110976fe710e6e15c3",
+      "source_commit": "119c8657613eeaf0fb9118b4e0833051e87c2c10"
     },
     "backend/zzz_publisher_cinematics.py": {
       "sha256_lf": "1b0d474654120abf1fd789b404d297fd2b64bf4f8e85188098f5ce08993d7b3b",
