@@ -82,6 +82,26 @@ def test_desktop_text_download_binds_real_matcher_offline_activation_and_delete(
     assert retained.read_bytes() == b'authored retained recording outside publisher cache'
 
 
+def test_linking_desktop_account_keeps_downloaded_game_ready(desktop):
+    client, host, provider, runtime = desktop
+    prepare(client)
+    assert finish(host.service)['state'] == 'ready'
+    legacy = host.profile_root()
+    runtime.accounts.active = 'linked-account'
+    runtime.accounts.generation += 1
+
+    assert host.capture_ready('zzz') is True
+    linked_headers = {**HEADERS, 'X-Proxy-Transcript-Account': 'linked-account'}
+    response = client.get('/api/game-data', headers=linked_headers)
+    assert response.status_code == 200
+    row = next(item for item in response.json()['games'] if item['id'] == 'zzz')
+    assert row['state'] == 'ready' and provider.downloads == 1
+    response = client.request('DELETE', '/api/game-data/zzz/data',
+        json={'revision': row['revision']}, headers=linked_headers)
+    assert response.status_code == 200 and host.capture_ready('zzz') is False
+    assert (legacy / 'zzz/current.json').is_file()
+
+
 def test_stage_and_invalid_audio_snapshot_preserve_working_desktop_text(desktop):
     client, host, provider, runtime = desktop
     prepare(client)

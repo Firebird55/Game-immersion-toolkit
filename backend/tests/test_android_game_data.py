@@ -131,6 +131,29 @@ def test_text_http_download_captures_official_voice_intent_without_any_decoder(a
     assert host.session.recordings.lines('zzz') == []
 
 
+def test_lexirise_link_reuses_prepared_publisher_files_and_keeps_history_local(account_host):
+    host = account_host
+    provider = LocalProvider(LocalVoice(b'never used'))
+    host.game_data.providers['zzz'] = provider
+    install(host, mode='text')
+    generation = host.session.start()
+    host.session.observe(generation, 1, [TEXT], now=1)
+    value = host.session.observe(generation, 2, [TEXT], now=1.1)[0]
+    local_history = host.session.history
+    assert value['text_id'] is not None
+    local_source = host.root / 'game-data' / 'zzz' / 'current.json'
+
+    register(host, 'first')
+    assert game(host)['state'] == 'ready'
+    assert host.session.history is not local_history
+    assert host.session.history.get(1) is None
+    status, _ = action(host, 'POST', '/zzz/activate', {'revision': game(host)['installed_revision']})
+    assert status == 200 and provider.downloads == 1 and host.session.index.ready
+    assert action(host, 'DELETE', '/zzz/data', {'revision': game(host)['revision']})[0] == 200
+    assert game(host)['state'] == 'not_downloaded'
+    assert local_source.is_file()
+
+
 def test_old_owner_pinned_before_service_entry_cannot_adopt_new_profile(account_host, monkeypatch):
     host = account_host; first = register(host, 'first')
     host.game_data.providers['zzz'] = LocalProvider(LocalVoice(b'never used'))

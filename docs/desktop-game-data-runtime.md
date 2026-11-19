@@ -3,10 +3,12 @@
 The desktop API uses the same bounded game-data service and request contract as
 the Android host. In Settings, choose **Text only** or **Text + audio**, the
 region and languages, then select **Download**. One job discovers and runs the
-required stages. Settings shows progress, an estimate that can change as the
-remaining files become known, and the actual bytes transferred at completion.
-Each stage still needs a bounded plan and sufficient free space before it can
-transfer files. Retrying reuses verified files and saved preparation stages.
+required stages. Settings shows cumulative bytes, the current total estimate,
+and completed steps next to **Stop download**. The bar keeps its position
+between stages and during verification. It reaches 100% after the selected
+source has been verified and activated. **Continue download** keeps the last
+reported progress and reuses verified files and saved stages, including after
+an app restart. Each stage checks its transfer limit and required free space.
 The requested selection is separate from the accepted downloaded selection:
 changing mode, source, targets or region needs a new preparation even when the
 publisher revision is unchanged. The old selection remains usable. A completed
@@ -15,9 +17,12 @@ contents actually downloaded.
 The live-service desktop Settings dialog uses the same game-data component as
 the Android host. Its selected download mode is independent of account features;
 an optional reading account is not required to download or use game data.
+Linking a reading account can reuse completed publisher files and their matching
+active source from the local profile. History and recordings stay in their
+existing profile storage.
 
 The local routes are `GET /api/game-data`, `POST /api/game-data/{game}/start`,
-`POST /api/game-data/{game}/activate` and
+`POST /api/game-data/{game}/stop`, `POST /api/game-data/{game}/activate` and
 `DELETE /api/game-data/{game}/data`. Writes require the existing `setup` action
 header and local-origin checks. Account headers are checked before profile I/O;
 the generation also invalidates an A-to-B-to-A account transition. No account lock

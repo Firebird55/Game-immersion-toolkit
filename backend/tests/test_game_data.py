@@ -122,6 +122,8 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
         assert active['job']['id'] == first['job']['id']
         assert active['job']['downloaded_bytes'] == 2 * 4352 + 1000
         assert active['job']['total_bytes'] == 2 * 4352 + 1000 + 8192
+        assert active['job']['completed_stages'] == 1
+        assert first['job']['progress_percent'] < active['job']['progress_percent'] < 100
         assert active['has_checkpoint'] and not active['can_activate']
         assert not activations
         assert service.start('zzz', REQUEST)['game']['job']['id'] == first['job']['id']
@@ -130,12 +132,53 @@ def test_one_download_runs_all_stages_reports_cumulative_size_and_activates_once
         finish_stage.set()
         complete = finish(service)
         assert complete['state'] == 'ready' and complete['job']['status'] == 'complete'
+        assert complete['job']['progress_percent'] == 100 and complete['job']['completed_stages'] == 2
         assert complete['job']['downloaded_bytes'] == complete['job']['total_bytes'] == 2 * (4352 + 1000)
         assert complete['last_download_bytes'] == complete['job']['total_bytes']
         assert complete['installed_request'] == REQUEST
         assert provider.downloads == 2 and activations == [REQUEST]
     finally:
         finish_stage.set()
+        service.close()
+
+
+def test_stop_keeps_cumulative_progress_through_restart_and_resume(tmp_path):
+    class Stoppable(Provider):
+        def download(self, plan, ctx):
+            ctx.consume_bytes(4000)
+            entered.set()
+            assert release.wait(5)
+            return super().download(plan, ctx)
+
+    entered, release = threading.Event(), threading.Event()
+    provider = Stoppable()
+    service = GameDataService(tmp_path, {'zzz': provider})
+    try:
+        service.start('zzz', REQUEST)
+        assert entered.wait(5)
+        original = row(service)['job']
+        assert 0 < original['progress_percent'] < 100 and original['downloaded_bytes'] == 8352
+        with pytest.raises(GameDataError, match='download changed'):
+            service.stop('zzz', {'job_id': 'wrong'})
+        assert service.stop('zzz', {'job_id': original['id']})['game']['job']['stop_requested']
+        release.set()
+        stopped = finish(service)['job']
+        assert stopped['status'] == 'stopped'
+        assert stopped['progress_percent'] == original['progress_percent']
+        assert stopped['downloaded_bytes'] == original['downloaded_bytes']
+    finally:
+        release.set()
+        service.close()
+    service = GameDataService(tmp_path, {'zzz': Provider()})
+    try:
+        assert row(service)['job'] == stopped
+        resumed = service.start('zzz', REQUEST)['game']['job']
+        assert resumed['downloaded_bytes'] >= stopped['downloaded_bytes']
+        assert resumed['progress_percent'] >= stopped['progress_percent']
+        complete = finish(service)['job']
+        assert complete['progress_percent'] == 100
+        assert complete['downloaded_bytes'] == complete['total_bytes']
+    finally:
         service.close()
 
 

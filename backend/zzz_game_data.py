@@ -189,7 +189,11 @@ class ZzzGameDataProvider:
         with ctx.transfer_lock:
             cache = _cache(ctx)
             fetch = self._fetch(ctx, kind='metadata')
-            build = sophon.release('zzz-' + request.region, fetch=fetch)
+            memo = getattr(ctx, 'preparation_memo', {})
+            build = memo.get('zzz-launcher')
+            if build is None:
+                build = sophon.release('zzz-' + request.region, fetch=fetch)
+                memo['zzz-launcher'] = build
             revision = _revision(build)
             handle = {'schema': SCHEMA, 'game': 'zzz', 'request': selection, 'build': build, 'revision': revision}
             spec = tuple(build['manifests']['game'])

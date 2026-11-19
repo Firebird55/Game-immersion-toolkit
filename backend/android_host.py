@@ -27,7 +27,7 @@ from .models import CaptureRegion
 from .native_frame_admission import NativeFrameAdmissions
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
-from .game_data import GameDataService, _read, _write, _write_bytes
+from .game_data import GameDataService, _read, _write, _write_bytes, adopt_local_game_data
 from .game_data_protocol import GAME_TITLES, GameDataError
 from .game_data_providers import create_game_data_providers
 
@@ -116,6 +116,7 @@ class AndroidHost:
                 # or OCR. Never substitute Windows/system/downloaded libraries.
                 pass
         self.game_restore_lock = threading.RLock()
+        self.game_adoption_lock = threading.Lock()
         self.game_restored = weakref.WeakKeyDictionary()
         self.publisher_games = ('zzz',) if game_data_providers is None else tuple(GAME_TITLES)
         providers = (create_game_data_providers(platform='android', native=native)
@@ -153,7 +154,10 @@ class AndroidHost:
         session = self.session
         with session.lock:
             self._game_owner()
-            return session.root / 'game-data'
+            root = session.root / 'game-data'
+        with self.game_adoption_lock:
+            adopt_local_game_data(self.root / 'game-data', root)
+        return root
 
     def _retained_game_bytes(self, game):
         session = self.session
@@ -209,6 +213,19 @@ class AndroidHost:
             with session.lock:
                 owner = self._game_owner()
                 active = _read(session.root / 'active-game-data.json')
+                can_inherit = active is None and session.root != self.root and session.index is None
+            if can_inherit:
+                local = _read(self.root / 'active-game-data.json')
+                if isinstance(local, dict) and local.get('game') in self.publisher_games:
+                    root = self._game_root()
+                    current = _read(root / local['game'] / 'current.json')
+                    if current and current == local.get('source'):
+                        with session.lock:
+                            if (self._game_owner() == owner and self.session is session and session.index is None and
+                                    _read(session.root / 'active-game-data.json') is None):
+                                _write(session.root / 'active-game-data.json', local)
+                                active = local
+            with session.lock:
                 if active is None or active == {'schema': 'active-game-data-v1', 'game': None}:
                     return
                 if (not isinstance(active, dict) or set(active) != {'schema', 'game', 'directory', 'source'}
@@ -673,7 +690,7 @@ class AndroidHost:
                             if scope is not None:
                                 scope.check()
                             self._json(payload, status);return
-                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|start|activate|data)', path)
+                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|start|stop|activate|data)', path)
                 if path == '/api/game-data' or game_route:
                     if path == '/api/game-data' and self.command != 'GET':
                         self._json({'detail': 'Method unavailable'}, 405);return
@@ -693,7 +710,7 @@ class AndroidHost:
                         if game not in host.publisher_games:
                             raise GameDataError('game_runtime_unavailable', 'This game is unavailable on Android.', 409)
                         operation = {'plan': host.game_data.plan, 'download': host.game_data.download, 'start': host.game_data.start,
-                            'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
+                            'stop': host.game_data.stop, 'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
                         payload = operation(game, value, expected_owner=owner)
                         status = 202 if action in {'download', 'start'} else 200
                     else:

@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 import threading
 
-from .game_data import GameDataService, _read, _write, _write_bytes
+from .game_data import GameDataService, _read, _write, _write_bytes, adopt_local_game_data
 from .game_data_protocol import GAME_TITLES, GameDataError
 from .game_data_providers import create_game_data_providers
 from .multilingual_index import MultilingualTextIndex
@@ -44,12 +44,13 @@ class DesktopGameData:
         self._recordings_lock = threading.Lock()
         self.audio_pool = QuiesceableExecutor(max_workers=1, thread_name_prefix='publisher-original')
         self._restore_lock, self._restored_owner = threading.RLock(), None
+        self._adoption_lock = threading.Lock()
         platform = {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
         self.providers = (create_game_data_providers(platform=platform) if providers is None else providers)
         self.service = self._service()
 
     def _service(self):
-        return GameDataService(self.profile_root, self.providers, owner_guard=self.owner,
+        return GameDataService(self._game_root, self.providers, owner_guard=self.owner,
             on_activate=self._activate, retained_bytes=lambda game: self.recordings().retained_bytes(game))
 
     def recordings(self):
@@ -96,6 +97,14 @@ class DesktopGameData:
             identity = self.runtime.accounts.status()['active']
             return self.root / hashlib.sha256(identity.encode()).hexdigest()
 
+    def _game_root(self):
+        root = self.profile_root()
+        legacy = self.root / hashlib.sha256(b'legacy').hexdigest()
+        if root != legacy:
+            with self._adoption_lock:
+                adopt_local_game_data(legacy, root)
+        return root
+
     def _bind(self, game, index, voices):
         runtime = self.runtime
         # Invalidate in-flight OCR before swapping either reference. Capture's
@@ -109,8 +118,8 @@ class DesktopGameData:
             runtime.game_voice_assets[game] = runtime.capture.game_voice_assets[game] = voices
         runtime.capture._scan_epoch += 1
 
-    def _selections(self):
-        value = _read(self.profile_root() / 'selected.json')
+    def _selections(self, root=None):
+        value = _read((root if root is not None else self.profile_root()) / 'selected.json')
         if value is None:
             return {'schema': 'desktop-game-selections-v1', 'games': {}}
         if (not isinstance(value, dict) or set(value) != {'schema', 'games'}
@@ -204,13 +213,31 @@ class DesktopGameData:
             with self.runtime.accounts.lock:
                 self.blocked.discard(key)
 
+    def _inherit_selections(self, root, owner):
+        legacy = self.root / hashlib.sha256(b'legacy').hexdigest()
+        if root == legacy:
+            return self._selections(root)
+        inherited = {game: descriptor for game, descriptor in self._selections(legacy)['games'].items()
+            if descriptor is not None and game in self.providers and
+            descriptor == _read(root / game / 'current.json')}
+        with self.runtime.accounts.lock:
+            if owner != self.owner():
+                raise GameDataError('game_data_owner_changed', 'Account changed. Refresh Settings.', 409)
+            selections = self._selections(root)
+            missing = inherited.keys() - selections['games'].keys()
+            if missing:
+                selections['games'].update({game: inherited[game] for game in missing})
+                _write(root / 'selected.json', selections)
+            return selections
+
     def restore_selected(self):
         """Restore this profile's exact selections locally, never latest/remote."""
         with self._restore_lock:
             owner = self.owner()
             if owner == self._restored_owner:
                 return
-            selections = self._selections()
+            root = self._game_root()
+            selections = self._inherit_selections(root, owner)
             for game, descriptor in selections['games'].items():
                 if descriptor is None:
                     with self.runtime.accounts.lock:

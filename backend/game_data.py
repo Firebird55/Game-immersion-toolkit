@@ -7,10 +7,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import stat
 import threading
+import tempfile
 import time
 
 from .atomic_files import replace as atomic_replace
@@ -119,6 +121,64 @@ def _remove_owned(path, root):
         shutil.rmtree(path)
 
 
+def adopt_local_game_data(local_root, profile_root):
+    """Reuse finalized publisher downloads in an empty profile without moving user data."""
+    if local_root == profile_root or not local_root.is_dir():
+        return
+    _no_links(local_root); _no_links(profile_root)
+    marker = profile_root / '.local-downloads.json'
+    previous = _read(marker)
+    adopted = {game for game in GAME_TITLES if isinstance(previous, list) and game in previous}
+    for game in GAME_TITLES:
+        origin, destination = local_root / game, profile_root / game
+        if game in adopted or not any((origin / filename).is_file() for filename in ('current.json', 'stage.json')):
+            continue
+        _no_links(destination)
+        current = destination / 'current.json'
+        if not current.is_file() and (not destination.exists() or (origin / 'current.json').is_file()):
+            _size(origin)
+            profile_root.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix='.adopt-', dir=profile_root) as folder:
+                provisional = Path(folder) / game
+
+                def ignore_transient(_directory, names):
+                    return {name for name in names if name in {'.planning', '.staging', 'pending'} or name.endswith('.pending')}
+
+                def copy_published(source, target):
+                    path = Path(source)
+                    relative = path.relative_to(origin)
+                    # ZZZ's immutable container files are checksum-addressed
+                    # and published by rename. Other files are profile copies.
+                    if (game == 'zzz' and len(relative.parts) == 5 and relative.parts[:2] == ('cache', 'zzz-content')
+                            and relative.parts[3] == 'files' and re.fullmatch(r'[0-9a-f]{16}-[0-9]+', path.name)):
+                        try:
+                            os.link(source, target)
+                            return target
+                        except OSError:
+                            pass
+                    return shutil.copy2(source, target)
+
+                shutil.copytree(origin, provisional, ignore=ignore_transient, copy_function=copy_published)
+                if not destination.exists():
+                    atomic_replace(provisional, destination)
+                else:
+                    # Preserve a partially downloaded newer profile. Only
+                    # fill its missing cache files and publish the old ready
+                    # pointer after those files are in place.
+                    for path in (provisional / 'cache').rglob('*'):
+                        if not path.is_file():
+                            continue
+                        target = destination / path.relative_to(provisional)
+                        _no_links(target)
+                        if not target.exists():
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            atomic_replace(path, target)
+                    if not current.exists():
+                        atomic_replace(provisional / 'current.json', current)
+        adopted.add(game)
+        _write(marker, sorted(adopted))
+
+
 class _Context:
     def __init__(self, service, root, owner, game, request, directory, phase, *, budget=None, job=None, previous=None):
         self.service, self.root, self.owner, self.game = service, root, owner, game
@@ -131,6 +191,7 @@ class _Context:
         self.source_descriptor = None
         self.activation_token = previous.activation_token if previous else None
         self.activation_required = False
+        self.preparation_memo = previous.preparation_memo if previous else {}
         self.transfer_lock = threading.RLock()
         self.transfers_closed = False
         self.data_epoch = previous.data_epoch if previous else service.epochs.get((root, game), 0)
@@ -182,6 +243,11 @@ class _Context:
                 self.job['downloaded_bytes'] = received
                 if self.job.get('automatic') and self.job['total_bytes'] is not None:
                     self.job['total_bytes'] = max(self.job['total_bytes'], received)
+                if self.phase == 'download' and self.budget:
+                    fraction = self.consumed / self.budget
+                    start = self.job['stage_start']
+                    estimate = start + (99 - start) * fraction / (3 if self.job.get('automatic') else 1)
+                    self.job['progress_percent'] = max(self.job['progress_percent'], int(estimate))
             self.check()
 
     def remaining_bytes(self, *, kind='asset'):
@@ -214,6 +280,7 @@ class GameDataService:
         self.on_activate, self.retained_bytes, self.clock = on_activate, retained_bytes, clock
         self.lock = threading.RLock()
         self.plans, self.jobs, self.errors, self.epochs, self.activations = {}, {}, {}, {}, {}
+        self.cached_sizes = {}
         self.closed = False
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='toolkit-game-data')
 
@@ -288,6 +355,32 @@ class GameDataService:
                 raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
         return value
 
+    def _stopped_progress(self, root, game):
+        try:
+            value = _read(root / game / 'stopped-progress.json')
+            if (isinstance(value, dict) and isinstance(value.get('job'), dict)
+                    and value['job'].get('status') == 'stopped'
+                    and all(type(value['job'].get(key)) is int and value['job'][key] >= 0
+                            for key in ('downloaded_bytes', 'progress_percent', 'completed_stages'))
+                    and value['job']['progress_percent'] < 100
+                    and (value['job'].get('total_bytes') is None or
+                         type(value['job']['total_bytes']) is int and value['job']['total_bytes'] >= 0)):
+                _game_request(game, value['request'])
+                return value
+        except (GameDataError, OSError, ValueError, TypeError, KeyError):
+            pass
+        return None
+
+    def _installed_size(self, root, game):
+        key = (root, game)
+        cached = self.cached_sizes.get(key)
+        now = self.clock()
+        if cached and now - cached[0] < 10:
+            return cached[1]
+        size = _size(root / game / 'cache')
+        self.cached_sizes[key] = (now, size)
+        return size
+
     def _row(self, root, owner, game):
         metadata_error = None
         try: current = self._metadata(root, game)
@@ -307,10 +400,15 @@ class GameDataService:
         job = self.jobs.get((root, game))
         if job and job['context'].owner != owner:
             job['context'].cancel.set(); job = None
-        public_job = ({key: job[key] for key in ('id', 'status', 'phase', 'downloaded_bytes', 'total_bytes', 'message')} if job else None)
+        public_job = ({key: job[key] for key in ('id', 'status', 'phase', 'downloaded_bytes', 'total_bytes', 'message', 'progress_percent', 'completed_stages', 'stop_requested')} if job else None)
         if latest and job and job.get('plan_id') != latest['id'] and job['status'] not in {'queued', 'running'}:
             public_job = None  # A completed old request cannot label the new request ready.
-        automatic = bool(public_job and job.get('automatic'))
+        if not job and not latest:
+            stopped = self._stopped_progress(root, game)
+            if stopped:
+                public_job = stopped['job']
+                request = _game_request(game, stopped['request'])
+        automatic = bool(public_job and job and job.get('automatic'))
         if automatic:
             request = job['context'].request
         ready = bool(current and current['ready'])
@@ -328,7 +426,7 @@ class GameDataService:
         retained = self.retained_bytes(game)
         if type(retained) is not int or not 0 <= retained <= 2**53 - 1:
             raise GameDataError('invalid_retained_size', 'Saved recording sizes are unavailable.')
-        installed = job['initial_size'] if automatic and active else _size(root / game / 'cache')
+        installed = job['initial_size'] if automatic and active else self._installed_size(root, game)
         can_download = bool(plan and plan.runtime_available and plan.download_bytes is not None
                             and plan.required_disk_bytes is not None and not active and not latest['used'])
         return {'id': game, 'title': GAME_TITLES[game], 'state': state,
@@ -430,7 +528,14 @@ class GameDataService:
                 existing['context'].cancel.set()
             ctx = _Context(self, root, owner, game, selection, root / game / 'cache', 'queued')
             ctx.check()
-            initial_size = _size(ctx.cache_directory)
+            initial_size = self._installed_size(root, game)
+            checkpoint = self._matching_stage(root, game, selection)
+            resume = (existing if existing and existing['context'].owner == owner and
+                      existing['context'].request == selection and existing['status'] in {'failed', 'stopped'} else None)
+            stopped = self._stopped_progress(root, game)
+            if not resume and stopped and stopped['request'] == selection.json():
+                resume = stopped['job']
+            received = (resume['downloaded_bytes'] if resume else (checkpoint or {}).get('downloaded_bytes', 0))
             for key, item in list(self.plans.items()):
                 if item['root'] == root and item['owner'] == owner and item['game'] == game:
                     if not item['used']:
@@ -439,7 +544,10 @@ class GameDataService:
             ctx.activation_token = secrets.token_hex(16)
             self.activations[root] = (owner, ctx.activation_token)
             job = {'id': secrets.token_hex(16), 'status': 'queued', 'phase': 'planning',
-                'downloaded_bytes': 0, 'total_bytes': None, 'message': 'Checking game files…',
+                'downloaded_bytes': received, 'total_bytes': resume['total_bytes'] if resume else None,
+                'progress_percent': resume['progress_percent'] if resume else (checkpoint or {}).get('progress_percent', 0),
+                'completed_stages': resume['completed_stages'] if resume else (checkpoint or {}).get('completed_stages', 0),
+                'stop_requested': False, 'stage_start': 0, 'message': 'Checking game files…',
                 'context': ctx, 'reserved': 0, 'device': root.stat().st_dev,
                 'automatic': True, 'initial_size': initial_size}
             self.errors.pop((root, owner, game), None)
@@ -477,7 +585,8 @@ class GameDataService:
                                        staging, 'download', budget=plan.download_bytes, job=job, previous=planning)
                         staging.mkdir(parents=True)
                         job.update(context=ctx, reserved=plan.required_disk_bytes, phase='transfer' if plan.download_bytes else 'preparing',
-                                   total_bytes=ctx.offset + plan.download_bytes, message='Preparing game files…')
+                                   total_bytes=ctx.offset + plan.download_bytes, stage_start=job['progress_percent'],
+                                   message=plan.message or 'Preparing game files…')
                     if self._prepare(provider, {'plan': plan, 'directory': directory}, job) is not False:
                         return
                 finally:
@@ -511,7 +620,8 @@ class GameDataService:
             ctx.activation_token = secrets.token_hex(16)
             self.activations[root] = (owner, ctx.activation_token)
             job = {'id': secrets.token_hex(16), 'plan_id': item['id'], 'status': 'queued', 'phase': item['plan'].stage,
-                'downloaded_bytes': 0, 'total_bytes': item['plan'].download_bytes, 'message': 'Preparing original game data.',
+                'downloaded_bytes': 0, 'total_bytes': item['plan'].download_bytes, 'progress_percent': 0,
+                'completed_stages': 0, 'stop_requested': False, 'stage_start': 0, 'message': 'Preparing original game data.',
                 'context': ctx, 'reserved': item['plan'].required_disk_bytes, 'device': device}
             ctx.job = job; item['used'] = True
             ctx.check()
@@ -519,7 +629,7 @@ class GameDataService:
             self.pool.submit(self._prepare, provider, item, job)
             return {'game': self._row(root, owner, game)}
 
-    def _validate_source(self, source, ctx):
+    def _validate_source(self, source, ctx, *, verified_index=None, verify_audio=True):
         if not isinstance(source, SnapshotSource):
             raise GameDataError('incomplete_game_source', 'The original game data is not ready yet.')
         path = source.snapshot_path.absolute()
@@ -527,8 +637,13 @@ class GameDataService:
         if not path.resolve().is_relative_to(ctx.directory.resolve()) or not path.is_file() or not 0 < path.stat().st_size <= MAX_TEXT:
             raise GameDataError('invalid_game_snapshot', 'The game reader did not produce a valid original snapshot.')
         ctx.check()
-        index = MultilingualTextIndex(ctx.game, path.parent, autoload=False); index.path = path
-        if not index.load() or not index.ready or not 0 < index.entry_count <= MAX_ROWS or index.source_locale != ctx.request.source_locale:
+        index = verified_index
+        if index is None:
+            index = MultilingualTextIndex(ctx.game, path.parent, autoload=False)
+            index.path = path
+            if not index.load():
+                raise GameDataError('invalid_game_snapshot', 'The original game snapshot could not be validated.')
+        if not index.ready or not 0 < index.entry_count <= MAX_ROWS or index.source_locale != ctx.request.source_locale:
             raise GameDataError('invalid_game_snapshot', 'The original game snapshot could not be validated.')
         if index.snapshot_metadata.get('content_mode') != ctx.request.content_mode:
             raise GameDataError('game_content_mode_changed', 'The prepared game data does not match the selected download mode.')
@@ -543,7 +658,7 @@ class GameDataService:
         if ctx.request.content_mode == 'text-audio' and index.audio_count and (source.voice_source is None or not callable(getattr(source.voice_source, 'has', None))
                 or not callable(getattr(source.voice_source, 'resolve', None))):
             raise GameDataError('original_voice_unavailable', 'This device cannot retrieve the original voices yet.')
-        if ctx.request.content_mode == 'text-audio':
+        if verify_audio and ctx.request.content_mode == 'text-audio':
             for row in index._records:
                 if row.get('audio') and source.voice_source.has(row) is not True:
                     raise GameDataError('original_audio_incomplete', 'The requested original audio has not finished downloading.')
@@ -563,7 +678,7 @@ class GameDataService:
                 raise GameDataError('incomplete_game_source', 'The original game data is not ready yet.')
             if automatic:
                 ctx.progress('verifying', ctx.consumed, ctx.budget, 'Verifying game data…')
-            digest = self._validate_source(result, ctx) if isinstance(result, SnapshotSource) else None
+            digest = self._validate_source(result, ctx, verify_audio=False) if isinstance(result, SnapshotSource) else None
             identity = hashlib.sha256(_json_bytes({'revision': item['plan'].revision,
                 'request': ctx.request.json(), 'handle': result.restore_handle, 'snapshot': digest})).hexdigest()
             final = ctx.cache_directory / 'sources' / identity
@@ -580,14 +695,17 @@ class GameDataService:
                 'ready': isinstance(result, SnapshotSource), 'snapshot_sha256': digest,
                 'source_proof': asdict(result.source_proof) if isinstance(result, SnapshotSource) else None,
                 'message': result.message if isinstance(result, PreparationStage) else 'Original game data ready.'}
-            if automatic and metadata['ready']:
-                metadata['downloaded_bytes'] = ctx.offset + ctx.consumed
+            if automatic:
+                metadata['downloaded_bytes'] = job['downloaded_bytes']
+                metadata['completed_stages'] = job['completed_stages'] + 1
+                metadata['progress_percent'] = job['progress_percent']
             if metadata['ready']:
                 restore = _Context(self, ctx.root, ctx.owner, ctx.game, ctx.request, final, 'restore', budget=0)
                 result = provider.restore(result.restore_handle, restore)
-                if (self._validate_source(result, restore) != digest or asdict(result.source_proof) != metadata['source_proof']
+                if (self._validate_source(result, restore, verified_index=ctx.index) != digest or asdict(result.source_proof) != metadata['source_proof']
                         or result.restore_handle != metadata['handle']):
                     raise GameDataError('source_restore_mismatch', 'The game source could not be restored locally.')
+                restore.index.path = result.snapshot_path
                 ctx.index = restore.index
             ctx.source_descriptor = metadata
             # A bootstrap/archive stage is not a ready source. Keep the last
@@ -623,15 +741,20 @@ class GameDataService:
                 if stage_to_remove:
                     try: stage_to_remove.unlink(missing_ok=True)
                     except OSError: pass  # Housekeeping cannot undo a committed source.
+                self.cached_sizes.pop((ctx.root, ctx.game), None)
+                if metadata['ready']:
+                    try: (ctx.root / ctx.game / 'stopped-progress.json').unlink(missing_ok=True)
+                    except OSError: pass
+                job['completed_stages'] += 1
                 if automatic:
                     if metadata['ready']:
-                        job.update(status='complete', phase='ready', total_bytes=job['downloaded_bytes'],
+                        job.update(status='complete', phase='ready', total_bytes=job['downloaded_bytes'], progress_percent=100,
                                    message=metadata['message'], reserved=0)
                     else:
                         job.update(phase='planning', message='Checking the remaining game files…', reserved=0)
                 else:
                     job.update(status='complete' if metadata['ready'] else 'needs_plan', phase='ready' if metadata['ready'] else 'estimate',
-                        downloaded_bytes=ctx.consumed, message=metadata['message'])
+                        downloaded_bytes=ctx.consumed, progress_percent=100 if metadata['ready'] else job['progress_percent'], message=metadata['message'])
                 ctx.index = None
             return metadata['ready']
         except Exception as error:
@@ -649,10 +772,36 @@ class GameDataService:
             ctx.transfers_closed = True
         with self.lock:
             message = error.message if isinstance(error, GameDataError) else 'Game preparation failed. Previous game data was kept.'
-            if self.jobs.get((ctx.root, ctx.game)) is job:
-                self.errors[(ctx.root, ctx.owner, ctx.game)] = message
-            job.update(status='failed', message=message, reserved=0)
+            if job['stop_requested']:
+                job.update(status='stopped', phase='stopped',
+                           message='Download stopped. Continue to reuse verified files.', reserved=0)
+                if self.jobs.get((ctx.root, ctx.game)) is job and job.get('automatic'):
+                    try:
+                        progress = {name: job[name] for name in ('id', 'status', 'phase', 'message', 'stop_requested',
+                            'downloaded_bytes', 'total_bytes', 'progress_percent', 'completed_stages')}
+                        _write(ctx.root / ctx.game / 'stopped-progress.json',
+                            {'request': ctx.request.json(), 'job': progress})
+                    except OSError:
+                        pass
+            else:
+                if self.jobs.get((ctx.root, ctx.game)) is job:
+                    self.errors[(ctx.root, ctx.owner, ctx.game)] = message
+                job.update(status='failed', message=message, reserved=0)
+            self.cached_sizes.pop((ctx.root, ctx.game), None)
             ctx.index = None
+
+    def stop(self, game, request, *, expected_owner=None):
+        self._provider(game)
+        root, owner = self._scope(expected_owner)
+        with self.lock:
+            job = self.jobs.get((root, game))
+            if (not isinstance(request, dict) or set(request) != {'job_id'} or not job or
+                    job['id'] != request['job_id'] or job['context'].owner != owner):
+                raise GameDataError('download_job_changed', 'The download changed. Refresh Settings.', 409)
+            if job['status'] in {'queued', 'running'}:
+                job['stop_requested'] = True
+                job['context'].cancel.set()
+            return {'game': self._row(root, owner, game)}
 
     def activate(self, game, request, *, expected_owner=None):
         """Explicitly select an already downloaded revision, without transfers."""
@@ -765,6 +914,7 @@ class GameDataService:
             _remove_owned(root / game, root)
             self.plans = {key: value for key, value in self.plans.items() if value['root'] != root or value['game'] != game}
             self.jobs.pop((root, game), None); self.errors.pop((root, owner, game), None)
+            self.cached_sizes.pop((root, game), None)
             return {'game': self._row(root, owner, game), 'freed_bytes': freed}
 
     def close(self):

@@ -1855,6 +1855,17 @@ def publisher_operation(request, operation, *, game=None, payload=None, header=N
             'code': 'game_data_unavailable'}, status_code=409)
 
 
+class PublisherStop(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    job_id: str = Field(pattern=r'^[0-9a-f]{32}$')
+
+
+@app.post('/api/game-data/{game}/stop')
+def publisher_stop(game: str, payload: PublisherStop, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'stop', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
 @app.get('/api/game-data')
 def publisher_status(request: Request):
     return publisher_operation(request, 'snapshot')

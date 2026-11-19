@@ -218,7 +218,11 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
 
 
 def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None, crypto=None):
-    current = discover(ctx, launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
+    memo = getattr(ctx, 'preparation_memo', {})
+    current = memo.get('zzz-current')
+    if current is None:
+        current = discover(ctx, launcher, bootstrap_cache, transport_factory=transport_factory, crypto=crypto)
+        memo['zzz-current'] = current
     revision = sophon_assets.descriptor(current)[0]
     handle = {'schema': SCHEMA, 'game': 'zzz', 'request': ctx.request.json(), 'revision': revision,
               'build': current, 'reader': reader.identity}

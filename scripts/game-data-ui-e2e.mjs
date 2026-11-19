@@ -36,7 +36,7 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   const {origin,library,cookie} = JSON.parse(item.value);
   browser = await engine.launch({headless:true}); const page = await browser.newPage({viewport:{width:390,height:844}});
   await page.context().addCookies([{name:'toolkit_session',value:cookie,url:origin,httpOnly:true,sameSite:'Strict'}]);
-  let row=initial(), transfers=0, deletes=0, frames=0, textOnlyLine=false, unverifiedLine=false, audioRequests=0, activations=0;
+  let row=initial(), transfers=0, stops=0, deletes=0, frames=0, textOnlyLine=false, unverifiedLine=false, audioRequests=0, activations=0;
   page.on('request',request=>{if(/^\/api\/lines\/[0-9]+\/audio$/.test(new URL(request.url()).pathname))audioRequests++;});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route(origin+'/api/game-data**',async route=>{
@@ -44,8 +44,12 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
    assert.equal(request.headers()['x-toolkit-account-generation'],'0');
    if(request.method()==='POST'&&path.endsWith('/start')){
     transfers++;assert.deepEqual(body,{region:'global',source_locale:'ja',target_locales:['en'],content_mode:'text-audio'});
+    const job = row.job ?? {downloaded_bytes:0,total_bytes:null,progress_percent:0,completed_stages:0};
     row={...row,...body,revision:'authored-revision',state:'downloading',can_plan:false,message:'Checking game files…',
-     job:{id:'authored-job',status:'running',phase:'planning',downloaded_bytes:0,total_bytes:null,message:'Checking game files…'}};
+     job:{...job,id:'authored-job',status:'running',phase:'planning',stop_requested:false,message:'Checking game files…'}};
+   }else if(request.method()==='POST'&&path.endsWith('/stop')){
+    stops++;assert.deepEqual(body,{job_id:'authored-job'});
+    row={...row,state:'not_downloaded',can_plan:true,job:{...row.job,status:'stopped',phase:'stopped',stop_requested:true}};
    }else if(request.method()==='DELETE'){
     deletes++;assert.deepEqual(body,{revision:'authored-revision'});row={...initial(),revision:'authored-revision',retained_bytes:4096};
    }else if(request.method()==='POST'&&path.endsWith('/activate')){
@@ -92,20 +96,25 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   assert.equal(await panel.getByLabel('Game data content',{exact:true}).inputValue(),'text');
   await panel.getByLabel('Game data content',{exact:true}).selectOption('text-audio');
   await panel.getByRole('button',{name:'Download',exact:true}).click();
-  await panel.getByText('Calculating…',{exact:true}).waitFor();
+  const stop=panel.getByRole('button',{name:'Stop download',exact:true});
+  await stop.waitFor();
   const bar=panel.getByRole('progressbar',{name:'Game data download progress'});
-  assert.equal(await bar.getAttribute('value'),null);
-  row={...row,message:'Downloading game files…',job:{...row.job,phase:'transfer',downloaded_bytes:2048,total_bytes:8192}};
-  await panel.getByText('8.0 KiB',{exact:true}).waitFor();
+  assert.equal(await bar.getAttribute('value'),'0');
+  row={...row,message:'Downloading game files…',job:{...row.job,phase:'transfer',downloaded_bytes:2048,total_bytes:8192,progress_percent:25}};
+  await panel.getByText('2.0 KiB / 8.0 KiB currently estimated',{exact:true}).waitFor();
   assert.equal(await bar.getAttribute('value'),'25');
-  row={...row,message:'Reading the ZZZ dialogue catalogue…',job:{...row.job,phase:'catalogue',downloaded_bytes:4096,total_bytes:8192}};
+  row={...row,message:'Reading the ZZZ dialogue catalogue…',job:{...row.job,phase:'catalogue',downloaded_bytes:4096,total_bytes:16384,completed_stages:1}};
   await panel.getByText('Reading the ZZZ dialogue catalogue…',{exact:true}).waitFor();
-  assert.equal(await bar.getAttribute('value'),null);
-  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
+  await panel.getByText(/4.0 KiB \/ 16.0 KiB currently estimated/).waitFor();
+  assert.equal(await bar.getAttribute('value'),'25');
+  await stop.click();
+  await panel.getByRole('button',{name:'Continue download',exact:true}).click();
+  await stop.waitFor();
+  assert.equal(await bar.getAttribute('value'),'25');
   row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,can_delete:true,can_plan:true,message:'Authored data ready.',
    job:{...row.job,status:'complete',phase:'ready',downloaded_bytes:7168,total_bytes:7168}};
   await panel.getByText('7.0 KiB',{exact:true}).waitFor();
-  assert.equal(await bar.getAttribute('value'),'100');assert.equal(transfers,1);
+  assert.equal(await bar.getAttribute('value'),'100');assert.equal(transfers,2);assert.equal(stops,1);
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).waitFor({state:'visible'});
   await until(async()=>!(await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).isDisabled()),'download completion polling');
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).click();assert.equal(deletes,0);

@@ -45,7 +45,7 @@ class Sources:
         self.ctx, self.build, self.transport_factory = ctx, build, transport_factory
         self.cache = _safe(Path(ctx.cache_directory) / 'zzz-content' / ctx.request.region)
         self.host = hotfix.EDITIONS[build['channel']]['host']
-        self._verified = {}
+        self._verified = getattr(ctx, 'preparation_memo', {}).setdefault('zzz-file-checks', {})
         self.bootstrap_cache = _safe(Path(ctx.cache_directory) / 'zzz-original' / ctx.request.region)
         self._base = None
 
