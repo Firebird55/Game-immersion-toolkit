@@ -76,10 +76,10 @@ async function pngDimensions(blob) {
  * Official viewer bridge. No peer, SDK, capture track or iframe DOM access.
  * @param {{container: HTMLElement, window?: Window, document?: Document, now?: () => number,
  * requestTimeoutMs?: number, stallAfterMs?: number, reconnectBaseMs?: number,
- * reconnectMaxMs?: number, freezeReconnectMs?: number, startupGraceMs?: number,
+ * reconnectMaxMs?: number, freezeReconnectMs?: number, startupGraceMs?: number, videoOnly?: boolean,
  * decodeImage?: (blob: Blob) => Promise<ImageBitmap>}} options
  */
-export function createVdoFrameSource({ container, window = globalThis.window, document = globalThis.document, now = Date.now, requestTimeoutMs = 4000, stallAfterMs = 8000, reconnectBaseMs = 1000, reconnectMaxMs = 30000, freezeReconnectMs = 30000, startupGraceMs = 15000, decodeImage = blob => globalThis.createImageBitmap(blob) } = {}) {
+export function createVdoFrameSource({ container, window = globalThis.window, document = globalThis.document, now = Date.now, requestTimeoutMs = 4000, stallAfterMs = 8000, reconnectBaseMs = 1000, reconnectMaxMs = 30000, freezeReconnectMs = 30000, startupGraceMs = 15000, videoOnly = false, decodeImage = blob => globalThis.createImageBitmap(blob) } = {}) {
  if (!container || !window || !document) throw new TypeError('A viewer container and browser document are required.');
  const life = createFrameLifecycle({ now, stallAfterMs });
  let iframe = null, route = null, connected = false, disposed = false, pending = null, decoding = false, whepUUID = null;
@@ -148,6 +148,9 @@ export function createVdoFrameSource({ container, window = globalThis.window, do
   window.addEventListener('message', onMessage);
   const viewerUrl = new URL(route.url);
   if (!viewerUrl.searchParams.has('scale')) viewerUrl.searchParams.set('scale', '100');
+  // The Android WebView requires a gesture for streams with an audio track.
+  // Apply this again after every reconnect so the new iframe can start itself.
+  if (videoOnly) viewerUrl.searchParams.set('noaudio', '');
   iframe.src = viewerUrl.href;
   container.appendChild(iframe); armRecovery();
  }

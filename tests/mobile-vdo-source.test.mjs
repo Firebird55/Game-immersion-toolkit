@@ -199,6 +199,20 @@ test('explicit viewer scale is preserved', () => {
  assert.equal(new URL(f.frames[0].src).searchParams.get('scale'), '50'); f.source.dispose();
 });
 
+test('Android video-only playback applies to initial viewers and automatic reconnects', async t => {
+ const f = fixture({videoOnly: true, reconnectBaseMs: 1});
+ t.after(() => f.source.dispose());
+ f.source.connect({url: 'https://vdo.ninja/?view=synthetic&password=example&scale=85'});
+ const params = new URL(f.frames[0].src).searchParams;
+ assert.equal(params.get('noaudio'), '');
+ assert.equal(params.get('password'), 'example');
+ assert.equal(params.get('scale'), '85');
+ f.emit({action: 'view-connection', streamID: 'synthetic', value: false});
+ await new Promise(resolve => setTimeout(resolve, 15));
+ assert.equal(f.frames.length, 2);
+ assert.equal(new URL(f.frames[1].src).searchParams.get('noaudio'), '');
+});
+
 test('synchronous stop/dispose subscribers cannot create a viewer or retry after cleanup', async () => {
  for (const status of ['connecting', 'reconnecting']) {
   const f = fixture({ reconnectBaseMs: 10 });

@@ -47,7 +47,7 @@ export function AndroidReceiver({online, libraryReady, libraryRevision, capabili
    setState({status: 'error', active: false, message: 'Reopen the app before connecting a screen source.'}); return;
   }
   const container = viewer.current;
-  const source = createReceiverSource({vdo: () => createVdoFrameSource({container})});
+  const source = createReceiverSource({vdo: () => createVdoFrameSource({container, videoOnly: true})});
   const canvas = document.createElement('canvas');
   const receiver = createAndroidReceiver({source, apiBase: desktopApiBase(), documentEpoch: documentEpoch.current,
    maxFrameBytes: maximum, accountGeneration, encodeFrame: async (frame: {width: number; height: number; image: CanvasImageSource}, {signal}: {signal: AbortSignal}) => {
@@ -104,7 +104,7 @@ export function AndroidReceiver({online, libraryReady, libraryRevision, capabili
    style={{aspectRatio: state.width && state.height ? `${state.width}/${state.height}` : '16/9'}} />
   <Dialog open={instructions} onOpenChange={setInstructions}><DialogContent><DialogHeader>
    <DialogTitle>Game screen instructions</DialogTitle>
-   <DialogDescription>Start screen broadcasting in VDO.Ninja on your game device. Paste its viewer link or enter its stream code, for example iphone. Keep the broadcast running while you read. Clear the field to disconnect.</DialogDescription>
+   <DialogDescription>Start screen broadcasting in VDO.Ninja on your game device. Paste its viewer link or enter its stream code, for example iphone. The preview starts automatically and plays without sound. Clear the field to disconnect.</DialogDescription>
   </DialogHeader></DialogContent></Dialog>
  </section>;
 }
