@@ -243,11 +243,12 @@ class _Context:
                 self.job['downloaded_bytes'] = received
                 if self.job.get('automatic') and self.job['total_bytes'] is not None:
                     self.job['total_bytes'] = max(self.job['total_bytes'], received)
-                if self.phase == 'download' and self.budget:
-                    fraction = self.consumed / self.budget
-                    start = self.job['stage_start']
-                    estimate = start + (99 - start) * fraction / (3 if self.job.get('automatic') else 1)
-                    self.job['progress_percent'] = max(self.job['progress_percent'], int(estimate))
+                total = self.job.get('total_bytes')
+                if self.phase == 'download' and total:
+                    # New stages can raise the total estimate. Hold the last
+                    # reported percentage until the transfer catches up.
+                    estimate = min(99, received * 99 // total)
+                    self.job['progress_percent'] = max(self.job.get('progress_percent', 0), estimate)
             self.check()
 
     def remaining_bytes(self, *, kind='asset'):
@@ -547,7 +548,7 @@ class GameDataService:
                 'downloaded_bytes': received, 'total_bytes': resume['total_bytes'] if resume else None,
                 'progress_percent': resume['progress_percent'] if resume else (checkpoint or {}).get('progress_percent', 0),
                 'completed_stages': resume['completed_stages'] if resume else (checkpoint or {}).get('completed_stages', 0),
-                'stop_requested': False, 'stage_start': 0, 'message': 'Checking game files…',
+                'stop_requested': False, 'message': 'Checking game files…',
                 'context': ctx, 'reserved': 0, 'device': root.stat().st_dev,
                 'automatic': True, 'initial_size': initial_size}
             self.errors.pop((root, owner, game), None)
@@ -585,7 +586,7 @@ class GameDataService:
                                        staging, 'download', budget=plan.download_bytes, job=job, previous=planning)
                         staging.mkdir(parents=True)
                         job.update(context=ctx, reserved=plan.required_disk_bytes, phase='transfer' if plan.download_bytes else 'preparing',
-                                   total_bytes=ctx.offset + plan.download_bytes, stage_start=job['progress_percent'],
+                                   total_bytes=ctx.offset + plan.download_bytes,
                                    message=plan.message or 'Preparing game files…')
                     if self._prepare(provider, {'plan': plan, 'directory': directory}, job) is not False:
                         return
@@ -621,7 +622,7 @@ class GameDataService:
             self.activations[root] = (owner, ctx.activation_token)
             job = {'id': secrets.token_hex(16), 'plan_id': item['id'], 'status': 'queued', 'phase': item['plan'].stage,
                 'downloaded_bytes': 0, 'total_bytes': item['plan'].download_bytes, 'progress_percent': 0,
-                'completed_stages': 0, 'stop_requested': False, 'stage_start': 0, 'message': 'Preparing original game data.',
+                'completed_stages': 0, 'stop_requested': False, 'message': 'Preparing original game data.',
                 'context': ctx, 'reserved': item['plan'].required_disk_bytes, 'device': device}
             ctx.job = job; item['used'] = True
             ctx.check()
