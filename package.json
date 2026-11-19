@@ -71,7 +71,7 @@
     "@tailwindcss/postcss": "4.3.3",
     "@tesseract.js-data/rus": "1.0.0",
     "@tesseract.js-data/tha": "1.0.0",
-    "@types/node": "22.19.19",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
