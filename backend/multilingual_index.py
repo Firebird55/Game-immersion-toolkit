@@ -831,6 +831,58 @@ class MultilingualTextIndex:
                 result.setdefault(hit.text_id, hit)
         return list(result.values())
 
+    def match_zzz_comics(self, groups, threshold=88):
+        """Read authored bubbles across the picture without matching HUD dialogue."""
+        result = {}
+        with self.lock:
+            for rows in groups:
+                whole = ' '.join(rows)
+                if hit := self._comic_bubble(whole, threshold, exact=True):
+                    candidates = [hit]
+                else:
+                    # OCR can put two nearby balloons in one run as they move.
+                    # Exact matches from disjoint row ranges keep both voices.
+                    splits = []
+                    first = 0
+                    while first < len(rows):
+                        for end in range(min(len(rows), first + 8), first, -1):
+                            hit = self._comic_bubble(' '.join(rows[first:end]), threshold, exact=True)
+                            if hit:
+                                splits.append(hit)
+                                first = end
+                                break
+                        else:
+                            first += 1
+                    complete = self._comic_bubble(whole, threshold)
+                    candidates = [complete] if complete and len(splits) < 2 else splits
+                for hit in candidates:
+                    old = result.get(hit.text_id)
+                    if old is None or hit.score > old.score:
+                        result[hit.text_id] = hit
+        return list(result.values())
+
+    def _comic_bubble(self, observed, threshold, *, exact=False):
+        hits = {}
+        for locale, choices in self._zzz_comic_keys.items():
+            key = normalize_text(display_text(observed), locale)
+            if len(key) < (4 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 8):
+                continue
+            score = 100.
+            if key not in choices:
+                if exact:
+                    continue
+                nearest = process.extract(key, choices, scorer=fuzz.ratio,
+                    score_cutoff=max(92, threshold), limit=2)
+                if not nearest or len(nearest) > 1 and nearest[1][1] >= nearest[0][1] - 2:
+                    continue
+                key, score, _ = nearest[0]
+            hit = self.match_lines([key], exact_only=True, channel='cinematic')
+            if hit and is_comic_text_id(hit.text_id) and (hit.text_id not in hits or score > hits[hit.text_id].score):
+                hits[hit.text_id] = hit.model_copy(update={'source_ocr': observed, 'score': score,
+                    'kind': 'exact' if score == 100. else 'fuzzy'})
+        best = sorted(hits.values(), key=lambda hit: hit.score, reverse=True)
+        return best[0] if best and (len(best) == 1 or best[0].score > best[1].score + 2) else None
+
     def _match_comic_fragment(self, group, threshold):
         """Recover a substantial clipped bubble using a unique voiced comic."""
         hits = {}

@@ -99,6 +99,46 @@ def test_zzz_static_comic_uses_positioned_rows_and_owns_overlapping_dialogue(hos
     assert hit.text_id == ids[0] and hit.kind == 'fuzzy' and hit.english == texts[0]
 
 
+def test_zzz_reads_the_new_upper_right_bubble_after_the_first_bubble_moves(host, tmp_path):
+    _, payload = fixture_library(tmp_path / 'input')
+    list_of_rows = [('The railway will close', 'when the gates come down.'),
+                    ('We should cross now.', 'The last train is leaving.')]
+    identities = ['Comic_' + digit * 32 for digit in 'ab']
+    payload['records'] = [
+        dict(payload['records'][0], text_id=identity, source_text=text, english=text, texts={'en': text},
+             dialogue_kind='comic', channels=['cinematic'])
+        for identity, rows in zip(identities, list_of_rows) for text in [' '.join(rows)]
+    ]
+    archive = write_prepared_library(payload, tmp_path / 'moving-comic.zip',
+        dict.fromkeys(identities, tmp_path / 'input' / 'tone.wav'))
+    host.session.import_library(archive)
+    generation = host.session.start()
+
+    def at(rows, left, top):
+        return [{'text': text, 'confidence': .99, 'bounding_rect': {
+            'x1': left, 'x2': left + 180, 'x3': left + 180, 'x4': left,
+            'y1': y, 'y2': y, 'y3': y + 12, 'y4': y + 12,
+        }} for index, text in enumerate(rows) for y in [top + index * 16]]
+
+    def observe(sequence, rows):
+        # The primary chosen-study-script recognizer misses most of the English
+        # frame. Only the display-language pass has both complete bubbles.
+        return host._accept_ocr(generation, sequence, json.dumps({
+            'width': 900, 'height': 400, 'blocks': [
+                {'text': 'We shou d c os', 'rect': [680, 5, 860, 17]}],
+            'comic_alternate': {'presentation_lines': rows},
+        }))
+
+    first, second = list_of_rows
+    assert [line['text_id'] for line in observe(1, at(first, 28, 352))] == [identities[0]]
+    # The two balloons now align in one OCR run. The new one starts above the
+    # calibrated cinema crop and the old one has moved across the picture.
+    shifted = at(first, 700, 55) + at(second, 700, 5)
+    assert [line['text_id'] for line in observe(2, shifted)] == [identities[1]]
+    assert observe(3, at(second, 50, 222) + at(first, 602, 100)) == []
+    assert host.session.history.count() == 2
+
+
 def test_cancel_before_server_register_is_not_forgotten(host, tmp_path):
     archive, _ = fixture_library(tmp_path / 'input')
     identity = str(uuid.uuid4())

@@ -311,7 +311,7 @@ class PreparedCaptureSession:
 
     def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
             nte_layout=None, presentation_lines=None, frame_size=None, admission=None,
-            zzz_captions=None, zzz_dialogue=None):
+            zzz_captions=None, zzz_dialogue=None, zzz_comic_groups=()):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -380,8 +380,14 @@ class PreparedCaptureSession:
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
             matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+            exact_comics = set()
             if self.index.game == 'zzz':
                 if channel == 'cinematic':
+                    positioned = {hit.text_id: hit for hit in
+                        self.index.match_zzz_comics(zzz_comic_groups, settings.fuzzy_threshold) if eligible(hit)}
+                    exact_comics = {identity for identity, hit in positioned.items() if hit.kind == 'exact'}
+                    matches = {**positioned, **{identity: hit for identity, hit in matches.items()
+                               if identity not in positioned or hit.score > positioned[identity].score}}
                     self._visible_comics = tuple(hit for hit in matches.values() if is_comic_text_id(hit.text_id))
                 elif self._visible_comics:
                     matches = {identity: hit for identity, hit in matches.items()
@@ -468,9 +474,8 @@ class PreparedCaptureSession:
                 tracker = self.trackers.setdefault((channel, text_id), StableMatchTracker())
                 # A static comic page can yield only one fresh receiver frame.
                 # The broad scan already matched the complete authored text.
-                exact_comic = (channel == 'cinematic' and self.index.game == 'zzz'
-                               and is_comic_text_id(text_id) and hit.kind == 'exact'
-                               and hit.source_ocr in groups)
+                exact_comic = (text_id in exact_comics or (channel == 'cinematic' and self.index.game == 'zzz'
+                               and is_comic_text_id(text_id) and hit.kind == 'exact' and hit.source_ocr in groups))
                 tracker.configure(1 if exact_comic else
                     capture_confirmation_frames(hit, settings.stable_frames, full_frame=channel == 'fullframe'))
                 if tracker.observe(text_id):

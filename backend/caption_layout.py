@@ -137,7 +137,7 @@ def local_subtitle_rows(response: dict, size: tuple[int, int],
     return {**response, "lines": rows, "dialogue_menu": dialogue_menu}
 
 
-def spatial_text_groups(response: dict, bounds: tuple[int, int, int, int] | None = None) -> list[str]:
+def spatial_text_groups(response: dict, bounds: tuple[int, int, int, int] | None = None, *, keep_rows=False):
     """Reassemble OCR rows into comic bubbles using their screen geometry."""
     positioned = []
     fallback = []
@@ -169,7 +169,7 @@ def spatial_text_groups(response: dict, bounds: tuple[int, int, int, int] | None
                 "bottom": bottom,
             })
     if len(positioned) != len(fallback):
-        return fallback
+        return [(text,) for text in fallback] if keep_rows else fallback
 
     positioned.sort(key=lambda item: (item["top"], item["left"]))
     groups: list[dict] = []
@@ -230,13 +230,14 @@ def spatial_text_groups(response: dict, bounds: tuple[int, int, int, int] | None
     # the game's reading sequence: columns left-to-right, then top-to-bottom
     # only when multiple bubbles occupy the same column.
     groups.sort(key=lambda group: (group["left"], group["top"]))
-    return [
-        " ".join(
+    rows = [
+        tuple(
             item["text"]
             for item in sorted(group["lines"], key=lambda row: (row["top"], row["left"]))
         )
         for group in groups
     ]
+    return rows if keep_rows else [" ".join(group) for group in rows]
 
 def is_cinematic_fragment(match: TextMatch | None, cinematic_matches) -> bool:
     """Give the broad scan ownership of comic matches visible in overlapping crops."""

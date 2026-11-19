@@ -574,13 +574,20 @@ class CaptureService:
         # Resolve the broad region before publishing narrower crops: a comic
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
-            cinematic_image = self._capture(cinematic_bounds)
+            comic_reader = getattr(self.textmaps, 'match_zzz_comics', None)
+            cinematic_image = self._capture(window.bounds if comic_reader else cinematic_bounds)
             cinema_frame = getattr(self._window_frame, 'cinema_frame', None)
             cinematic_image = self._ocr_image(cinematic_image, window)
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
-            cinematic_lines = self._spatial_text_groups(cinematic_response)
+            movie_bounds = None
+            if comic_reader:
+                x, y, width, height = cinematic_bounds
+                ox, oy, frame_width, frame_height = window.bounds
+                scale_x, scale_y = cinematic_image.width / frame_width, cinematic_image.height / frame_height
+                movie_bounds = ((x - ox) * scale_x, (y - oy) * scale_y, width * scale_x, height * scale_y)
+            cinematic_lines = self._spatial_text_groups(cinematic_response, movie_bounds)
             cinematic_raw_text = " ".join(cinematic_lines).strip()
             cinematic_confidence = self._confidence(cinematic_response)
             cinematic_matches = self.textmaps.match_line_groups(
@@ -592,11 +599,19 @@ class CaptureService:
                 item for item in cinematic_matches
                 if self._capturable_match(item)
             ]
+            if comic_reader:
+                groups = self._spatial_text_groups(cinematic_response, keep_rows=True)
+                comics = {hit.text_id: hit for hit in comic_reader(groups, settings.fuzzy_threshold)
+                          if self._capturable_match(hit)}
+                for hit in cinematic_matches:
+                    if hit.text_id not in comics or hit.score > comics[hit.text_id].score:
+                        comics[hit.text_id] = hit
+                cinematic_matches = list(comics.values())
 
             # Movie subtitles have authored CS scene IDs and occupy the lower,
             # centered subtitle band. Repeated choices elsewhere do not veto
             # exact captions once that movie and its protagonist are identified.
-            movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
+            movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size, movie_bounds))
             movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
                 cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
                 configured=self.textmaps.player_voice, frame=cinema_frame, player=prior_player)

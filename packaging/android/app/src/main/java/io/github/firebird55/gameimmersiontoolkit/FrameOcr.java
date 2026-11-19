@@ -27,8 +27,8 @@ import org.json.JSONObject;
 /** Bundled on-device OCR; one worker and only the newest waiting frame. */
 public final class FrameOcr {
     private static final class Frame {
-        final byte[] bytes;final long generation, sequence;final String locale;
-        Frame(byte[] b, long g, long s, String l) { bytes=b;generation=g;sequence=s;locale=l; }
+        final byte[] bytes;final long generation, sequence;final String locale, alternate;
+        Frame(byte[] b, long g, long s, String l, String alt) { bytes=b;generation=g;sequence=s;locale=l;alternate=alt; }
     }
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicReference<Frame> pending = new AtomicReference<>();
@@ -77,8 +77,14 @@ public final class FrameOcr {
         return bounds;
     }
     public String submit(byte[] bytes, long generation, long sequence, String locale) throws Exception {
+        return submitFrame(bytes, generation, sequence, locale, null);
+    }
+    public String submitComic(byte[] bytes, long generation, long sequence, String locale, String alternate) throws Exception {
+        return submitFrame(bytes, generation, sequence, locale, alternate);
+    }
+    private String submitFrame(byte[] bytes, long generation, long sequence, String locale, String alternate) throws Exception {
         BitmapFactory.Options bounds = dimensions(bytes);
-        pending.set(new Frame(bytes, generation, sequence, locale));
+        pending.set(new Frame(bytes, generation, sequence, locale, alternate));
         schedule();
         return new JSONObject().put("width", bounds.outWidth).put("height", bounds.outHeight).toString();
     }
@@ -136,8 +142,11 @@ public final class FrameOcr {
             }
         });
     }
+    private static String script(String locale) {
+        return locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : locale.startsWith("ko") ? "ko" : "latin";
+    }
     private TextRecognizer model(String locale) {
-        String script = locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : locale.startsWith("ko") ? "ko" : "latin";
+        String script = script(locale);
         TextRecognizer result = models.get(script);
         if (result == null) {
             switch (script) {
@@ -151,34 +160,65 @@ public final class FrameOcr {
         return result;
     }
     private void recognize(Frame frame) {
-        Bitmap bitmap = null;
+        Bitmap bitmap = null, scaled = null;
         try {
             BitmapFactory.Options bounds = new BitmapFactory.Options();bounds.inJustDecodeBounds = true;
             BitmapFactory.decodeByteArray(frame.bytes, 0, frame.bytes.length, bounds);
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0 || bounds.outWidth > 4096 || bounds.outHeight > 4096) return;
             bitmap = BitmapFactory.decodeByteArray(frame.bytes, 0, frame.bytes.length);
             if (bitmap == null) return;
-            JSONObject result = recognizeBitmap(bitmap, frame.locale);
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            double factor = Math.min(2.0, 1600.0 / Math.max(width, height));
+            if (frame.alternate != null && factor > 1.0) {
+                scaled = Bitmap.createScaledBitmap(bitmap, (int)Math.round(width * factor),
+                    (int)Math.round(height * factor), true);
+            }
+            JSONObject result = recognizeBitmap(scaled == null ? bitmap : scaled, frame.locale, frame.alternate, width, height);
             Python.getInstance().getModule("backend.android_host").callAttr("accept_ocr", frame.generation, frame.sequence, result.toString());
         } catch (Exception error) {
             if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "A frame could not be recognized locally");
-        } finally { if (bitmap != null) bitmap.recycle(); }
+        } finally {
+            if (scaled != null && scaled != bitmap) scaled.recycle();
+            if (bitmap != null) bitmap.recycle();
+        }
     }
     private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale) throws Exception {
-            Text text = Tasks.await(model(locale).process(InputImage.fromBitmap(bitmap, 0)), 30, TimeUnit.SECONDS);
+        return recognizeBitmap(bitmap, locale, null, bitmap.getWidth(), bitmap.getHeight());
+    }
+    private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale, String alternate, int width, int height) throws Exception {
+        InputImage image = InputImage.fromBitmap(bitmap, 0);
+        Text text = Tasks.await(model(locale).process(image), 30, TimeUnit.SECONDS);
+        JSONObject result = describe(text, bitmap, width, height, alternate != null);
+        if (alternate != null && !alternate.isEmpty() && !script(alternate).equals(script(locale))) {
+            try {
+                Text other = Tasks.await(model(alternate).process(image), 30, TimeUnit.SECONDS);
+                result.put("comic_alternate", describe(other, bitmap, width, height, true));
+            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException | IllegalArgumentException error) {
+                if (BuildConfig.DEBUG) android.util.Log.w("ToolkitAndroid", "Alternate comic OCR was unavailable");
+            }
+        }
+        return result;
+    }
+    private static Rect originalRect(Rect rect, Bitmap bitmap, int width, int height) {
+        int inputWidth = bitmap.getWidth(), inputHeight = bitmap.getHeight();
+        if (rect == null || rect.left < 0 || rect.top < 0 || rect.right > inputWidth || rect.bottom > inputHeight
+                || rect.width() <= 0 || rect.height() <= 0) return null;
+        return new Rect(rect.left * width / inputWidth, rect.top * height / inputHeight,
+            (rect.right * width + inputWidth - 1) / inputWidth, (rect.bottom * height + inputHeight - 1) / inputHeight);
+    }
+    private JSONObject describe(Text text, Bitmap bitmap, int width, int height, boolean keepPartial) throws Exception {
             JSONArray blocks = new JSONArray(), presentationLines = new JSONArray();
             boolean presentationComplete = true;
             if (text.getTextBlocks().size() > 128) throw new IllegalArgumentException();
             for (Text.TextBlock block : text.getTextBlocks()) {
-                Rect r = block.getBoundingBox();
-                if (r == null || block.getText().length() > 8192) continue;
-                JSONObject item = new JSONObject();item.put("text", block.getText());
-                item.put("rect", new JSONArray(new int[]{r.left, r.top, r.right, r.bottom}));blocks.put(item);
+                Rect r = originalRect(block.getBoundingBox(), bitmap, width, height);
+                if (r != null && block.getText().length() <= 8192) {
+                    JSONObject item = new JSONObject();item.put("text", block.getText());
+                    item.put("rect", new JSONArray(new int[]{r.left, r.top, r.right, r.bottom}));blocks.put(item);
+                } else if (!keepPartial) continue;
                 for (Text.Line line : block.getLines()) {
-                    Rect lineRect = line.getBoundingBox();
-                    if (presentationLines.length() >= 512 || line.getText().length() > 2048 || lineRect == null
-                            || lineRect.left < 0 || lineRect.top < 0 || lineRect.right > bitmap.getWidth()
-                            || lineRect.bottom > bitmap.getHeight() || lineRect.width() <= 0 || lineRect.height() <= 0) {
+                    Rect lineRect = originalRect(line.getBoundingBox(), bitmap, width, height);
+                    if (presentationLines.length() >= 512 || line.getText().length() > 2048 || lineRect == null) {
                         presentationComplete = false;continue;
                     }
                     float confidence = line.getConfidence();
@@ -194,9 +234,9 @@ public final class FrameOcr {
                         .put("bounding_rect", rectangle));
                 }
             }
-            JSONObject result = new JSONObject();result.put("width", bitmap.getWidth());
-            result.put("height", bitmap.getHeight());result.put("blocks", blocks);
-            result.put("presentation_lines", presentationComplete ? presentationLines : new JSONArray());
+            JSONObject result = new JSONObject();result.put("width", width);
+            result.put("height", height);result.put("blocks", blocks);
+            result.put("presentation_lines", presentationComplete || keepPartial ? presentationLines : new JSONArray());
             return result;
     }
     public String authoredProbe() throws Exception {

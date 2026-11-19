@@ -29,18 +29,18 @@ def performance(row):
     return (cutscene_scene(row['text_id']), json.dumps(row['audio'], sort_keys=True), row['source_text'])
 
 
-def subtitle_rows(response, image_size):
+def subtitle_rows(response, image_size, bounds=None):
     """Only centered rows in the lower subtitle band can establish a movie."""
-    width, height = image_size
+    left, top, width, height = bounds or (0, 0, *image_size)
     result = []
     for row in response.get('lines', []):
-        bounds = row.get('bounding_rect') or {}
+        rectangle = row.get('bounding_rect') or {}
         try:
-            xs = [float(bounds[f'x{i}']) / width for i in range(1, 5)]
-            ys = [float(bounds[f'y{i}']) / height for i in range(1, 5)]
+            xs = [(float(rectangle[f'x{i}']) - left) / width for i in range(1, 5)]
+            ys = [(float(rectangle[f'y{i}']) - top) / height for i in range(1, 5)]
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue
-        if (.22 <= (min(xs) + max(xs)) / 2 <= .78
+        if (0 <= min(xs) < max(xs) <= 1.0 and .22 <= (min(xs) + max(xs)) / 2 <= .78
                 and .60 <= min(ys) < max(ys) <= 1.0 and max(ys) - min(ys) < .10):
             result.append(row)
     return {**response, 'lines': result}

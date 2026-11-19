@@ -524,7 +524,12 @@ class AndroidHost:
             if self.preview_frame and sequence <= self.preview_frame['sequence']:
                 return self._receiver_conflict('receiver_frame_stale', 'A newer screen frame was already admitted')
             try:
-                dimensions = self.native.submit(raw, generation, sequence, self.session.index.source_locale)
+                index = self.session.index
+                submit_comic = getattr(self.native, 'submitComic', None)
+                if index.game == 'zzz' and callable(submit_comic):
+                    dimensions = submit_comic(raw, generation, sequence, index.source_locale, index.target_locale)
+                else:
+                    dimensions = self.native.submit(raw, generation, sequence, index.source_locale)
                 if dimensions is not None:
                     dimensions = json.loads(str(dimensions))
                     width, height = dimensions['width'], dimensions['height']
@@ -571,6 +576,13 @@ class AndroidHost:
                     'cinematic': getattr(settings, game + '_cinematic_region', settings.cinematic_region)}
         picture = self._picture(width, height)
         positioned = presentation_lines(value, width, height)
+        comic_groups = []
+        if game == 'zzz':
+            alternate = value.get('comic_alternate')
+            # Keep the two OCR passes independent so alternate readings at the
+            # same position cannot be concatenated into a single bubble.
+            for rows in (presentation_lines(alternate, width, height) if isinstance(alternate, dict) else [], positioned):
+                comic_groups.extend(spatial_text_groups({'lines': rows}, picture, keep_rows=True))
         nte_layout = None
         if game == 'nte':
             from .caption_layout import native_nte_caption
@@ -619,7 +631,8 @@ class AndroidHost:
             groups, zzz_captions = observations[channel]
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
                 dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
-                zzz_captions=zzz_captions, zzz_dialogue=observations['dialogue'][0] if game == 'zzz' else None))
+                zzz_captions=zzz_captions, zzz_dialogue=observations['dialogue'][0] if game == 'zzz' else None,
+                zzz_comic_groups=comic_groups if channel == 'cinematic' else ()))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
             dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))
