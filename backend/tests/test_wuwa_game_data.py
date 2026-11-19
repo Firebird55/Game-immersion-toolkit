@@ -210,6 +210,22 @@ def test_original_global_manifest_stage_uses_only_hash_verified_fallback(tmp_pat
     assert compatibility not in receipt
     assert set(json.loads(receipt)['versions']) == {'resource', *manifest.DUBS}
     assert entry_reads == 2
+
+    # A fresh Settings job checks current publisher pointers using the retained
+    # bootstrap. Unchanged, hash-verified manifests need no second transfer.
+    ctx.phase, ctx.stage_handle = 'plan', verified.restore_handle
+    ctx.job = {'automatic': True}
+    ctx.preparation_memo.clear()
+    refresh = adapter.plan(ctx.request, ctx)
+    assert refresh.stage == 'manifest-format' and refresh.runtime_available
+    ctx.job = None
+    ctx.phase, ctx.consumed, ctx.budget = 'download', 0, refresh.download_bytes
+    start = len(calls)
+    renewed = adapter.download(refresh, ctx)
+    assert renewed.restore_handle == verified.restore_handle
+    assert entry_reads == 4
+    assert not any(request.full_url.endswith('.txt') or request.full_url == URL for request in calls[start:])
+
     controls['offline'] = True
     ctx.phase, ctx.stage_handle = 'plan', verified.restore_handle
     assert not adapter.plan(ctx.request, ctx).runtime_available
