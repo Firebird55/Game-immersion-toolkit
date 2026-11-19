@@ -136,6 +136,48 @@ def test_manifest_accepts_native_crypto_output_only_at_the_original_cipher_lengt
         assert decode_manifest(encrypted(), lambda: (KEY, IV), crypto) == {'default': {'fixture': True}}
 
 
+@pytest.mark.parametrize('bad_blob', [False, True])
+def test_entry_rotation_uses_latest_release_commit_and_complete_git_blob(bad_blob):
+    from backend import wuthering_manifest as manifest
+    from backend.publisher_crypto import DesktopPublisherCrypto
+
+    rotated = b'r' * 16
+    candidate = source(rotated)
+    tag, commit = 'v1.2.3', 'a' * 40
+    blob = hashlib.sha1(f'blob {len(candidate)}'.encode() + bytes(1) + candidate).hexdigest()
+    routes = {
+        'releases/latest': {'tag_name': tag, 'draft': False, 'prerelease': False},
+        'git/ref/tags/' + tag: {'ref': 'refs/tags/' + tag, 'object': {'type': 'commit', 'sha': commit}},
+        'contents/' + manifest.ENTRY_FILE + '?ref=' + commit: {'type': 'file', 'encoding': 'base64',
+            'path': manifest.ENTRY_FILE, 'size': len(candidate), 'sha': 'b'*40 if bad_blob else blob,
+            'content': base64.b64encode(candidate).decode()},
+    }
+    calls = []
+
+    def fetch(url, *, limit):
+        assert url.startswith(manifest.ENTRY_REPOSITORY)
+        relative = url.removeprefix(manifest.ENTRY_REPOSITORY)
+        calls.append(relative)
+        raw = json.dumps(routes[relative]).encode()
+        assert len(raw) < limit
+        return raw
+
+    decoder = manifest.EntryDecoder(lambda: (KEY, IV), DesktopPublisherCrypto(), fetch)
+    assert decoder(encrypted()) == {'default': {'fixture': True}} and not calls
+    if bad_blob:
+        with pytest.raises(PreparationFailure) as failure:
+            decoder(encrypted(rotated))
+        assert_public(failure.value, 'publisher_entry_refresh_failed')
+        assert not decoder.used_fallback
+    else:
+        assert decoder(encrypted(rotated)) == {'default': {'fixture': True}}
+        assert decoder(encrypted(rotated)) == {'default': {'fixture': True}}
+        assert decoder.candidate[1]['commit'] == commit and decoder.used_fallback
+        assert decoder(encrypted()) == {'default': {'fixture': True}}
+        assert decoder(encrypted(rotated)) == {'default': {'fixture': True}}
+    assert calls == list(routes)
+
+
 def test_valid_plain_metadata_does_not_require_entry(monkeypatch):
     monkeypatch.setattr(release,'_format',lambda *a:pytest.fail('Plain metadata needs no ENTRY input'))
     assert release._json(b'{"resource": []}')=={'resource':[]}

@@ -567,3 +567,26 @@ restart and authentic key-rotation acceptance remain separate from the already
 completed changed-content trial. Android native codecs, protected storage and
 on-device acquisition are also separate outstanding acceptance requirements;
 see [the portability audit](wuwa-android-portability.md).
+
+
+## Compatibility renewal (2026-11-19)
+
+Windows discovery and the standalone Global manifest stage use Kuro's original
+release pointers, manifests and package hashes. If encrypted metadata outgrows
+the verified ENTRY parameters, the reader resolves the latest stable Mornye
+Tools release to a Git commit, checks the complete blob at that commit and
+parses only the fixed key and IV declarations as data. It accepts the candidate
+after the original inventory, key catalogue and final publisher pointers pass.
+The pinned source and the last accepted parameters can read older encrypted
+manifests. Existing prepared sources can still be opened offline.
+
+The standalone stage reuses its verified native module and checksum-addressed
+manifests on subsequent checks for the same selection. It verifies current
+publisher pointers before reusing an inventory. The remaining Android work
+includes portable dialogue and audio preparation and a cold physical-device
+test. A forced stale-parameter check on Windows resolved v1.1.0 and opened
+the live 3.8.12 resource manifest, all four official dubs, and 598 package
+records. That exercise used a deliberately stale starting value.
+
+[Mornye Tools releases](https://github.com/Yumeo0/mornye-tools/releases) ·
+[Kuro Global configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)

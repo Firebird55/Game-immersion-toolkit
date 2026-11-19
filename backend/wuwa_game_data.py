@@ -12,6 +12,7 @@ import re
 import sys
 import tempfile
 import time
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from .game_data_protocol import GameDataError, GameDataPlan, MAX_METADATA_BYTES, PreparationStage
@@ -102,6 +103,7 @@ class WutheringGameDataProvider:
             raise ValueError('Unsupported Wuthering preparation platform')
         self.platform, self.native = platform, native
         self._transport_factory = transport_factory
+        self._accepted_entry = None
 
     def _transport(self, ctx, *, hosts):
         if self._transport_factory is not None:
@@ -162,17 +164,39 @@ class WutheringGameDataProvider:
         @lru_cache(maxsize=1)
         def parameters():
             nonlocal used_compatibility
-            raw, _ = fetch(manifest.FORMAT_URL, limit=40 * 1024, digests={'sha256': manifest.FORMAT_SHA})
+            try:
+                raw, _ = fetch(manifest.FORMAT_URL, limit=40 * 1024, digests={'sha256': manifest.FORMAT_SHA})
+            except GameDataError as error:
+                if isinstance(error.__cause__, HTTPError) and error.__cause__.code in {404, 410}:
+                    raise PreparationFailure('publisher_entry_source_unavailable',
+                        'The pinned Wuthering manifest source is unavailable.', previous_snapshot_retained=True) from error
+                raise
             value = manifest.parse_entry_source(raw, manifest.FORMAT_SHA)
             used_compatibility = True
             return value
 
-        def decode(raw):
-            return manifest.decode_manifest(raw, parameters, crypto)
+        def fetch_source(url, *, limit):
+            try:
+                return fetch(url, limit=limit)[0]
+            except GameDataError as error:
+                ctx.check()
+                raise OSError('The public Wuthering compatibility source could not be read.') from error
+
+        decode = manifest.EntryDecoder(parameters, crypto, fetch_source, self._accepted_entry)
 
         def inventory_read(url, digest):
+            manifest._check(isinstance(digest, str) and re.fullmatch(r'[0-9a-fA-F]{40}', digest))
+            digest = digest.lower()
+            path = _file(ctx, 'manifest-' + digest + '.json')
+            ctx.check()
+            if path.is_file() and path.stat().st_size <= manifest.LIMIT:
+                raw = path.read_bytes()
+                if hashlib.sha1(raw).hexdigest() == digest:
+                    return decode(raw)
             raw, _ = fetch(url, limit=manifest.LIMIT, digests={'sha1': digest})
-            return decode(raw)
+            decoded = decode(raw)
+            _save(path, raw)
+            return decoded
 
         try:
             version, launcher_root, files = manifest.launcher('global', launcher_read, launcher_index)
@@ -211,7 +235,9 @@ class WutheringGameDataProvider:
         receipt = {'version': version, 'versions': versions, 'packages': products, 'root': root,
             'launcher_root': launcher_root, 'launcher_packages': files,
             'bootstrap': digest, 'native_key_sources': native.sources,
-            'entry_source_sha256': manifest.FORMAT_SHA if used_compatibility else None,
+            'entry_source_sha256': (decode.candidate[1]['sha256'] if decode.used_fallback else
+                                    manifest.FORMAT_SHA if used_compatibility else None),
+            'entry_source_release': decode.candidate[1] if decode.used_fallback else None,
             'pointers_sha256': {url: _digest(raw) for url, raw in pointers.items()}}
         raw = _json(receipt)
         if len(raw) > METADATA_MAX:
@@ -219,6 +245,9 @@ class WutheringGameDataProvider:
         key = _digest(raw)
         ctx.check()
         _save(_file(ctx, key + '.json'), raw)
+        if decode.used_fallback:
+            self._accepted_entry = decode.candidate
+        getattr(ctx, 'preparation_memo', {})['wuwa-manifest-verified'] = True
         return PreparationStage({'policy': POLICY, 'stage': 'manifest-verified',
             'request': ctx.request.json(), 'source': source, 'inventory_sha256': key,
             'revision': versions['resource']}, CONTENT_MESSAGE)
@@ -238,8 +267,11 @@ class WutheringGameDataProvider:
             previous = _handle(ctx.stage_handle, request)
             if previous['stage'] == 'manifest-verified':
                 self._verified_inventory(previous, ctx)
-                return GameDataPlan(previous['revision'], None, None, previous,
-                    stage='manifest-verified', message=CONTENT_MESSAGE)
+                memo = getattr(ctx, 'preparation_memo', {})
+                if not ((getattr(ctx, 'job', None) or {}).get('automatic')) or memo.get('wuwa-manifest-verified'):
+                    return GameDataPlan(previous['revision'], None, None, previous,
+                        stage='manifest-verified', message=CONTENT_MESSAGE)
+                previous = {**previous, 'stage': 'manifest-format'}
             if previous['stage'] == 'manifest-format':
                 source, _ = _retained(ctx, previous)
                 if request.region == 'global':

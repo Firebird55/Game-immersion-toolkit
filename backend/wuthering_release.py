@@ -4,6 +4,7 @@ from functools import lru_cache
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar
 from pathlib import Path
 import re
 import tempfile
@@ -18,9 +19,12 @@ from .publisher_crypto import DesktopPublisherCrypto
 from . import wuthering_manifest as manifest
 from .wuthering_manifest import CHANNELS, DUBS, FORMAT_SHA, FORMAT_URL, KURO, LIMIT, VERSION
 from .game_tools import _atomic_file, download as download_bytes
+from .preparation_errors import PreparationFailure
 from .wuthering_assets import PUBLIC_METADATA_URL
 
 TIERS = ('sd', 'hd', 'uhd')
+_entry_scope = ContextVar('wuwa_entry_decoder', default=None)
+_verified_entries = {}
 
 
 def download(url, *, limit):
@@ -69,8 +73,8 @@ def launcher(region='global', *, excluded=()):
 def _format(tools=None):
     from . import wuthering_metadata as metadata
     from .preparation_errors import PreparationFailure
-    # This is the existing pinned compatibility input, not independent official
-    # derivation. The canonical Settings provider never falls back to it.
+    # The compatibility input is kept separate from the publisher archive key
+    # and the original manifest hashes.
     raw = metadata.format_source(tools, FORMAT_SHA) if tools is not None else None
     downloaded = raw is None
     if downloaded:
@@ -177,7 +181,16 @@ def _bootstrap_package(tools, info, region):
 
 
 def _json(raw, tools=None):
-    return manifest.decode_manifest(raw, lambda: _format(tools), DesktopPublisherCrypto())
+    current = _entry_scope.get()
+    if current is not None:
+        return current(raw)
+    try:
+        return manifest.decode_manifest(raw, lambda: _format(tools), DesktopPublisherCrypto())
+    except PreparationFailure as error:
+        candidate = _verified_entries.get(tools)
+        if candidate is None or error.code != 'publisher_format_key_unresolved':
+            raise
+        return manifest.decode_manifest(raw, lambda: candidate[0], DesktopPublisherCrypto())
 
 
 def _manifest(url, sha, cache=None):
@@ -200,6 +213,22 @@ def _resource_inventory(root, release, channels, cache):
     return manifest.resource_inventory(root, release, channels, lambda url, sha: _manifest(url, sha, cache))
 
 def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
+    decoder = manifest.EntryDecoder(lambda: _format(cache), DesktopPublisherCrypto(), download, _verified_entries.get(cache))
+    scope = _entry_scope.set(decoder)
+    try:
+        result = _discover(cache, launcher_version, launcher_root, launcher_files, videos=videos, region=region)
+    finally:
+        _entry_scope.reset(scope)
+    # A candidate survives only when the complete publisher inventory and
+    # final pointers have passed. Old encrypted receipts still try the pin.
+    if decoder.used_fallback:
+        if len(_verified_entries) >= 8:
+            _verified_entries.pop(next(iter(_verified_entries)), None)
+        _verified_entries[cache] = decoder.candidate
+    return result
+
+
+def _discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
     from . import wuthering_metadata as metadata
     bootstrap = manifest.BOOTSTRAP
     size, digest = launcher_files[bootstrap]

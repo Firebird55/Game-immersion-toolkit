@@ -140,6 +140,80 @@ def parse_entry_source(raw, digest):
     return tuple(values)
 
 
+ENTRY_REPOSITORY = 'https://api.github.com/repos/Yumeo0/mornye-tools/'
+ENTRY_FILE = 'src-tauri/crates/game-client/src/discovery.rs'
+
+
+def refresh_entry_source(fetch):
+    """Resolve an official GitHub release to its immutable file, without running it."""
+    def read(path, limit=64 * 1024):
+        return json.loads(fetch(ENTRY_REPOSITORY + path, limit=limit))
+
+    try:
+        release = read('releases/latest')
+        tag = release['tag_name']
+        _check(isinstance(tag, str) and re.fullmatch(r'v[0-9]{1,5}\.[0-9]{1,5}\.[0-9]{1,5}', tag)
+               and not release.get('draft') and not release.get('prerelease'))
+        reference = read('git/ref/tags/' + tag)
+        _check(reference['ref'] == 'refs/tags/' + tag)
+        owner = reference['object']
+        if owner['type'] == 'tag':
+            _check(re.fullmatch('[0-9a-f]{40}', owner['sha']))
+            annotated = read('git/tags/' + owner['sha'])
+            _check(annotated['sha'] == owner['sha'] and annotated['tag'] == tag)
+            owner = annotated['object']
+        commit = owner['sha']
+        _check(owner['type'] == 'commit' and re.fullmatch('[0-9a-f]{40}', commit))
+        item = read('contents/' + ENTRY_FILE + '?ref=' + commit, 96 * 1024)
+        _check(item['type'] == 'file' and item['path'] == ENTRY_FILE and item['encoding'] == 'base64'
+               and type(item['size']) is int and 0 < item['size'] <= 40 * 1024)
+        raw = base64.b64decode(item['content'].replace('\n', ''), validate=True)
+        blob = hashlib.sha1(f'blob {len(raw)}\0'.encode() + raw).hexdigest()
+        _check(len(raw) == item['size'] and item['sha'] == blob)
+        digest = hashlib.sha256(raw).hexdigest()
+        return parse_entry_source(raw, digest), {'tag': tag, 'commit': commit, 'blob': blob, 'sha256': digest}
+    except (ValueError, TypeError, KeyError, AttributeError, OSError) as error:
+        raise PreparationFailure('publisher_entry_refresh_failed',
+            'The maintained Wuthering manifest parameters could not be verified. Existing game data is kept.',
+            previous_snapshot_retained=True) from error
+
+
+class EntryDecoder:
+    def __init__(self, parameters, crypto, fetch, accepted=None):
+        self.parameters, self.crypto, self.fetch = parameters, crypto, fetch
+        self.candidate = accepted
+        self.refreshed = False
+        self.used_fallback = False
+
+    def _decode_candidate(self, raw):
+        used = False
+
+        def parameters():
+            nonlocal used
+            used = True
+            return self.candidate[0]
+
+        decoded = decode_manifest(raw, parameters, self.crypto)
+        self.used_fallback |= used
+        return decoded
+
+    def __call__(self, raw):
+        if self.candidate is not None:
+            try:
+                return self._decode_candidate(raw)
+            except PreparationFailure as error:
+                if error.code != 'publisher_format_key_unresolved':
+                    raise
+        try:
+            return decode_manifest(raw, self.parameters, self.crypto)
+        except PreparationFailure as error:
+            if error.code not in ('publisher_format_key_unresolved', 'publisher_entry_source_unavailable') or self.refreshed:
+                raise
+            self.refreshed = True
+            self.candidate = refresh_entry_source(self.fetch)
+            return self._decode_candidate(raw)
+
+
 def _size(value):
     if isinstance(value, str) and re.fullmatch(r'__kr_long__[0-9]{1,16}', value):
         value = int(value[11:])
